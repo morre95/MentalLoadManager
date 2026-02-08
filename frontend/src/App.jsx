@@ -1,6 +1,21 @@
+import { useState } from 'react';
 import './App.css'
 
 function App() {
+  const [message, setMessage] = useState("Click to Load...");
+
+  const fetchData = async () => {
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/hello");  // Uses proxy in development
+      const data = await response.json();
+      setMessage(data.message);
+    } catch (error) {
+      setMessage("Failed to fetch data from FastAPI.");
+      console.error(error);
+    }
+  };
+
+
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
@@ -31,6 +46,17 @@ function App() {
         <div className="h-12 w-12 bg-red-400 rounded-full animate-bounce"></div>
         <div className="h-12 w-12 bg-green-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
         <div className="h-12 w-12 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+      </div>
+
+      <div className="border-2 border-indigo-600 m-5 p-5">
+        <h2 className="font-bold">FastAPI + React = ❤️</h2>
+        <p>{message}</p>
+        <button
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full"
+          onClick={fetchData}
+        >
+          Load from API...
+        </button>
       </div>
     </div>
   )
