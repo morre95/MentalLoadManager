@@ -1,15 +1,9 @@
-# Backend dependencies
-# Webb-ramverk (valj ett)
-# flask==3.0.0
-# fastapi==0.109.0
-# uvicorn==0.27.0
-
-# CORS-stod for frontend kommunikation
-# flask-cors==4.0.0
+fastapi[standard]
+# uvicorn==0.40.0
 
 # Databas
-# sqlalchemy==2.0.25
+sqlalchemy==2.0.46
 
 # Utilities
-# python-dotenv==1.0.0
-# requests==2.31.0
+python-dotenv==1.2.1
+requests==2.32.5
