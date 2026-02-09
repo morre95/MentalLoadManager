@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   due_date       TIMESTAMPTZ,
   name           VARCHAR(255) NOT NULL,
   description    TEXT,
+  status         VARCHAR(50) NOT NULL CHECK (status IN ('todo', 'inprogress', 'dune', 'on_hold')),
   priority       VARCHAR(50),
   category_id    UUID REFERENCES kategori(category_id) ON DELETE SET NULL,
   complete_date  TIMESTAMPTZ,
