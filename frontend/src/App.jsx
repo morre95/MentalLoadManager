@@ -1,8 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './App.css'
 
 function App() {
   const [message, setMessage] = useState("Click to Load...");
+  const [username, setUsername] = useState("johndoe");
+  const [password, setPassword] = useState("secret");
+  const [token, setToken] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authError, setAuthError] = useState(null);
+  const [authLoading, setAuthLoading] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -15,7 +21,67 @@ function App() {
     }
   };
 
+  useEffect(() => {
+    const stored = localStorage.getItem("auth_token");
+    if (stored) {
+      setToken(stored);
+    }
+  }, []);
 
+  const login = async (e) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthLoading(true);
+    setCurrentUser(null);
+    try {
+      const body = new URLSearchParams();
+      body.set("username", username);
+      body.set("password", password);
+
+      const res = await fetch("http://127.0.0.1:8000/api/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Login failed");
+      }
+
+      const data = await res.json();
+      localStorage.setItem("auth_token", data.access_token);
+      setToken(data.access_token);
+    } catch (err) {
+      setAuthError(err.message || "Login failed");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const fetchMe = async () => {
+    if (!token) return;
+    setAuthError(null);
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/users/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Failed to fetch user");
+      }
+      const data = await res.json();
+      setCurrentUser(data);
+    } catch (err) {
+      setAuthError(err.message || "Failed to fetch user");
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem("auth_token");
+    setToken(null);
+    setCurrentUser(null);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
@@ -57,6 +123,55 @@ function App() {
         >
           Load from API...
         </button>
+      </div>
+
+      <div className="border-2 border-gray-300 m-5 p-5 w-full max-w-md bg-white rounded-lg shadow">
+        <h2 className="font-bold mb-3">Login (JWT)</h2>
+        <form className="flex flex-col gap-3" onSubmit={login}>
+          <input
+            className="border rounded px-3 py-2"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Username"
+          />
+          <input
+            className="border rounded px-3 py-2"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+          />
+          <button
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded"
+            disabled={authLoading}
+            type="submit"
+          >
+            {authLoading ? "Logging in..." : "Login"}
+          </button>
+        </form>
+
+        <div className="flex gap-2 mt-4">
+          <button
+            className="bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded"
+            onClick={fetchMe}
+            disabled={!token}
+          >
+            Fetch /users/me
+          </button>
+          <button
+            className="bg-gray-300 hover:bg-gray-400 text-black font-bold py-2 px-4 rounded"
+            onClick={logout}
+            disabled={!token}
+          >
+            Logout
+          </button>
+        </div>
+
+        <div className="mt-4 text-sm text-slate-700">
+          <div>Token: {token ? `${token.slice(0, 18)}...` : "none"}</div>
+          <div>User: {currentUser ? currentUser.username : "not loaded"}</div>
+          {authError && <div className="text-red-600">Error: {authError}</div>}
+        </div>
       </div>
     </div>
   )
