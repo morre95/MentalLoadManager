@@ -6,6 +6,7 @@ sqlalchemy==2.0.46
 
 # Utilities
 python-dotenv==1.2.1
+psycopg[binary]
 requests==2.32.5
 pyjwt==2.11.0
 pwdlib[argon2]==0.3.0
