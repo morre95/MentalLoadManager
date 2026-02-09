@@ -106,4 +106,4 @@ def read_users_me(current_user: User = Depends(get_current_user)):
 
 @app.get("/api/hello")
 def read_root():
-    return {"message": "Hello from Python backend"}
+    return {"message": "Hello from Fastapi backend"}
