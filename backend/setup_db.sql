@@ -78,6 +78,10 @@ CREATE TABLE IF NOT EXISTS categories (
   name          VARCHAR(100) NOT NULL
 );
 
+ALTER TABLE categories
+  ADD CONSTRAINT uq_categories_household_name UNIQUE (household_id, name);
+
+
 CREATE TABLE IF NOT EXISTS tasks (
   task_id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   due_date       TIMESTAMPTZ,
@@ -91,7 +95,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   assigns_to     UUID REFERENCES users(user_id) ON DELETE SET NULL,
   created_by     UUID REFERENCES users(user_id) ON DELETE SET NULL,
   started_at     TIMESTAMPTZ,
-  household_id  UUID REFERENCES households(household_id) ON DELETE CASCADE,
+  household_id UUID NOT NULL REFERENCES households(household_id) ON DELETE CASCADE,
   updated_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -194,3 +198,5 @@ CREATE TABLE IF NOT EXISTS ai_summaries (
 CREATE INDEX IF NOT EXISTS idx_tasks_group_due ON tasks(household_id, due_date);
 CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assigns_to);
 CREATE INDEX IF NOT EXISTS idx_links_connection ON task_calendar_links(connection_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_category ON tasks(category_id);
+
