@@ -20,12 +20,12 @@ def main():
 
     # Connect to Postgres
     conn = psycopg2.connect(db_url)
-    conn.autocommit = True  # Important for CREATE EXTENSION, CREATE TABLE
+    conn.autocommit = True 
 
     try:
         with conn.cursor() as cursor:
             cursor.execute(schema_sql)
-            print("✅ Database schema applied successfully.")
+            print("Database schema applied successfully.")
     finally:
         conn.close()
 
