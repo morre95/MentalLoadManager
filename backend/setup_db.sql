@@ -1,5 +1,5 @@
 -- =========================
--- Core: users + groups
+-- Core: users + households
 -- =========================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -14,18 +14,18 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS groups (
-  group_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE IF NOT EXISTS households (
+  household_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name           VARCHAR(200) NOT NULL,
   created_at     TIMESTAMPTZ DEFAULT NOW(),
   updated_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Many-to-many: users <-> groups
-CREATE TABLE IF NOT EXISTS users_group (
+-- Many-to-many: users <-> households
+CREATE TABLE IF NOT EXISTS users_households (
   user_id        UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-  group_id       UUID NOT NULL REFERENCES groups(group_id) ON DELETE CASCADE,
-  PRIMARY KEY (user_id, group_id)
+  household_id       UUID NOT NULL REFERENCES households(household_id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, household_id)
 );
 
 -- Preferences per user (1:1)
@@ -67,19 +67,6 @@ CREATE TABLE IF NOT EXISTS calendar_connections (
   updated_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Junction table: tasks <-> calendar_connections (M:N)
-CREATE TABLE IF NOT EXISTS task_calendar_links (
-  task_link_id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  task_id           INT NOT NULL,
-  connection_id     UUID NOT NULL REFERENCES calendar_connections(calendar_id) ON DELETE CASCADE,
-  provider_event_id TEXT,                       -- Google event id
-  created_at        TIMESTAMPTZ DEFAULT NOW(),
-  last_synced_at    TIMESTAMPTZ,
-  prompt_hash       TEXT,
-  sync_status       VARCHAR(50) DEFAULT 'NOT_SYNCED',
-  sync_error        TEXT,
-  UNIQUE (task_id, connection_id)
-);
 
 -- =========================
 -- Tasks + related entities
@@ -87,7 +74,7 @@ CREATE TABLE IF NOT EXISTS task_calendar_links (
 
 CREATE TABLE IF NOT EXISTS categories (
   category_id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  group_id      UUID NOT NULL REFERENCES groups(group_id) ON DELETE CASCADE,
+  household_id      UUID NOT NULL REFERENCES households(household_id) ON DELETE CASCADE,
   name          VARCHAR(100) NOT NULL
 );
 
@@ -96,22 +83,31 @@ CREATE TABLE IF NOT EXISTS tasks (
   due_date       TIMESTAMPTZ,
   name           VARCHAR(255) NOT NULL,
   description    TEXT,
-  status         VARCHAR(50) NOT NULL CHECK (status IN ('todo', 'inprogress', 'dune', 'on_hold')),
+  status         VARCHAR(50) NOT NULL CHECK (status IN ('todo', 'in_progress', 'done', 'on_hold')),
   priority       VARCHAR(50),
-  category_id    UUID REFERENCES kategori(category_id) ON DELETE SET NULL,
+  category_id    UUID REFERENCES categories(category_id) ON DELETE SET NULL,
   complete_date  TIMESTAMPTZ,
   created_at     TIMESTAMPTZ DEFAULT NOW(),
   assigns_to     UUID REFERENCES users(user_id) ON DELETE SET NULL,
   created_by     UUID REFERENCES users(user_id) ON DELETE SET NULL,
   started_at     TIMESTAMPTZ,
-  assigns_group  UUID REFERENCES groups(group_id) ON DELETE CASCADE,
+  household_id  UUID REFERENCES households(household_id) ON DELETE CASCADE,
   updated_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
--- FK from task_calendar_links.task_id -> tasks.task_id
-ALTER TABLE task_calendar_links
-  ADD CONSTRAINT fk_task_calendar_links_task
-  FOREIGN KEY (task_id) REFERENCES tasks(task_id) ON DELETE CASCADE;
+-- Junction table: tasks <-> calendar_connections (M:N)
+CREATE TABLE IF NOT EXISTS task_calendar_links (
+  task_link_id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id           UUID NOT NULL REFERENCES tasks(task_id) ON DELETE CASCADE,
+  connection_id     UUID NOT NULL REFERENCES calendar_connections(calendar_id) ON DELETE CASCADE,
+  provider_event_id TEXT,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  last_synced_at    TIMESTAMPTZ,
+  prompt_hash       TEXT,
+  sync_status       VARCHAR(50) DEFAULT 'NOT_SYNCED',
+  sync_error        TEXT,
+  UNIQUE (task_id, connection_id)
+);
 
 -- Optional: users <-> tasks (assignment/history) junction (om du vill behålla den)
 CREATE TABLE IF NOT EXISTS user_task (
@@ -129,10 +125,10 @@ CREATE TABLE IF NOT EXISTS task_attachment (
   type               VARCHAR(50)
 );
 
--- Invitations to groups
+-- Invitations to households
 CREATE TABLE IF NOT EXISTS invitations (
   invitation_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  group_id       UUID NOT NULL REFERENCES groups(group_id) ON DELETE CASCADE,
+  household_id       UUID NOT NULL REFERENCES households(household_id) ON DELETE CASCADE,
   code           VARCHAR(100) NOT NULL UNIQUE,
   created_at     TIMESTAMPTZ DEFAULT NOW(),
   expires_at     TIMESTAMPTZ,
@@ -142,7 +138,7 @@ CREATE TABLE IF NOT EXISTS invitations (
 -- Reminders
 CREATE TABLE IF NOT EXISTS reminders (
   reminder_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  group_id          UUID NOT NULL REFERENCES groups(group_id) ON DELETE CASCADE,
+  household_id          UUID NOT NULL REFERENCES households(household_id) ON DELETE CASCADE,
   user_id           UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   minutes_before_due INT NOT NULL DEFAULT 60,
   active            BOOLEAN NOT NULL DEFAULT TRUE
@@ -154,7 +150,7 @@ CREATE TABLE IF NOT EXISTS reminders (
 
 CREATE TABLE IF NOT EXISTS weekly_reports (
   weekly_report_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  group_id         UUID NOT NULL REFERENCES groups(group_id) ON DELETE CASCADE,
+  household_id         UUID NOT NULL REFERENCES households(household_id) ON DELETE CASCADE,
   week_start       DATE NOT NULL,
   week_end         DATE NOT NULL,
   granted_at       TIMESTAMPTZ DEFAULT NOW(),
@@ -164,7 +160,7 @@ CREATE TABLE IF NOT EXISTS weekly_reports (
 
 CREATE TABLE IF NOT EXISTS monthly_reports (
   monthly_report_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  group_id          UUID NOT NULL REFERENCES groups(group_id) ON DELETE CASCADE,
+  household_id          UUID NOT NULL REFERENCES households(household_id) ON DELETE CASCADE,
   month_start       DATE NOT NULL,
   month_end         DATE NOT NULL,
   granted_at        TIMESTAMPTZ DEFAULT NOW(),
@@ -174,7 +170,7 @@ CREATE TABLE IF NOT EXISTS monthly_reports (
 
 CREATE TABLE IF NOT EXISTS daily_reports (
   daily_report_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  group_id        UUID NOT NULL REFERENCES groups(group_id) ON DELETE CASCADE,
+  household_id        UUID NOT NULL REFERENCES households(household_id) ON DELETE CASCADE,
   date            DATE NOT NULL,
   granted_at      TIMESTAMPTZ DEFAULT NOW(),
   stats_json      JSONB,
@@ -182,8 +178,8 @@ CREATE TABLE IF NOT EXISTS daily_reports (
 );
 
 CREATE TABLE IF NOT EXISTS ai_summaries (
-  ai_summarier_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  group_id        UUID NOT NULL REFERENCES groups(group_id) ON DELETE CASCADE,
+  ai_summary_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id        UUID NOT NULL REFERENCES households(household_id) ON DELETE CASCADE,
   week_start      DATE,
   content         TEXT NOT NULL,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
@@ -195,7 +191,6 @@ CREATE TABLE IF NOT EXISTS ai_summaries (
 -- Helpful indexes
 -- =========================
 
-CREATE INDEX IF NOT EXISTS idx_tasks_group_due ON tasks(assigns_group, due_date);
+CREATE INDEX IF NOT EXISTS idx_tasks_group_due ON tasks(household_id, due_date);
 CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assigns_to);
-CREATE INDEX IF NOT EXISTS idx_task_status_task ON task_status(task_id);
 CREATE INDEX IF NOT EXISTS idx_links_connection ON task_calendar_links(connection_id);
