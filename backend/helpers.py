@@ -7,7 +7,7 @@ from pwdlib import PasswordHash
 from fastapi.security import OAuth2PasswordBearer
 
 from pwdlib.hashers.argon2 import Argon2Hasher
-from .models import User
+from models import User
 
 password_hasher = PasswordHash([Argon2Hasher()])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/token")

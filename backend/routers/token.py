@@ -2,8 +2,8 @@ import os
 from datetime import timedelta
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
-from ..models import Token
-from ..helpers import authenticate_user, create_access_token
+from models import Token
+from helpers import authenticate_user, create_access_token
 
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "30"))
 
