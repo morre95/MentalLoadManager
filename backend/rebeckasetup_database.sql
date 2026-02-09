@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   name           VARCHAR(255) NOT NULL,
   description    TEXT,
   priority       VARCHAR(50),
+  status         VARCHAR(50) NOT NULL CHECK (status IN ('todo', 'inprogress', 'dune', 'on_hold')),
   category_id    INT REFERENCES kategori(category_id) ON DELETE SET NULL,
   complete_date  TIMESTAMPTZ,
   created_at     TIMESTAMPTZ DEFAULT NOW(),
