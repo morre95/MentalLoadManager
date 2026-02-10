@@ -22,3 +22,8 @@ for router in all_routers:
 @app.get("/api/hello")
 def read_root():
     return {"message": "Hello from Fastapi backend"}
+
+import os
+print("JWT_SECRET exists?", bool(os.getenv("JWT_SECRET")))
+print("DATABASE_URL exists?", bool(os.getenv("DATABASE_URL")))
+print("FRONTEND_URL:", os.getenv("FRONTEND_URL"))
