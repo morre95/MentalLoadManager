@@ -9,7 +9,7 @@ load_dotenv()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["https://frontend-production-73b3.up.railway.app/"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

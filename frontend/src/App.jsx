@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import './App.css'
 
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 function App() {
   const [message, setMessage] = useState("Click to Load...");
@@ -14,7 +14,7 @@ function App() {
 
   const fetchData = async () => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/hello");  // Uses proxy in development
+      const response = await fetch(`${API_BASE_URL}/api/hello`);
       const data = await response.json();
       setMessage(data.message);
     } catch (error) {
