@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import './App.css'
 
+const API_BASE_URL = "http://127.0.0.1:8000";
+
 function App() {
   const [message, setMessage] = useState("Click to Load...");
   const [username, setUsername] = useState("johndoe");
@@ -22,6 +24,18 @@ function App() {
   };
 
   useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, "");
+    if (hash) {
+      const params = new URLSearchParams(hash);
+      const hashToken = params.get("access_token");
+      if (hashToken) {
+        localStorage.setItem("auth_token", hashToken);
+        setToken(hashToken);
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        return;
+      }
+    }
+
     const stored = localStorage.getItem("auth_token");
     if (stored) {
       setToken(stored);
@@ -38,7 +52,7 @@ function App() {
       body.set("username", username);
       body.set("password", password);
 
-      const res = await fetch("http://127.0.0.1:8000/api/token", {
+      const res = await fetch(`${API_BASE_URL}/api/token`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body,
@@ -63,7 +77,7 @@ function App() {
     if (!token) return;
     setAuthError(null);
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/users/me", {
+      const res = await fetch(`${API_BASE_URL}/api/users/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -81,6 +95,10 @@ function App() {
     localStorage.removeItem("auth_token");
     setToken(null);
     setCurrentUser(null);
+  };
+
+  const loginWithProvider = (provider) => {
+    window.location.href = `${API_BASE_URL}/api/auth/${provider}/login`;
   };
 
   return (
@@ -149,6 +167,30 @@ function App() {
             {authLoading ? "Logging in..." : "Login"}
           </button>
         </form>
+
+        <div className="mt-4 grid grid-cols-1 gap-2">
+          <button
+            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+            onClick={() => loginWithProvider("google")}
+            type="button"
+          >
+            Continue with Google
+          </button>
+          <button
+            className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded"
+            onClick={() => loginWithProvider("facebook")}
+            type="button"
+          >
+            Continue with Facebook
+          </button>
+          <button
+            className="bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-4 rounded"
+            onClick={() => loginWithProvider("instagram")}
+            type="button"
+          >
+            Continue with Instagram
+          </button>
+        </div>
 
         <div className="flex gap-2 mt-4">
           <button
