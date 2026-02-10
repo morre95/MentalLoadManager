@@ -15,6 +15,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+def run_db_setup():
+    print("Running db_setup.py...")
+
+    import db_setup
+    db_setup.main()
+
 for router in all_routers:
     app.include_router(router)
 
