@@ -1,0 +1,24 @@
+services:
+  # Din frontend-tjänst (baserad på din uppladdade Dockerfile)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:${PORT:-3000}"
+    environment:
+      - PORT=${PORT:-3000}
+    restart: always
+
+  # Din backend-tjänst
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:${PORT_BACKEND:-8000}"
+    environment:
+      - PORT=${PORT_BACKEND:-8000}
+    volumes:
+      - ./backend:/app
+    restart: always
