@@ -2,18 +2,23 @@
 FROM node:20-slim AS build
 WORKDIR /app
 
-COPY package*.json ./
+# Copy only frontend package manifests
+COPY frontend/package*.json ./
 RUN npm ci
 
-COPY . .
+# Copy only frontend source
+COPY frontend/ ./
+
+# Build
 RUN npm run build
+
 
 # Runtime stage
 FROM node:20-slim
 WORKDIR /app
 
-# "serve" can be used via npx; or add it to deps for faster boot.
+# Copy built assets
 COPY --from=build /app/dist ./dist
 
-# Use PORT from Railway
+# Start static server on Railway PORT
 CMD ["sh", "-c", "npx serve -s dist -l ${PORT}"]
