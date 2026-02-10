@@ -1,5 +1,63 @@
+import { motion } from "framer-motion";
+import { Home } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+
+const navItems = [
+  { label: "Features", href: "/features" },
+  { label: "Pricing", href: "/pricing" },
+  { label: "About", href: "/about" },
+  { label: "Contact", href: "/contact" },
+];
+
 const Navbar = () => {
-  return <nav>Navbar</nav>;
+  return (
+    <motion.header
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md"
+    >
+      <div className="mx-auto max-w-6xl px-4">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
+              <span className="text-lg font-bold text-primary-foreground">
+                M
+              </span>
+            </div>
+            <span className="font-display font-semibold text-lg text-foreground hidden sm:block">
+              Mental Load Manager
+            </span>
+          </Link>
+
+          {/* Nav Items */}
+          <nav className="hidden md:flex items-center gap-1">
+            {navItems.map((item) => (
+              <Link
+                key={item.label}
+                to={item.href}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-muted"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Auth */}
+          <div className="flex items-center gap-3">
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/login">Sign In</Link>
+            </Button>
+
+            <Button asChild size="sm">
+              <Link to="/login">Get Started</Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    </motion.header>
+  );
 };
 
 export default Navbar;

@@ -1,1 +1,232 @@
-@import "tailwindcss";
+@config "../tailwind.config.js";
+@reference "tailwindcss";
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:wght@600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Mental Load Manager Design System
+   A calming, warm palette for household harmony */
+
+@layer base {
+    :root {
+        /* Warm, calming palette */
+        --background: 40 20% 98%;
+        --foreground: 20 20% 15%;
+
+        --card: 0 0% 100%;
+        --card-foreground: 20 20% 15%;
+
+        --popover: 0 0% 100%;
+        --popover-foreground: 20 20% 15%;
+
+        /* Sage green primary - calming and balanced */
+        --primary: 150 25% 45%;
+        --primary-foreground: 0 0% 100%;
+
+        /* Warm beige secondary */
+        --secondary: 35 30% 93%;
+        --secondary-foreground: 20 20% 25%;
+
+        --muted: 40 15% 94%;
+        --muted-foreground: 20 10% 45%;
+
+        /* Soft terracotta accent */
+        --accent: 15 60% 65%;
+        --accent-foreground: 0 0% 100%;
+
+        --destructive: 0 65% 55%;
+        --destructive-foreground: 0 0% 100%;
+
+        --border: 40 20% 88%;
+        --input: 40 20% 88%;
+        --ring: 150 25% 45%;
+
+        --radius: 0.75rem;
+
+        /* Custom semantic colors */
+        --sage: 150 25% 45%;
+        --sage-light: 150 25% 92%;
+        --sage-dark: 150 30% 35%;
+
+        --terracotta: 15 60% 65%;
+        --terracotta-light: 15 50% 95%;
+
+        --sand: 35 30% 85%;
+        --sand-light: 35 30% 96%;
+
+        --lavender: 270 30% 70%;
+        --lavender-light: 270 30% 95%;
+
+        --sky: 200 60% 60%;
+        --sky-light: 200 60% 95%;
+
+        /* Status colors */
+        --status-todo: 35 80% 55%;
+        --status-doing: 200 60% 55%;
+        --status-done: 150 50% 50%;
+
+        /* Shadows */
+        --shadow-sm: 0 1px 2px 0 hsl(20 20% 15% / 0.04);
+        --shadow-md:
+            0 4px 6px -1px hsl(20 20% 15% / 0.06),
+            0 2px 4px -2px hsl(20 20% 15% / 0.06);
+        --shadow-lg:
+            0 10px 15px -3px hsl(20 20% 15% / 0.08),
+            0 4px 6px -4px hsl(20 20% 15% / 0.08);
+        --shadow-xl:
+            0 20px 25px -5px hsl(20 20% 15% / 0.1),
+            0 8px 10px -6px hsl(20 20% 15% / 0.1);
+
+        /* Widget shadows */
+        --widget-shadow:
+            0 1px 3px 0 hsl(20 20% 15% / 0.05), 0 1px 2px -1px hsl(20 20% 15% / 0.05);
+        --widget-shadow-hover:
+            0 10px 15px -3px hsl(20 20% 15% / 0.08),
+            0 4px 6px -4px hsl(20 20% 15% / 0.08);
+
+        /* Sidebar */
+        --sidebar-background: 40 20% 97%;
+        --sidebar-foreground: 20 20% 25%;
+        --sidebar-primary: 150 25% 45%;
+        --sidebar-primary-foreground: 0 0% 100%;
+        --sidebar-accent: 40 20% 92%;
+        --sidebar-accent-foreground: 20 20% 25%;
+        --sidebar-border: 40 20% 90%;
+        --sidebar-ring: 150 25% 45%;
+    }
+
+    .dark {
+        --background: 20 15% 10%;
+        --foreground: 40 20% 95%;
+
+        --card: 20 15% 12%;
+        --card-foreground: 40 20% 95%;
+
+        --popover: 20 15% 12%;
+        --popover-foreground: 40 20% 95%;
+
+        --primary: 150 30% 55%;
+        --primary-foreground: 20 15% 10%;
+
+        --secondary: 20 15% 18%;
+        --secondary-foreground: 40 20% 90%;
+
+        --muted: 20 15% 18%;
+        --muted-foreground: 40 15% 60%;
+
+        --accent: 15 50% 60%;
+        --accent-foreground: 0 0% 100%;
+
+        --destructive: 0 60% 50%;
+        --destructive-foreground: 0 0% 100%;
+
+        --border: 20 15% 20%;
+        --input: 20 15% 20%;
+        --ring: 150 30% 55%;
+
+        --sage: 150 30% 55%;
+        --sage-light: 150 20% 18%;
+        --sage-dark: 150 25% 45%;
+
+        --terracotta: 15 50% 60%;
+        --terracotta-light: 15 30% 18%;
+
+        --sand: 35 20% 25%;
+        --sand-light: 35 15% 15%;
+
+        --lavender: 270 25% 60%;
+        --lavender-light: 270 20% 18%;
+
+        --sky: 200 50% 55%;
+        --sky-light: 200 30% 18%;
+
+        --status-todo: 35 70% 50%;
+        --status-doing: 200 50% 50%;
+        --status-done: 150 40% 45%;
+
+        --sidebar-background: 20 15% 8%;
+        --sidebar-foreground: 40 20% 90%;
+        --sidebar-primary: 150 30% 55%;
+        --sidebar-primary-foreground: 20 15% 10%;
+        --sidebar-accent: 20 15% 15%;
+        --sidebar-accent-foreground: 40 20% 90%;
+        --sidebar-border: 20 15% 18%;
+        --sidebar-ring: 150 30% 55%;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    a {
+        @apply no-underline;
+    }
+
+    a:visited {
+        color: inherit;
+    }
+
+    body {
+        @apply bg-background text-foreground antialiased;
+        font-family: "Inter", sans-serif;
+    }
+
+    h1,
+    h2,
+    h3 {
+        font-family: "Fraunces", serif;
+    }
+}
+
+@layer components {
+    .widget-card {
+        @apply bg-card rounded-xl border border-border p-4;
+        box-shadow: var(--widget-shadow);
+        transition:
+            box-shadow 0.2s ease,
+            transform 0.2s ease;
+    }
+
+    .widget-card:hover {
+        box-shadow: var(--widget-shadow-hover);
+    }
+
+    .widget-card-dragging {
+        box-shadow: var(--shadow-xl);
+        @apply ring-2 ring-primary/20;
+    }
+
+    .status-badge-todo {
+        @apply bg-[hsl(var(--status-todo)/0.15)] text-[hsl(var(--status-todo))] border border-[hsl(var(--status-todo)/0.3)];
+    }
+
+    .status-badge-doing {
+        @apply bg-[hsl(var(--status-doing)/0.15)] text-[hsl(var(--status-doing))] border border-[hsl(var(--status-doing)/0.3)];
+    }
+
+    .status-badge-done {
+        @apply bg-[hsl(var(--status-done)/0.15)] text-[hsl(var(--status-done))] border border-[hsl(var(--status-done)/0.3)];
+    }
+
+    .gradient-hero {
+        background: linear-gradient(135deg,
+                hsl(var(--sage-light)) 0%,
+                hsl(var(--background)) 50%,
+                hsl(var(--terracotta-light)) 100%);
+    }
+
+    .gradient-text {
+        background: linear-gradient(135deg,
+                hsl(var(--sage-dark)) 0%,
+                hsl(var(--primary)) 50%,
+                hsl(var(--terracotta)) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+}
