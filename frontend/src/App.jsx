@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import './App.css'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
-
+console.log(import.meta.env.VITE_API_URL);
 function App() {
   const [message, setMessage] = useState("Click to Load...");
   const [username, setUsername] = useState("johndoe");
