@@ -15,9 +15,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-import db_setup
-db_setup.main()
-
 for router in all_routers:
     app.include_router(router)
 
