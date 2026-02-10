@@ -7,7 +7,7 @@ Detta fullstack-projekt skapades automatiskt med setup_projekt.bat
 
 ```
 MentalLoadManager/
-├── backend/          # Python Flask/FastAPI backendd
+├── backend/          # Python Flask/FastAPI backend
 │   ├── venv/         # Virtual environment
 │   ├── requirements.txt
 │   └── main.py
