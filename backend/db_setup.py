@@ -1,7 +1,13 @@
 import os
 from pathlib import Path
-import psycopg2
+import psycopg
+from pathlib import Path
+
 from dotenv import load_dotenv
+
+if Path(".env").exists():
+    load_dotenv()
+
 
 def main():
     # Load environment variables from .env
@@ -19,7 +25,7 @@ def main():
     schema_sql = sql_file.read_text(encoding="utf-8")
 
     # Connect to Postgres
-    conn = psycopg2.connect(db_url)
+    conn = psycopg.connect(db_url)
     conn.autocommit = True 
 
     try:
