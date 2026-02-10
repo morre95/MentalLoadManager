@@ -15,4 +15,4 @@ WORKDIR /app
 COPY --from=build /app/dist ./dist
 
 # IMPORTANT: serve SPA and fall back to index.html
-CMD ["sh", "-c", "ls -la && ls -la dist && npx serve -s dist -l ${PORT} --single"]
+CMD ["sh", "-c", "npx serve -s dist --single --listen tcp://0.0.0.0:${PORT}"]
