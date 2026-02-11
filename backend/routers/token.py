@@ -14,8 +14,6 @@ from helpers import ALGORITHM, SECRET_KEY, authenticate_user, create_access_toke
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "30"))
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
-print(BACKEND_URL)
-print(FRONTEND_URL)
 
 router = APIRouter()
 
