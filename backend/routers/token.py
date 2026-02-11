@@ -40,6 +40,10 @@ def decode_oauth_state(state: str, expected_provider: str) -> None:
 
 
 def oauth_redirect_uri(request: Request, provider: str) -> str:
+    provider_redirect_uri = os.getenv(f"{provider.upper()}_REDIRECT_URI", "").rstrip("/")
+    if provider_redirect_uri:
+        return provider_redirect_uri
+
     if BACKEND_URL:
         return f"{BACKEND_URL}/api/auth/{provider}/callback"
 
