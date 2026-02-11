@@ -27,6 +27,7 @@ class RegisterUserResponse(BaseModel):
 @router.post("/register", response_model=RegisterUserResponse, status_code=status.HTTP_201_CREATED)
 def register_user(payload: RegisterUserRequest):
     username = payload.username.strip()
+    email = payload.email.strip() if payload.email else None
     if not username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -38,12 +39,18 @@ def register_user(payload: RegisterUserRequest):
             detail="Password is required",
         )
 
-    session_local = get_session_local()
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
 
     with session_local() as db:
         duplicate_conditions = [UserDB.username == username]
-        if payload.email:
-            duplicate_conditions.append(UserDB.email == payload.email)
+        if email:
+            duplicate_conditions.append(UserDB.email == email)
 
         existing_user = db.scalar(select(UserDB).where(or_(*duplicate_conditions)))
         if existing_user:
@@ -55,7 +62,7 @@ def register_user(payload: RegisterUserRequest):
         new_user = UserDB(
             username=username,
             password=password_hasher.hash(payload.password),
-            email=payload.email,
+            email=email,
         )
         db.add(new_user)
 
@@ -69,12 +76,13 @@ def register_user(payload: RegisterUserRequest):
             ) from exc
 
         db.refresh(new_user)
+        response = RegisterUserResponse(
+            user_id=str(new_user.user_id),
+            username=new_user.username,
+            email=new_user.email,
+        )
 
-    return RegisterUserResponse(
-        user_id=str(new_user.user_id),
-        username=new_user.username,
-        email=new_user.email,
-    )
+    return response
 
 
 @router.get("/me", response_model=User)

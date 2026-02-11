@@ -27,6 +27,14 @@ def get_session_local() -> sessionmaker:
         database_url = os.getenv("DATABASE_URL")
         if not database_url:
             raise RuntimeError("DATABASE_URL is not set")
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace(
+                "postgres://", "postgresql+psycopg://", 1
+            )
+        elif database_url.startswith("postgresql://") and "+psycopg" not in database_url:
+            database_url = database_url.replace(
+                "postgresql://", "postgresql+psycopg://", 1
+            )
         engine = create_engine(database_url, pool_pre_ping=True)
         SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
     return SessionLocal
