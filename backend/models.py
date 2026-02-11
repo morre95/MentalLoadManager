@@ -57,7 +57,10 @@ class UserDB(Base):
         "UsersHouseholds", back_populates="user", cascade="all, delete-orphan"
     )
     preference: Mapped[Preferences | None] = relationship(
-        "Preferences", back_populates="user", uselist=False, cascade="all, delete-orphan"
+        "Preferences",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
     oauth_accounts: Mapped[list[OAuthAccounts]] = relationship(
         "OAuthAccounts", back_populates="user", cascade="all, delete-orphan"
@@ -224,9 +227,7 @@ class CalendarConnections(Base):
         DateTime(timezone=True), server_default=text("NOW()")
     )
 
-    user: Mapped[UserDB] = relationship(
-        "UserDB", back_populates="calendar_connections"
-    )
+    user: Mapped[UserDB] = relationship("UserDB", back_populates="calendar_connections")
     task_links: Mapped[list[TaskCalendarLinks]] = relationship(
         "TaskCalendarLinks", back_populates="connection", cascade="all, delete-orphan"
     )
@@ -234,7 +235,9 @@ class CalendarConnections(Base):
 
 class Categories(Base):
     __tablename__ = "categories"
-    __table_args__ = (UniqueConstraint("household_id", "name", name="uq_categories_household_name"),)
+    __table_args__ = (
+        UniqueConstraint("household_id", "name", name="uq_categories_household_name"),
+    )
 
     category_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
@@ -248,7 +251,9 @@ class Categories(Base):
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
 
-    household: Mapped[Households] = relationship("Households", back_populates="categories")
+    household: Mapped[Households] = relationship(
+        "Households", back_populates="categories"
+    )
     tasks: Mapped[list[Tasks]] = relationship("Tasks", back_populates="category")
 
 
@@ -300,7 +305,9 @@ class Tasks(Base):
         DateTime(timezone=True), server_default=text("NOW()")
     )
 
-    category: Mapped[Categories | None] = relationship("Categories", back_populates="tasks")
+    category: Mapped[Categories | None] = relationship(
+        "Categories", back_populates="tasks"
+    )
     assignee: Mapped[UserDB | None] = relationship(
         "UserDB", foreign_keys=[assigns_to], back_populates="assigned_tasks"
     )
@@ -357,9 +364,7 @@ class TaskCalendarLinks(Base):
 
 class UserTask(Base):
     __tablename__ = "user_task"
-    __table_args__ = (
-        PrimaryKeyConstraint("user_id", "task_id"),
-    )
+    __table_args__ = (PrimaryKeyConstraint("user_id", "task_id"),)
 
     user_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="CASCADE")
@@ -416,8 +421,12 @@ class Invitations(Base):
         nullable=True,
     )
 
-    household: Mapped[Households] = relationship("Households", back_populates="invitations")
-    created_by_user: Mapped[UserDB | None] = relationship("UserDB", back_populates="created_invitations")
+    household: Mapped[Households] = relationship(
+        "Households", back_populates="invitations"
+    )
+    created_by_user: Mapped[UserDB | None] = relationship(
+        "UserDB", back_populates="created_invitations"
+    )
 
 
 class Reminders(Base):
@@ -445,7 +454,9 @@ class Reminders(Base):
         Boolean, nullable=False, server_default=text("TRUE")
     )
 
-    household: Mapped[Households] = relationship("Households", back_populates="reminders")
+    household: Mapped[Households] = relationship(
+        "Households", back_populates="reminders"
+    )
     user: Mapped[UserDB] = relationship("UserDB", back_populates="reminders")
 
 
@@ -470,7 +481,9 @@ class WeeklyReports(Base):
     stats_json: Mapped[dict | None] = mapped_column(JSONB)
     summary: Mapped[str | None] = mapped_column(Text)
 
-    household: Mapped[Households] = relationship("Households", back_populates="weekly_reports")
+    household: Mapped[Households] = relationship(
+        "Households", back_populates="weekly_reports"
+    )
 
 
 class MonthlyReports(Base):
@@ -494,7 +507,9 @@ class MonthlyReports(Base):
     stats_json: Mapped[dict | None] = mapped_column(JSONB)
     summary: Mapped[str | None] = mapped_column(Text)
 
-    household: Mapped[Households] = relationship("Households", back_populates="monthly_reports")
+    household: Mapped[Households] = relationship(
+        "Households", back_populates="monthly_reports"
+    )
 
 
 class DailyReports(Base):
@@ -517,7 +532,9 @@ class DailyReports(Base):
     stats_json: Mapped[dict | None] = mapped_column(JSONB)
     summary: Mapped[str | None] = mapped_column(Text)
 
-    household: Mapped[Households] = relationship("Households", back_populates="daily_reports")
+    household: Mapped[Households] = relationship(
+        "Households", back_populates="daily_reports"
+    )
 
 
 class AISummaries(Base):
@@ -541,7 +558,9 @@ class AISummaries(Base):
     model: Mapped[str | None] = mapped_column(String(100))
     prompt_hash: Mapped[str | None] = mapped_column(Text)
 
-    household: Mapped[Households] = relationship("Households", back_populates="ai_summaries")
+    household: Mapped[Households] = relationship(
+        "Households", back_populates="ai_summaries"
+    )
 
 
 __all__ = [
