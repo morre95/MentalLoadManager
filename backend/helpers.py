@@ -55,6 +55,8 @@ def authenticate_user(username: str, password: str) -> User | None:
             return None
         if not verify_password(password, user.password):
             return None
+        user.last_login = datetime.now(timezone.utc)
+        db.commit()
         return User(username=user.username)
 
 
