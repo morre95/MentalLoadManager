@@ -2,12 +2,13 @@ import Navbar from "../components/landing/Navbar";
 
 
 import { useEffect, useState } from 'react';
-const API_BASE_URL = "https://mentalloadmanager-production.up.railway.app";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
 function Login() {
   const [message, setMessage] = useState("Click to Load...");
-  const [username, setUsername] = useState("johndoe");
-  const [password, setPassword] = useState("secret");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [token, setToken] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [authError, setAuthError] = useState(null);
@@ -31,14 +32,17 @@ function Login() {
       const hashToken = params.get("access_token");
       if (hashToken) {
         localStorage.setItem("auth_token", hashToken);
+        localStorage.setItem("token", hashToken);
         setToken(hashToken);
         window.history.replaceState(null, "", window.location.pathname + window.location.search);
         return;
       }
     }
 
-    const stored = localStorage.getItem("auth_token");
+    const stored = localStorage.getItem("auth_token") || localStorage.getItem("token");
     if (stored) {
+      localStorage.setItem("auth_token", stored);
+      localStorage.setItem("token", stored);
       setToken(stored);
     }
   }, []);
@@ -50,6 +54,7 @@ function Login() {
     setCurrentUser(null);
     try {
       const body = new URLSearchParams();
+      body.set("grant_type", "password");
       body.set("username", username);
       body.set("password", password);
 
@@ -61,11 +66,12 @@ function Login() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Login failed");
+        throw new Error(err.detail || `Login failed (${res.status})`);
       }
 
       const data = await res.json();
       localStorage.setItem("auth_token", data.access_token);
+      localStorage.setItem("token", data.access_token);
       setToken(data.access_token);
     } catch (err) {
       setAuthError(err.message || "Login failed");
@@ -94,6 +100,7 @@ function Login() {
 
   const logout = () => {
     localStorage.removeItem("auth_token");
+    localStorage.removeItem("token");
     setToken(null);
     setCurrentUser(null);
   };

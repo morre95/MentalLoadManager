@@ -40,7 +40,7 @@ const QuickStats = () => {
     const [data, setData] = useState(mockResponse);
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("auth_token") || localStorage.getItem("token");
         if (!token) return;
 
         let cancelled = false;

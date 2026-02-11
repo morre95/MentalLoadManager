@@ -143,7 +143,14 @@ def require_env(name: str) -> str:
 
 @router.post("/api/token", response_model=Token)
 def login(form: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(form.username, form.password)
+    try:
+        user = authenticate_user(form.username, form.password)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

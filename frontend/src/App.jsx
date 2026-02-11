@@ -24,6 +24,7 @@ const App = () => {
     if (!token) return;
 
     localStorage.setItem("auth_token", token);
+    localStorage.setItem("token", token);
     window.history.replaceState(
       null,
       "",

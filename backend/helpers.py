@@ -50,10 +50,7 @@ def authenticate_user(username: str, password: str) -> User | None:
         return None
     normalized = identifier.lower()
 
-    try:
-        session_local = get_session_local()
-    except RuntimeError:
-        return None
+    session_local = get_session_local()
 
     with session_local() as db:
         candidates = db.scalars(
