@@ -172,6 +172,10 @@
     a:visited {
         color: inherit;
     }
+    button {
+    @apply bg-transparent border-0 p-0;
+    appearance: none;
+    }
 
 
     body {
