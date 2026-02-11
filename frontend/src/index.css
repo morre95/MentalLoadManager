@@ -161,6 +161,8 @@
 @layer base {
     * {
         @apply border-border;
+        margin: 0;
+        box-sizing: border-box;
     }
 
     a {
@@ -170,6 +172,7 @@
     a:visited {
         color: inherit;
     }
+
 
     body {
         @apply bg-background text-foreground antialiased;
