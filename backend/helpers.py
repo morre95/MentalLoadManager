@@ -5,9 +5,11 @@ from jwt.exceptions import InvalidTokenError
 from datetime import datetime, timedelta, timezone
 from pwdlib import PasswordHash
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import sessionmaker
 
 from pwdlib.hashers.argon2 import Argon2Hasher
-from models import User
+from models import User, UserDB
 
 password_hasher = PasswordHash([Argon2Hasher()])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/token")
@@ -16,12 +18,18 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/token")
 SECRET_KEY = os.getenv("JWT_SECRET", "dev-secret-change-me")
 ALGORITHM = "HS256"
 
-fake_users_db = {
-    "johndoe": {
-        "username": "johndoe",
-        "hashed_password": password_hasher.hash("secret"),
-    }
-}
+SessionLocal: sessionmaker | None = None
+
+
+def get_session_local() -> sessionmaker:
+    global SessionLocal
+    if SessionLocal is None:
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            raise RuntimeError("DATABASE_URL is not set")
+        engine = create_engine(database_url, pool_pre_ping=True)
+        SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    return SessionLocal
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -29,12 +37,17 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def authenticate_user(username: str, password: str) -> User | None:
-    user = fake_users_db.get(username)
-    if not user:
+    try:
+        session_local = get_session_local()
+    except RuntimeError:
         return None
-    if not verify_password(password, user["hashed_password"]):
-        return None
-    return User(username=user["username"])
+    with session_local() as db:
+        user = db.scalar(select(UserDB).where(UserDB.username == username))
+        if not user or not user.password:
+            return None
+        if not verify_password(password, user.password):
+            return None
+        return User(username=user.username)
 
 
 def create_access_token(subject: str, expires_delta: timedelta) -> str:
