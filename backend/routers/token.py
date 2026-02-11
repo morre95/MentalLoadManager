@@ -64,7 +64,7 @@ def issue_login_redirect(username: str) -> RedirectResponse:
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     return RedirectResponse(
-        url=f"{FRONTEND_URL}/#access_token={access_token}&token_type=bearer"
+        url=f"{FRONTEND_URL}/login#access_token={access_token}&token_type=bearer"
     )
 
 
