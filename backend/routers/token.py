@@ -8,8 +8,17 @@ import requests
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from models import Token
-from helpers import ALGORITHM, SECRET_KEY, authenticate_user, create_access_token
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+
+from models import Token, UserDB
+from helpers import (
+    ALGORITHM,
+    SECRET_KEY,
+    authenticate_user,
+    create_access_token,
+    get_session_local,
+)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "30"))
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
@@ -68,6 +77,58 @@ def issue_login_redirect(username: str) -> RedirectResponse:
     return RedirectResponse(
         url=f"{FRONTEND_URL}/login#access_token={access_token}&token_type=bearer"
     )
+
+
+def upsert_google_user(user_data: dict) -> str:
+    email = user_data.get("email")
+    provider_sub = user_data.get("sub")
+    username = email or f"google:{provider_sub or 'unknown'}"
+    now_utc = datetime.now(timezone.utc)
+
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        user = None
+        if email:
+            user = db.scalar(select(UserDB).where(UserDB.email == email))
+        if user is None:
+            user = db.scalar(select(UserDB).where(UserDB.username == username))
+
+        if user is None:
+            user = UserDB(
+                username=username,
+                email=email,
+                last_login=now_utc,
+            )
+            db.add(user)
+        else:
+            user.last_login = now_utc
+            if email and not user.email:
+                user.email = email
+
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            # Handle race conditions on unique email.
+            if email:
+                user = db.scalar(select(UserDB).where(UserDB.email == email))
+            if user is None:
+                user = db.scalar(select(UserDB).where(UserDB.username == username))
+            if user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to upsert Google user",
+                )
+
+        db.refresh(user)
+        return user.username
 
 
 def require_env(name: str) -> str:
@@ -146,7 +207,7 @@ def callback_google(request: Request, code: str = Query(...), state: str = Query
     if not user_res.ok:
         raise HTTPException(status_code=400, detail="Google user info fetch failed")
     user_data = user_res.json()
-    username = user_data.get("email") or f"google:{user_data.get('sub', 'unknown')}"
+    username = upsert_google_user(user_data)
     return issue_login_redirect(username)
 
 
