@@ -8,11 +8,11 @@
 -- =========================
 
 INSERT INTO users (user_id, username, password, email, created_at, last_login) VALUES
-  ('a1b2c3d4-1111-1111-1111-111111111111', 'anna_svensson', '$argon2id$v=19$m=65536,t=3,p=4$KZleD+O3oeMghzVeoNxU8A$cN3tM37sqkLuxU04n4TvIV1tqeMHuWtWRJGxWpd3T+M', 'anna.svensson@email.se', NOW() - INTERVAL '30 days', NOW() - INTERVAL '1 day'),
-  ('a1b2c3d4-2222-2222-2222-222222222222', 'erik_johansson', '$argon2id$v=19$m=65536,t=3,p=4$qra5b1fBOP+pnIHsyAseRw$RgcXqoRTPwaxWuBOw5ehDK7zE9usWeRLRVYeYoC4vQo', 'erik.johansson@email.se', NOW() - INTERVAL '25 days', NOW() - INTERVAL '2 hours'),
-  ('a1b2c3d4-3333-3333-3333-333333333333', 'maria_andersson', '$argon2id$v=19$m=65536,t=3,p=4$9iusYOf2wnRHAKYKeo7buQ$FMKKNJEDwqmoIP81NZYSPCzwhU6DxhIrkLVAYHyX7Ec', 'maria.andersson@email.se', NOW() - INTERVAL '20 days', NOW() - INTERVAL '3 days'),
-  ('a1b2c3d4-4444-4444-4444-444444444444', 'lars_nilsson', '$argon2id$v=19$m=65536,t=3,p=4$t/O+S7sNwXc5ifFuMRm8vg$V5ajEzB8pRjAAAGJYUybphalQhgLO+NFOciRyZSQ9Zc', 'lars.nilsson@email.se', NOW() - INTERVAL '15 days', NOW() - INTERVAL '5 hours'),
-  ('a1b2c3d4-5555-5555-5555-555555555555', 'karin_berg', '$argon2id$v=19$m=65536,t=3,p=4$i0St549FSriab1OtnCKCEQ$eJeS1RZK5kn9hmopY4J8qAKeKoS45jmRM4NDIKUk2xM', 'karin.berg@email.se', NOW() - INTERVAL '10 days', NOW() - INTERVAL '1 hour');
+  ('a1b2c3d4-1111-1111-1111-111111111111', 'anna_svensson', '$argon2id$v=19$m=65536,t=3,p=4$YgZfyTM90obF4PSu19uF1g$dBJ2Sesha3zjUUR+gQqM8DpDwQ9i3fyiZ4urKj6pVqs', 'anna.svensson@email.se', NOW() - INTERVAL '30 days', NOW() - INTERVAL '1 day'),
+  ('a1b2c3d4-2222-2222-2222-222222222222', 'erik_johansson', '$argon2id$v=19$m=65536,t=3,p=4$hVwR2A08jCvT9q5FAkn84A$wk0WOV1vWJE0R4/QZqYdhlnIb/E3Qij+OrCofrKTAJE', 'erik.johansson@email.se', NOW() - INTERVAL '25 days', NOW() - INTERVAL '2 hours'),
+  ('a1b2c3d4-3333-3333-3333-333333333333', 'maria_andersson', '$argon2id$v=19$m=65536,t=3,p=4$7ceG/Z93i+VszukgjR6Zrw$hv8SZAsLZEpnViPEnwLHwsX3myExurxQp6WNybSMuko', 'maria.andersson@email.se', NOW() - INTERVAL '20 days', NOW() - INTERVAL '3 days'),
+  ('a1b2c3d4-4444-4444-4444-444444444444', 'lars_nilsson', '$argon2id$v=19$m=65536,t=3,p=4$awFsNEsx9zmfVkYhT1Hl0w$jGJ5RWVerLgMxjIiRdx+UqLXlLaIQjSirOm24Z279dM', 'lars.nilsson@email.se', NOW() - INTERVAL '15 days', NOW() - INTERVAL '5 hours'),
+  ('a1b2c3d4-5555-5555-5555-555555555555', 'karin_berg', '$argon2id$v=19$m=65536,t=3,p=4$xDLqk8G8u9snOra3LAO2Ow$qbjAvjwnMHG0ubLTLTQz+f1jX3EzGJFbf62/VAPGV0g', 'karin.berg@email.se', NOW() - INTERVAL '10 days', NOW() - INTERVAL '1 hour');
 
 -- =========================
 -- 2. HOUSEHOLDS
@@ -128,9 +128,9 @@ INSERT INTO tasks (task_id, household_id, name, description, status, priority, c
 -- =========================
 
 INSERT INTO task_calendar_links (task_link_id, task_id, connection_id, provider_event_id, sync_status, last_synced_at) VALUES
-  ('g1g2g3g4-1111-1111-1111-111111111111', 'f1f2f3f4-2222-2222-2222-222222222222', 'd1d2d3d4-1111-1111-1111-111111111111', 'evt_123abc', 'SYNCED', NOW() - INTERVAL '1 hour'),
-  ('g1g2g3g4-2222-2222-2222-222222222222', 'f1f2f3f4-3333-3333-3333-333333333333', 'd1d2d3d4-3333-3333-3333-333333333333', 'evt_456def', 'SYNCED', NOW() - INTERVAL '4 days'),
-  ('g1g2g3g4-3333-3333-3333-333333333333', 'f1f2f3f4-4444-4444-4444-444444444444', 'd1d2d3d4-1111-1111-1111-111111111111', NULL, 'NOT_SYNCED', NULL);
+  ('a1a2a3a4-1111-1111-1111-111111111111', 'f1f2f3f4-2222-2222-2222-222222222222', 'd1d2d3d4-1111-1111-1111-111111111111', 'evt_123abc', 'SYNCED', NOW() - INTERVAL '1 hour'),
+  ('a1a2a3a4-2222-2222-2222-222222222222', 'f1f2f3f4-3333-3333-3333-333333333333', 'd1d2d3d4-3333-3333-3333-333333333333', 'evt_456def', 'SYNCED', NOW() - INTERVAL '4 days'),
+  ('a1a2a3a4-3333-3333-3333-333333333333', 'f1f2f3f4-4444-4444-4444-444444444444', 'd1d2d3d4-1111-1111-1111-111111111111', NULL, 'NOT_SYNCED', NULL);
 
 -- =========================
 -- 10. USER_TASK (extra assignments)
@@ -148,39 +148,39 @@ INSERT INTO user_task (user_id, task_id) VALUES
 -- =========================
 
 INSERT INTO task_attachment (task_attachment_id, task_id, url, type) VALUES
-  ('h1h2h3h4-1111-1111-1111-111111111111', 'f1f2f3f4-3333-3333-3333-333333333333', 'https://example.com/paint-color-sample.jpg', 'image'),
-  ('h1h2h3h4-2222-2222-2222-222222222222', 'f1f2f3f4-3333-3333-3333-333333333333', 'https://example.com/room-measurements.pdf', 'document'),
-  ('h1h2h3h4-3333-3333-3333-333333333333', 'f1f2f3f4-7777-7777-7777-777777777777', 'https://example.com/electricity-bill.pdf', 'document');
+  ('b1b2b3b4-1111-1111-1111-111111111111', 'f1f2f3f4-3333-3333-3333-333333333333', 'https://example.com/paint-color-sample.jpg', 'image'),
+  ('b1b2b3b4-2222-2222-2222-222222222222', 'f1f2f3f4-3333-3333-3333-333333333333', 'https://example.com/room-measurements.pdf', 'document'),
+  ('b1b2b3b4-3333-3333-3333-333333333333', 'f1f2f3f4-7777-7777-7777-777777777777', 'https://example.com/electricity-bill.pdf', 'document');
 
 -- =========================
 -- 12. INVITATIONS
 -- =========================
 
 INSERT INTO invitations (invitation_id, household_id, code, expires_at, created_by) VALUES
-  ('i1i2i3i4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111', 'FAMILY2024ABC', NOW() + INTERVAL '7 days', 'a1b2c3d4-1111-1111-1111-111111111111'),
-  ('i1i2i3i4-2222-2222-2222-222222222222', 'b1b2b3b4-2222-2222-2222-222222222222', 'ANDERSSON2024XYZ', NOW() + INTERVAL '14 days', 'a1b2c3d4-3333-3333-3333-333333333333'),
-  ('i1i2i3i4-3333-3333-3333-333333333333', 'b1b2b3b4-3333-3333-3333-333333333333', 'KOLLEKTIV2024QRS', NOW() + INTERVAL '30 days', 'a1b2c3d4-5555-5555-5555-555555555555');
+  ('c1c2c3c4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111', 'FAMILY2024ABC', NOW() + INTERVAL '7 days', 'a1b2c3d4-1111-1111-1111-111111111111'),
+  ('c1c2c3c4-2222-2222-2222-222222222222', 'b1b2b3b4-2222-2222-2222-222222222222', 'ANDERSSON2024XYZ', NOW() + INTERVAL '14 days', 'a1b2c3d4-3333-3333-3333-333333333333'),
+  ('c1c2c3c4-3333-3333-3333-333333333333', 'b1b2b3b4-3333-3333-3333-333333333333', 'KOLLEKTIV2024QRS', NOW() + INTERVAL '30 days', 'a1b2c3d4-5555-5555-5555-555555555555');
 
 -- =========================
 -- 13. REMINDERS
 -- =========================
 
 INSERT INTO reminders (reminder_id, household_id, user_id, minutes_before_due, active) VALUES
-  ('j1j2j3j4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111', 'a1b2c3d4-1111-1111-1111-111111111111', 60, TRUE),
-  ('j1j2j3j4-2222-2222-2222-222222222222', 'b1b2b3b4-1111-1111-1111-111111111111', 'a1b2c3d4-2222-2222-2222-222222222222', 30, TRUE),
-  ('j1j2j3j4-3333-3333-3333-333333333333', 'b1b2b3b4-2222-2222-2222-222222222222', 'a1b2c3d4-3333-3333-3333-333333333333', 120, TRUE),
-  ('j1j2j3j4-4444-4444-4444-444444444444', 'b1b2b3b4-3333-3333-3333-333333333333', 'a1b2c3d4-5555-5555-5555-555555555555', 15, TRUE);
+  ('d1d2d3d4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111', 'a1b2c3d4-1111-1111-1111-111111111111', 60, TRUE),
+  ('d1d2d3d4-2222-2222-2222-222222222222', 'b1b2b3b4-1111-1111-1111-111111111111', 'a1b2c3d4-2222-2222-2222-222222222222', 30, TRUE),
+  ('d1d2d3d4-3333-3333-3333-333333333333', 'b1b2b3b4-2222-2222-2222-222222222222', 'a1b2c3d4-3333-3333-3333-333333333333', 120, TRUE),
+  ('d1d2d3d4-4444-4444-4444-444444444444', 'b1b2b3b4-3333-3333-3333-333333333333', 'a1b2c3d4-5555-5555-5555-555555555555', 15, TRUE);
 
 -- =========================
 -- 14. DAILY REPORTS
 -- =========================
 
 INSERT INTO daily_reports (daily_report_id, household_id, date, stats_json, summary) VALUES
-  ('k1k2k3k4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111', CURRENT_DATE - INTERVAL '1 day', 
+  ('e1e2e3e4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111', CURRENT_DATE - INTERVAL '1 day', 
    '{"tasks_completed": 2, "tasks_created": 1, "active_users": 2}'::jsonb,
    'Bra dag! 2 uppgifter slutförda.'),
   
-  ('k1k2k3k4-2222-2222-2222-222222222222', 'b1b2b3b4-2222-2222-2222-222222222222', CURRENT_DATE - INTERVAL '1 day',
+  ('e1e2e3e4-2222-2222-2222-222222222222', 'b1b2b3b4-2222-2222-2222-222222222222', CURRENT_DATE - INTERVAL '1 day',
    '{"tasks_completed": 1, "tasks_created": 2, "active_users": 2}'::jsonb,
    'Städning genomförd, två nya uppgifter tillagda.');
 
@@ -189,12 +189,12 @@ INSERT INTO daily_reports (daily_report_id, household_id, date, stats_json, summ
 -- =========================
 
 INSERT INTO weekly_reports (weekly_report_id, household_id, week_start, week_end, stats_json, summary) VALUES
-  ('l1l2l3l4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111', 
+  ('f1f2f3f4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111', 
    CURRENT_DATE - INTERVAL '7 days', CURRENT_DATE,
    '{"tasks_completed": 8, "tasks_created": 5, "completion_rate": 0.73, "most_active_user": "Anna"}'::jsonb,
    'Produktiv vecka med 73% slutförandegrad. Anna mest aktiv med 4 slutförda uppgifter.'),
   
-  ('l1l2l3l4-2222-2222-2222-222222222222', 'b1b2b3b4-3333-3333-3333-333333333333',
+  ('f1f2f3f4-2222-2222-2222-222222222222', 'b1b2b3b4-3333-3333-3333-333333333333',
    CURRENT_DATE - INTERVAL '7 days', CURRENT_DATE,
    '{"tasks_completed": 6, "tasks_created": 7, "completion_rate": 0.60, "most_active_user": "Karin"}'::jsonb,
    'Bra vecka i kollektivet. Matlagning och städning flöt på bra.');
@@ -204,7 +204,7 @@ INSERT INTO weekly_reports (weekly_report_id, household_id, week_start, week_end
 -- =========================
 
 INSERT INTO monthly_reports (monthly_report_id, household_id, month_start, month_end, stats_json, summary) VALUES
-  ('m1m2m3m4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111',
+  ('a9a8a7a6-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111',
    DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month'), 
    DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 day',
    '{"tasks_completed": 32, "tasks_created": 38, "completion_rate": 0.84, "categories_used": 4, "avg_completion_days": 2.5}'::jsonb,
@@ -215,13 +215,13 @@ INSERT INTO monthly_reports (monthly_report_id, household_id, month_start, month
 -- =========================
 
 INSERT INTO ai_summaries (ai_summary_id, household_id, week_start, content, model, prompt_hash) VALUES
-  ('n1n2n3n4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111',
+  ('b9b8b7b6-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111',
    CURRENT_DATE - INTERVAL '7 days',
    'Denna vecka har familjen Svensson-Johansson gjort stora framsteg på renoveringen av vardagsrummet. Erik har målat två väggar och Anna har hanterat barnrelaterade sysslor effektivt. Hämtningar på dagis har fungerat smidigt enligt schema. Shopping-uppgiften för helgen är prioriterad.',
    'gpt-4',
    'hash_abc123'),
   
-  ('n1n2n3n4-2222-2222-2222-222222222222', 'b1b2b3b4-3333-3333-3333-333333333333',
+  ('b9b8b7b6-2222-2222-2222-222222222222', 'b1b2b3b4-3333-3333-3333-333333333333',
    CURRENT_DATE - INTERVAL '7 days',
    'Kollektivet på Södermalm har haft en fungerande vecka med rotationsschemat för matlagning. Karin lagade vegetarisk lasagne som uppskattades av alla. Städningen av gemensamma ytor är schemalagd och diskmaskinens reparation är bokad för nästa vecka.',
    'gpt-4',
