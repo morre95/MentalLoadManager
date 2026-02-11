@@ -5,7 +5,7 @@ from jwt.exceptions import InvalidTokenError
 from datetime import datetime, timedelta, timezone
 from pwdlib import PasswordHash
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, func, or_, select
 from sqlalchemy.orm import sessionmaker
 
 from pwdlib.hashers.argon2 import Argon2Hasher
@@ -45,19 +45,35 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def authenticate_user(username: str, password: str) -> User | None:
+    identifier = username.strip()
+    if not identifier:
+        return None
+    normalized = identifier.lower()
+
     try:
         session_local = get_session_local()
     except RuntimeError:
         return None
+
     with session_local() as db:
-        user = db.scalar(select(UserDB).where(UserDB.username == username))
-        if not user or not user.password:
-            return None
-        if not verify_password(password, user.password):
-            return None
-        user.last_login = datetime.now(timezone.utc)
-        db.commit()
-        return User(username=user.username)
+        candidates = db.scalars(
+            select(UserDB).where(
+                or_(
+                    func.lower(UserDB.username) == normalized,
+                    func.lower(UserDB.email) == normalized,
+                )
+            )
+        ).all()
+
+        for user in candidates:
+            if not user.password:
+                continue
+            if verify_password(password, user.password):
+                user.last_login = datetime.now(timezone.utc)
+                db.commit()
+                return User(username=user.username)
+
+        return None
 
 
 def create_access_token(subject: str, expires_delta: timedelta) -> str:
