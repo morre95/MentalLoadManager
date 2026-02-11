@@ -1,0 +1,234 @@
+-- =========================
+-- SEED DATA
+-- =========================
+-- Kör denna fil efter setup_db.sql för att populera databasen med exempeldata
+
+-- =========================
+-- 1. USERS
+-- =========================
+
+INSERT INTO users (user_id, username, password, email, created_at, last_login) VALUES
+  ('a1b2c3d4-1111-1111-1111-111111111111', 'anna_svensson', '$argon2id$v=19$m=65536,t=3,p=4$KZleD+O3oeMghzVeoNxU8A$cN3tM37sqkLuxU04n4TvIV1tqeMHuWtWRJGxWpd3T+M', 'anna.svensson@email.se', NOW() - INTERVAL '30 days', NOW() - INTERVAL '1 day'),
+  ('a1b2c3d4-2222-2222-2222-222222222222', 'erik_johansson', '$argon2id$v=19$m=65536,t=3,p=4$qra5b1fBOP+pnIHsyAseRw$RgcXqoRTPwaxWuBOw5ehDK7zE9usWeRLRVYeYoC4vQo', 'erik.johansson@email.se', NOW() - INTERVAL '25 days', NOW() - INTERVAL '2 hours'),
+  ('a1b2c3d4-3333-3333-3333-333333333333', 'maria_andersson', '$argon2id$v=19$m=65536,t=3,p=4$9iusYOf2wnRHAKYKeo7buQ$FMKKNJEDwqmoIP81NZYSPCzwhU6DxhIrkLVAYHyX7Ec', 'maria.andersson@email.se', NOW() - INTERVAL '20 days', NOW() - INTERVAL '3 days'),
+  ('a1b2c3d4-4444-4444-4444-444444444444', 'lars_nilsson', '$argon2id$v=19$m=65536,t=3,p=4$t/O+S7sNwXc5ifFuMRm8vg$V5ajEzB8pRjAAAGJYUybphalQhgLO+NFOciRyZSQ9Zc', 'lars.nilsson@email.se', NOW() - INTERVAL '15 days', NOW() - INTERVAL '5 hours'),
+  ('a1b2c3d4-5555-5555-5555-555555555555', 'karin_berg', '$argon2id$v=19$m=65536,t=3,p=4$i0St549FSriab1OtnCKCEQ$eJeS1RZK5kn9hmopY4J8qAKeKoS45jmRM4NDIKUk2xM', 'karin.berg@email.se', NOW() - INTERVAL '10 days', NOW() - INTERVAL '1 hour');
+
+-- =========================
+-- 2. HOUSEHOLDS
+-- =========================
+
+INSERT INTO households (household_id, name, created_at) VALUES
+  ('b1b2b3b4-1111-1111-1111-111111111111', 'Familjen Svensson-Johansson', NOW() - INTERVAL '30 days'),
+  ('b1b2b3b4-2222-2222-2222-222222222222', 'Anderssonshuset', NOW() - INTERVAL '20 days'),
+  ('b1b2b3b4-3333-3333-3333-333333333333', 'Kollektivet Södermalm', NOW() - INTERVAL '15 days');
+
+-- =========================
+-- 3. USERS <-> HOUSEHOLDS
+-- =========================
+
+INSERT INTO users_households (user_id, household_id) VALUES
+  -- Familjen Svensson-Johansson: Anna & Erik
+  ('a1b2c3d4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111'),
+  ('a1b2c3d4-2222-2222-2222-222222222222', 'b1b2b3b4-1111-1111-1111-111111111111'),
+  
+  -- Anderssonshuset: Maria & Lars
+  ('a1b2c3d4-3333-3333-3333-333333333333', 'b1b2b3b4-2222-2222-2222-222222222222'),
+  ('a1b2c3d4-4444-4444-4444-444444444444', 'b1b2b3b4-2222-2222-2222-222222222222'),
+  
+  -- Kollektivet: Karin, Erik, Lars (shared)
+  ('a1b2c3d4-5555-5555-5555-555555555555', 'b1b2b3b4-3333-3333-3333-333333333333'),
+  ('a1b2c3d4-2222-2222-2222-222222222222', 'b1b2b3b4-3333-3333-3333-333333333333'),
+  ('a1b2c3d4-4444-4444-4444-444444444444', 'b1b2b3b4-3333-3333-3333-333333333333');
+
+-- =========================
+-- 4. PREFERENCES
+-- =========================
+
+INSERT INTO preferences (user_id, weekly_digest_enabled, monthly_digest_enabled, reminder_minutes_default, timezone) VALUES
+  ('a1b2c3d4-1111-1111-1111-111111111111', TRUE, TRUE, 60, 'Europe/Stockholm'),
+  ('a1b2c3d4-2222-2222-2222-222222222222', TRUE, FALSE, 30, 'Europe/Stockholm'),
+  ('a1b2c3d4-3333-3333-3333-333333333333', FALSE, TRUE, 120, 'Europe/Stockholm'),
+  ('a1b2c3d4-4444-4444-4444-444444444444', TRUE, TRUE, 60, 'Europe/Stockholm'),
+  ('a1b2c3d4-5555-5555-5555-555555555555', FALSE, FALSE, 15, 'Europe/Stockholm');
+
+-- =========================
+-- 5. OAUTH ACCOUNTS (exempel)
+-- =========================
+
+INSERT INTO oauth_accounts (oauth_accounts_id, user_id, provider, provider_user_id, email, access_token, expires_at) VALUES
+  ('c1c2c3c4-1111-1111-1111-111111111111', 'a1b2c3d4-1111-1111-1111-111111111111', 'google', '112233445566778899', 'anna.svensson@gmail.com', 'ya29.a0AfH6SMBx...', NOW() + INTERVAL '1 hour'),
+  ('c1c2c3c4-2222-2222-2222-222222222222', 'a1b2c3d4-2222-2222-2222-222222222222', 'google', '223344556677889900', 'erik.johansson@gmail.com', 'ya29.a0AfH6SMBy...', NOW() + INTERVAL '1 hour');
+
+-- =========================
+-- 6. CALENDAR CONNECTIONS
+-- =========================
+
+INSERT INTO calendar_connections (calendar_id, user_id, provider, calendar_ext_id, summary, timezone, is_enabled) VALUES
+  ('d1d2d3d4-1111-1111-1111-111111111111', 'a1b2c3d4-1111-1111-1111-111111111111', 'google', 'primary', 'Anna - Primär kalender', 'Europe/Stockholm', TRUE),
+  ('d1d2d3d4-2222-2222-2222-222222222222', 'a1b2c3d4-2222-2222-2222-222222222222', 'google', 'primary', 'Erik - Primär kalender', 'Europe/Stockholm', TRUE),
+  ('d1d2d3d4-3333-3333-3333-333333333333', 'a1b2c3d4-1111-1111-1111-111111111111', 'google', 'family@group.calendar.google.com', 'Familjekalender', 'Europe/Stockholm', TRUE);
+
+-- =========================
+-- 7. CATEGORIES
+-- =========================
+
+INSERT INTO categories (category_id, household_id, name) VALUES
+  -- Familjen Svensson-Johansson
+  ('e1e2e3e4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111', 'Hushåll'),
+  ('e1e2e3e4-2222-2222-2222-222222222222', 'b1b2b3b4-1111-1111-1111-111111111111', 'Barnrelaterat'),
+  ('e1e2e3e4-3333-3333-3333-333333333333', 'b1b2b3b4-1111-1111-1111-111111111111', 'Renovering'),
+  ('e1e2e3e4-4444-4444-4444-444444444444', 'b1b2b3b4-1111-1111-1111-111111111111', 'Shopping'),
+  
+  -- Anderssonshuset
+  ('e1e2e3e4-5555-5555-5555-555555555555', 'b1b2b3b4-2222-2222-2222-222222222222', 'Städning'),
+  ('e1e2e3e4-6666-6666-6666-666666666666', 'b1b2b3b4-2222-2222-2222-222222222222', 'Trädgård'),
+  ('e1e2e3e4-7777-7777-7777-777777777777', 'b1b2b3b4-2222-2222-2222-222222222222', 'Ekonomi'),
+  
+  -- Kollektivet
+  ('e1e2e3e4-8888-8888-8888-888888888888', 'b1b2b3b4-3333-3333-3333-333333333333', 'Matlagning'),
+  ('e1e2e3e4-9999-9999-9999-999999999999', 'b1b2b3b4-3333-3333-3333-333333333333', 'Städning'),
+  ('e1e2e3e4-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'b1b2b3b4-3333-3333-3333-333333333333', 'Inköp');
+
+-- =========================
+-- 8. TASKS
+-- =========================
+
+INSERT INTO tasks (task_id, household_id, name, description, status, priority, category_id, due_date, assigns_to, created_by, created_at) VALUES
+  -- Familjen Svensson-Johansson - Ongoing & Upcoming
+  ('f1f2f3f4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111', 'Köpa mat till helgen', 'Handla: mjölk, bröd, pasta, kyckling, grönsaker', 'todo', 'high', 'e1e2e3e4-4444-4444-4444-444444444444', NOW() + INTERVAL '2 days', 'a1b2c3d4-2222-2222-2222-222222222222', 'a1b2c3d4-1111-1111-1111-111111111111', NOW() - INTERVAL '1 day'),
+  
+  ('f1f2f3f4-2222-2222-2222-222222222222', 'b1b2b3b4-1111-1111-1111-111111111111', 'Hämta på dagis', 'Hämta Liam kl 16:30', 'todo', 'high', 'e1e2e3e4-2222-2222-2222-222222222222', NOW() + INTERVAL '6 hours', 'a1b2c3d4-1111-1111-1111-111111111111', 'a1b2c3d4-2222-2222-2222-222222222222', NOW() - INTERVAL '12 hours'),
+  
+  ('f1f2f3f4-3333-3333-3333-333333333333', 'b1b2b3b4-1111-1111-1111-111111111111', 'Måla om vardagsrummet', 'Väggfärg köpt, behöver maskeringstejp och nya penslar', 'in_progress', 'medium', 'e1e2e3e4-3333-3333-3333-333333333333', NOW() + INTERVAL '1 week', 'a1b2c3d4-2222-2222-2222-222222222222', 'a1b2c3d4-1111-1111-1111-111111111111', NOW() - INTERVAL '5 days'),
+  
+  ('f1f2f3f4-4444-4444-4444-444444444444', 'b1b2b3b4-1111-1111-1111-111111111111', 'Boka tandläkartid för barnen', NULL, 'todo', 'medium', 'e1e2e3e4-2222-2222-2222-222222222222', NOW() + INTERVAL '3 days', 'a1b2c3d4-1111-1111-1111-111111111111', 'a1b2c3d4-1111-1111-1111-111111111111', NOW() - INTERVAL '2 days'),
+  
+  -- Completed tasks
+  ('f1f2f3f4-5555-5555-5555-555555555555', 'b1b2b3b4-1111-1111-1111-111111111111', 'Tvätta bilen', 'Bilvård invändigt och utvändigt', 'done', 'low', 'e1e2e3e4-1111-1111-1111-111111111111', NOW() - INTERVAL '2 days', 'a1b2c3d4-2222-2222-2222-222222222222', 'a1b2c3d4-2222-2222-2222-222222222222', NOW() - INTERVAL '5 days'),
+  
+  -- Anderssonshuset
+  ('f1f2f3f4-6666-6666-6666-666666666666', 'b1b2b3b4-2222-2222-2222-222222222222', 'Klippa gräsmattan', 'Främre och bakre gården', 'todo', 'high', 'e1e2e3e4-6666-6666-6666-666666666666', NOW() + INTERVAL '1 day', 'a1b2c3d4-4444-4444-4444-444444444444', 'a1b2c3d4-3333-3333-3333-333333333333', NOW() - INTERVAL '1 day'),
+  
+  ('f1f2f3f4-7777-7777-7777-777777777777', 'b1b2b3b4-2222-2222-2222-222222222222', 'Betala elräkning', 'Förfaller 2024-02-15', 'todo', 'high', 'e1e2e3e4-7777-7777-7777-777777777777', NOW() + INTERVAL '4 days', 'a1b2c3d4-3333-3333-3333-333333333333', 'a1b2c3d4-3333-3333-3333-333333333333', NOW() - INTERVAL '3 days'),
+  
+  ('f1f2f3f4-8888-8888-8888-888888888888', 'b1b2b3b4-2222-2222-2222-222222222222', 'Dammsuга källaren', NULL, 'done', 'low', 'e1e2e3e4-5555-5555-5555-555555555555', NOW() - INTERVAL '1 day', 'a1b2c3d4-4444-4444-4444-444444444444', 'a1b2c3d4-3333-3333-3333-333333333333', NOW() - INTERVAL '3 days'),
+  
+  -- Kollektivet
+  ('f1f2f3f4-9999-9999-9999-999999999999', 'b1b2b3b4-3333-3333-3333-333333333333', 'Laga middag (Torsdag)', 'Vegetarisk lasagne - 4 portioner', 'in_progress', 'high', 'e1e2e3e4-8888-8888-8888-888888888888', NOW() + INTERVAL '4 hours', 'a1b2c3d4-5555-5555-5555-555555555555', 'a1b2c3d4-5555-5555-5555-555555555555', NOW() - INTERVAL '2 hours'),
+  
+  ('f1f2f3f4-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'b1b2b3b4-3333-3333-3333-333333333333', 'Städa gemensamma ytor', 'Kök, vardagsrum, toalett', 'todo', 'medium', 'e1e2e3e4-9999-9999-9999-999999999999', NOW() + INTERVAL '2 days', 'a1b2c3d4-2222-2222-2222-222222222222', 'a1b2c3d4-4444-4444-4444-444444444444', NOW() - INTERVAL '1 day'),
+  
+  ('f1f2f3f4-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'b1b2b3b4-3333-3333-3333-333333333333', 'Handla toalettpapper och diskmedel', NULL, 'todo', 'medium', 'e1e2e3e4-aaaa-aaaa-aaaa-aaaaaaaaaaaa', NOW() + INTERVAL '3 days', 'a1b2c3d4-4444-4444-4444-444444444444', 'a1b2c3d4-2222-2222-2222-222222222222', NOW()),
+  
+  ('f1f2f3f4-cccc-cccc-cccc-cccccccccccc', 'b1b2b3b4-3333-3333-3333-333333333333', 'Laga diskmaskin', 'Ringer tekniker', 'on_hold', 'high', 'e1e2e3e4-9999-9999-9999-999999999999', NOW() + INTERVAL '5 days', 'a1b2c3d4-5555-5555-5555-555555555555', 'a1b2c3d4-5555-5555-5555-555555555555', NOW() - INTERVAL '2 days');
+
+-- =========================
+-- 9. TASK CALENDAR LINKS
+-- =========================
+
+INSERT INTO task_calendar_links (task_link_id, task_id, connection_id, provider_event_id, sync_status, last_synced_at) VALUES
+  ('g1g2g3g4-1111-1111-1111-111111111111', 'f1f2f3f4-2222-2222-2222-222222222222', 'd1d2d3d4-1111-1111-1111-111111111111', 'evt_123abc', 'SYNCED', NOW() - INTERVAL '1 hour'),
+  ('g1g2g3g4-2222-2222-2222-222222222222', 'f1f2f3f4-3333-3333-3333-333333333333', 'd1d2d3d4-3333-3333-3333-333333333333', 'evt_456def', 'SYNCED', NOW() - INTERVAL '4 days'),
+  ('g1g2g3g4-3333-3333-3333-333333333333', 'f1f2f3f4-4444-4444-4444-444444444444', 'd1d2d3d4-1111-1111-1111-111111111111', NULL, 'NOT_SYNCED', NULL);
+
+-- =========================
+-- 10. USER_TASK (extra assignments)
+-- =========================
+
+INSERT INTO user_task (user_id, task_id) VALUES
+  ('a1b2c3d4-2222-2222-2222-222222222222', 'f1f2f3f4-1111-1111-1111-111111111111'),
+  ('a1b2c3d4-1111-1111-1111-111111111111', 'f1f2f3f4-2222-2222-2222-222222222222'),
+  ('a1b2c3d4-2222-2222-2222-222222222222', 'f1f2f3f4-3333-3333-3333-333333333333'),
+  ('a1b2c3d4-4444-4444-4444-444444444444', 'f1f2f3f4-6666-6666-6666-666666666666'),
+  ('a1b2c3d4-5555-5555-5555-555555555555', 'f1f2f3f4-9999-9999-9999-999999999999');
+
+-- =========================
+-- 11. TASK ATTACHMENTS
+-- =========================
+
+INSERT INTO task_attachment (task_attachment_id, task_id, url, type) VALUES
+  ('h1h2h3h4-1111-1111-1111-111111111111', 'f1f2f3f4-3333-3333-3333-333333333333', 'https://example.com/paint-color-sample.jpg', 'image'),
+  ('h1h2h3h4-2222-2222-2222-222222222222', 'f1f2f3f4-3333-3333-3333-333333333333', 'https://example.com/room-measurements.pdf', 'document'),
+  ('h1h2h3h4-3333-3333-3333-333333333333', 'f1f2f3f4-7777-7777-7777-777777777777', 'https://example.com/electricity-bill.pdf', 'document');
+
+-- =========================
+-- 12. INVITATIONS
+-- =========================
+
+INSERT INTO invitations (invitation_id, household_id, code, expires_at, created_by) VALUES
+  ('i1i2i3i4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111', 'FAMILY2024ABC', NOW() + INTERVAL '7 days', 'a1b2c3d4-1111-1111-1111-111111111111'),
+  ('i1i2i3i4-2222-2222-2222-222222222222', 'b1b2b3b4-2222-2222-2222-222222222222', 'ANDERSSON2024XYZ', NOW() + INTERVAL '14 days', 'a1b2c3d4-3333-3333-3333-333333333333'),
+  ('i1i2i3i4-3333-3333-3333-333333333333', 'b1b2b3b4-3333-3333-3333-333333333333', 'KOLLEKTIV2024QRS', NOW() + INTERVAL '30 days', 'a1b2c3d4-5555-5555-5555-555555555555');
+
+-- =========================
+-- 13. REMINDERS
+-- =========================
+
+INSERT INTO reminders (reminder_id, household_id, user_id, minutes_before_due, active) VALUES
+  ('j1j2j3j4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111', 'a1b2c3d4-1111-1111-1111-111111111111', 60, TRUE),
+  ('j1j2j3j4-2222-2222-2222-222222222222', 'b1b2b3b4-1111-1111-1111-111111111111', 'a1b2c3d4-2222-2222-2222-222222222222', 30, TRUE),
+  ('j1j2j3j4-3333-3333-3333-333333333333', 'b1b2b3b4-2222-2222-2222-222222222222', 'a1b2c3d4-3333-3333-3333-333333333333', 120, TRUE),
+  ('j1j2j3j4-4444-4444-4444-444444444444', 'b1b2b3b4-3333-3333-3333-333333333333', 'a1b2c3d4-5555-5555-5555-555555555555', 15, TRUE);
+
+-- =========================
+-- 14. DAILY REPORTS
+-- =========================
+
+INSERT INTO daily_reports (daily_report_id, household_id, date, stats_json, summary) VALUES
+  ('k1k2k3k4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111', CURRENT_DATE - INTERVAL '1 day', 
+   '{"tasks_completed": 2, "tasks_created": 1, "active_users": 2}'::jsonb,
+   'Bra dag! 2 uppgifter slutförda.'),
+  
+  ('k1k2k3k4-2222-2222-2222-222222222222', 'b1b2b3b4-2222-2222-2222-222222222222', CURRENT_DATE - INTERVAL '1 day',
+   '{"tasks_completed": 1, "tasks_created": 2, "active_users": 2}'::jsonb,
+   'Städning genomförd, två nya uppgifter tillagda.');
+
+-- =========================
+-- 15. WEEKLY REPORTS
+-- =========================
+
+INSERT INTO weekly_reports (weekly_report_id, household_id, week_start, week_end, stats_json, summary) VALUES
+  ('l1l2l3l4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111', 
+   CURRENT_DATE - INTERVAL '7 days', CURRENT_DATE,
+   '{"tasks_completed": 8, "tasks_created": 5, "completion_rate": 0.73, "most_active_user": "Anna"}'::jsonb,
+   'Produktiv vecka med 73% slutförandegrad. Anna mest aktiv med 4 slutförda uppgifter.'),
+  
+  ('l1l2l3l4-2222-2222-2222-222222222222', 'b1b2b3b4-3333-3333-3333-333333333333',
+   CURRENT_DATE - INTERVAL '7 days', CURRENT_DATE,
+   '{"tasks_completed": 6, "tasks_created": 7, "completion_rate": 0.60, "most_active_user": "Karin"}'::jsonb,
+   'Bra vecka i kollektivet. Matlagning och städning flöt på bra.');
+
+-- =========================
+-- 16. MONTHLY REPORTS
+-- =========================
+
+INSERT INTO monthly_reports (monthly_report_id, household_id, month_start, month_end, stats_json, summary) VALUES
+  ('m1m2m3m4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111',
+   DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month'), 
+   DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 day',
+   '{"tasks_completed": 32, "tasks_created": 38, "completion_rate": 0.84, "categories_used": 4, "avg_completion_days": 2.5}'::jsonb,
+   'Stark månad med 84% slutförandegrad. Renoveringsprojektet går framåt.');
+
+-- =========================
+-- 17. AI SUMMARIES
+-- =========================
+
+INSERT INTO ai_summaries (ai_summary_id, household_id, week_start, content, model, prompt_hash) VALUES
+  ('n1n2n3n4-1111-1111-1111-111111111111', 'b1b2b3b4-1111-1111-1111-111111111111',
+   CURRENT_DATE - INTERVAL '7 days',
+   'Denna vecka har familjen Svensson-Johansson gjort stora framsteg på renoveringen av vardagsrummet. Erik har målat två väggar och Anna har hanterat barnrelaterade sysslor effektivt. Hämtningar på dagis har fungerat smidigt enligt schema. Shopping-uppgiften för helgen är prioriterad.',
+   'gpt-4',
+   'hash_abc123'),
+  
+  ('n1n2n3n4-2222-2222-2222-222222222222', 'b1b2b3b4-3333-3333-3333-333333333333',
+   CURRENT_DATE - INTERVAL '7 days',
+   'Kollektivet på Södermalm har haft en fungerande vecka med rotationsschemat för matlagning. Karin lagade vegetarisk lasagne som uppskattades av alla. Städningen av gemensamma ytor är schemalagd och diskmaskinens reparation är bokad för nästa vecka.',
+   'gpt-4',
+   'hash_xyz789');
+
+-- =========================
+-- FÄRDIGT!
+-- =========================
+-- Seed-data har lagts till för alla tabeller.
+-- Du kan nu testa dina queries och API-endpoints.
