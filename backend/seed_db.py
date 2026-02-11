@@ -8,6 +8,9 @@ from dotenv import load_dotenv
 # Load .env only if it exists (local dev). On Railway, env vars come from platform vars.
 if Path(".env").exists():
     load_dotenv()
+else:
+    print("Copy .env.example to .env anf fill it with real data")
+    exit()
 
 
 def main() -> None:

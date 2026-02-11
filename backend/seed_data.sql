@@ -8,11 +8,11 @@
 -- =========================
 
 INSERT INTO users (user_id, username, password, email, created_at, last_login) VALUES
-  ('a1b2c3d4-1111-1111-1111-111111111111', 'anna_svensson', '$argon2id$v=19$m=65536,t=3,p=4$YgZfyTM90obF4PSu19uF1g$dBJ2Sesha3zjUUR+gQqM8DpDwQ9i3fyiZ4urKj6pVqs', 'anna.svensson@email.se', NOW() - INTERVAL '30 days', NOW() - INTERVAL '1 day'),
-  ('a1b2c3d4-2222-2222-2222-222222222222', 'erik_johansson', '$argon2id$v=19$m=65536,t=3,p=4$hVwR2A08jCvT9q5FAkn84A$wk0WOV1vWJE0R4/QZqYdhlnIb/E3Qij+OrCofrKTAJE', 'erik.johansson@email.se', NOW() - INTERVAL '25 days', NOW() - INTERVAL '2 hours'),
-  ('a1b2c3d4-3333-3333-3333-333333333333', 'maria_andersson', '$argon2id$v=19$m=65536,t=3,p=4$7ceG/Z93i+VszukgjR6Zrw$hv8SZAsLZEpnViPEnwLHwsX3myExurxQp6WNybSMuko', 'maria.andersson@email.se', NOW() - INTERVAL '20 days', NOW() - INTERVAL '3 days'),
-  ('a1b2c3d4-4444-4444-4444-444444444444', 'lars_nilsson', '$argon2id$v=19$m=65536,t=3,p=4$awFsNEsx9zmfVkYhT1Hl0w$jGJ5RWVerLgMxjIiRdx+UqLXlLaIQjSirOm24Z279dM', 'lars.nilsson@email.se', NOW() - INTERVAL '15 days', NOW() - INTERVAL '5 hours'),
-  ('a1b2c3d4-5555-5555-5555-555555555555', 'karin_berg', '$argon2id$v=19$m=65536,t=3,p=4$xDLqk8G8u9snOra3LAO2Ow$qbjAvjwnMHG0ubLTLTQz+f1jX3EzGJFbf62/VAPGV0g', 'karin.berg@email.se', NOW() - INTERVAL '10 days', NOW() - INTERVAL '1 hour');
+  ('a1b2c3d4-1111-1111-1111-111111111111', 'anna_svensson', '$argon2id$v=19$m=65536,t=3,p=4$JOZVm9WlydNoZ+1P93jagw$sY+Fb6cf+KchVUl2xEVb838rxymuGT9QV3SvGGqlAzQ', 'anna.svensson@email.se', NOW() - INTERVAL '30 days', NOW() - INTERVAL '1 day'),
+  ('a1b2c3d4-2222-2222-2222-222222222222', 'erik_johansson', '$argon2id$v=19$m=65536,t=3,p=4$JOZVm9WlydNoZ+1P93jagw$sY+Fb6cf+KchVUl2xEVb838rxymuGT9QV3SvGGqlAzQ', 'erik.johansson@email.se', NOW() - INTERVAL '25 days', NOW() - INTERVAL '2 hours'),
+  ('a1b2c3d4-3333-3333-3333-333333333333', 'maria_andersson', '$argon2id$v=19$m=65536,t=3,p=4$JOZVm9WlydNoZ+1P93jagw$sY+Fb6cf+KchVUl2xEVb838rxymuGT9QV3SvGGqlAzQ', 'maria.andersson@email.se', NOW() - INTERVAL '20 days', NOW() - INTERVAL '3 days'),
+  ('a1b2c3d4-4444-4444-4444-444444444444', 'lars_nilsson', '$argon2id$v=19$m=65536,t=3,p=4$JOZVm9WlydNoZ+1P93jagw$sY+Fb6cf+KchVUl2xEVb838rxymuGT9QV3SvGGqlAzQ', 'lars.nilsson@email.se', NOW() - INTERVAL '15 days', NOW() - INTERVAL '5 hours'),
+  ('a1b2c3d4-5555-5555-5555-555555555555', 'karin_berg', '$argon2id$v=19$m=65536,t=3,p=4$JOZVm9WlydNoZ+1P93jagw$sY+Fb6cf+KchVUl2xEVb838rxymuGT9QV3SvGGqlAzQ', 'karin.berg@email.se', NOW() - INTERVAL '10 days', NOW() - INTERVAL '1 hour');
 
 -- =========================
 -- 2. HOUSEHOLDS
