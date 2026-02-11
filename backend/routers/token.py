@@ -14,6 +14,8 @@ from helpers import ALGORITHM, SECRET_KEY, authenticate_user, create_access_toke
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "30"))
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
+print(BACKEND_URL)
+print(FRONTEND_URL)
 
 router = APIRouter()
 
@@ -93,7 +95,9 @@ def login_google():
             "prompt": "consent",
         }
     )
-    return RedirectResponse(url=f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
+    return RedirectResponse(
+        url=f"https://accounts.google.com/o/oauth2/v2/auth?{params}"
+    )
 
 
 @router.get("/api/auth/google/callback")
@@ -228,5 +232,7 @@ def callback_instagram(code: str = Query(...), state: str = Query(...)):
     if not user_res.ok:
         raise HTTPException(status_code=400, detail="Instagram user info fetch failed")
     user_data = user_res.json()
-    username = f"instagram:{user_data.get('username') or user_data.get('id', 'unknown')}"
+    username = (
+        f"instagram:{user_data.get('username') or user_data.get('id', 'unknown')}"
+    )
     return issue_login_redirect(username)
