@@ -306,7 +306,7 @@ def test_calendar(user: User = Depends(get_current_user)):
     return {"success": True}
 
 
-@router.post("/api/token", response_model=Token)
+@router.post("/api/passwrod/login", response_model=Token)
 def login(form: OAuth2PasswordRequestForm = Depends()):
     try:
         user = authenticate_user(form.username, form.password)
