@@ -2,6 +2,10 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import all_routers
+from db_setup import main
+
+main()
+
 
 app = FastAPI()
 
@@ -22,3 +26,4 @@ for router in all_routers:
 @app.get("/api/hello")
 def read_root():
     return {"message": "Hello from Fastapi backend"}
+
