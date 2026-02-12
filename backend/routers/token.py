@@ -2,7 +2,6 @@ import os
 import secrets
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
-from weakref import ref
 
 import jwt
 import requests
