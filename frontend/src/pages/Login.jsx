@@ -1,7 +1,7 @@
 import Navbar from "../components/landing/Navbar";
 
 import { useEffect, useState } from 'react';
-import {GET_API_BASE_URL} from '../components/ui/base_url'
+import { GET_API_BASE_URL } from '../components/ui/base_url'
 
 const API_BASE_URL = GET_API_BASE_URL();
 
@@ -58,7 +58,7 @@ function Login() {
       body.set("username", username);
       body.set("password", password);
 
-      const res = await fetch(`${API_BASE_URL}/api/token`, {
+      const res = await fetch(`${API_BASE_URL}/api/passwrod/login`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body,
