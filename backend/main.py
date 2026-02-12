@@ -4,24 +4,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import all_routers
 
-
 load_dotenv()
 
-
 app = FastAPI()
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup: runs before the application starts
-    print("Starting up...")
-    from db_setup import main
-    main()
-    # Load ML models, connect to database, etc.
-    yield
-    # Shutdown: runs when application is stopping
-    print("Shutting down...")
-    # Close connections, cleanup resources, etc.
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -34,6 +19,11 @@ app.add_middleware(
 for router in all_routers:
     app.include_router(router)
 
+
+@app.on_event("startup")
+async def startup_event():
+    import db_setup
+    db_setup.main()
 
 @app.get("/api/hello")
 def read_root():
