@@ -67,10 +67,10 @@ def send_message(payload: SendMessageRequest):
             ) from exc
         except SQLAlchemyError as exc:
             db.rollback()
-            logger.exception("Failed to store contact message")
+            logger.exception("Failed to store contact message: %s", exc)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error while saving message",
+                detail=f"Internal server error while saving message: {exc}",
             ) from exc
         
         db.refresh(new_contact_message)
