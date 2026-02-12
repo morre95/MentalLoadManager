@@ -162,7 +162,7 @@ const KanbanBoard = () => {
 
         async function load() {
             try {
-                const res = await fetch(`${API_BASE_URL}/kanban-board`, {
+                const res = await fetch(`${API_BASE_URL}/api/kanban/tasks`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 if (!res.ok) return;
