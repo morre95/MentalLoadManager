@@ -1,7 +1,8 @@
 from fastapi import APIRouter, status, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+import logging
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import SQLAlchemyError
 from models import ContactMessages
 from helpers import get_session_local
 
@@ -11,6 +12,8 @@ router = APIRouter(
     prefix="/api/contact",
     tags=["contact"],
 )
+
+logger = logging.getLogger(__name__)
 
 class SendMessageRequest(BaseModel):
     name: str
@@ -60,7 +63,14 @@ def send_message(payload: SendMessageRequest):
             db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Username or email already exists",
+                detail="Message could not be stored",
+            ) from exc
+        except SQLAlchemyError as exc:
+            db.rollback()
+            logger.exception("Failed to store contact message")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal server error while saving message",
             ) from exc
         
         db.refresh(new_contact_message)
