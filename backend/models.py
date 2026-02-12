@@ -571,6 +571,10 @@ class ContactMessages(Base):
         server_default=text("gen_random_uuid()"),
     )
 
+    user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=True
+    )
+
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     email: Mapped[str] = mapped_column(String(320), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)

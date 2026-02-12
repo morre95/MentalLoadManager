@@ -1,4 +1,5 @@
 import os
+from uuid import UUID
 from fastapi import Depends, HTTPException, status
 import jwt
 from jwt.exceptions import InvalidTokenError
@@ -31,7 +32,9 @@ def get_session_local() -> sessionmaker:
             database_url = database_url.replace(
                 "postgres://", "postgresql+psycopg://", 1
             )
-        elif database_url.startswith("postgresql://") and "+psycopg" not in database_url:
+        elif (
+            database_url.startswith("postgresql://") and "+psycopg" not in database_url
+        ):
             database_url = database_url.replace(
                 "postgresql://", "postgresql+psycopg://", 1
             )
@@ -77,6 +80,32 @@ def create_access_token(subject: str, expires_delta: timedelta) -> str:
     expire = datetime.now(timezone.utc) + expires_delta
     payload = {"sub": subject, "exp": expire}
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def get_user_id_from_token(
+    token: str | None = Depends(
+        OAuth2PasswordBearer(tokenUrl="/api/token", auto_error=False)
+    ),
+) -> UUID | None:
+    """Return the user_id if a valid token is present, otherwise None."""
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        if not username:
+            return None
+    except (InvalidTokenError, ValueError):
+        return None
+
+    try:
+        session_local = get_session_local()
+    except RuntimeError:
+        return None
+
+    with session_local() as db:
+        user = db.scalar(select(UserDB).where(UserDB.username == username))
+        return user.user_id if user else None
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
