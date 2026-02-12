@@ -11,7 +11,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from models import GoogleTokens, Token, UserDB, User
+from models import OAuthAccounts, Token, UserDB, User
 from helpers import (
     ALGORITHM,
     SECRET_KEY,
@@ -90,7 +90,6 @@ def find_user(db, email, username) -> UserDB | None:
     return user
 
 
-# FIXME: update oauth_accounts with the right information
 def upsert_google_user(user_data: dict) -> str:
     email = user_data.get("email")
     provider_sub = user_data.get("sub")
@@ -146,7 +145,14 @@ def require_env(name: str) -> str:
     return value
 
 
-def save_google_tokens(username, access_token, refresh_token) -> None:
+def save_google_tokens(
+    username: str,
+    access_token: str,
+    refresh_token: str | None,
+    provider_user_id: str | None = None,
+    email: str | None = None,
+    expires_at: datetime | None = None,
+) -> None:
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
@@ -162,28 +168,45 @@ def save_google_tokens(username, access_token, refresh_token) -> None:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found",
             )
-        # FIXME: använd oauth_accounts istället för google_tokens
-        google_tokens = db.scalar(
-            select(GoogleTokens).where(GoogleTokens.user_id == user.user_id)
+        oauth_account = db.scalar(
+            select(OAuthAccounts).where(
+                OAuthAccounts.user_id == user.user_id,
+                OAuthAccounts.provider == "google",
+            )
         )
-        if google_tokens is None:
-            google_tokens = GoogleTokens(
+        if oauth_account is None:
+            if not provider_user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Google OAuth account not found",
+                )
+            oauth_account = OAuthAccounts(
                 user_id=user.user_id,
+                provider="google",
+                provider_user_id=provider_user_id,
+                email=email,
                 access_token=access_token,
                 refresh_token=refresh_token,
+                expires_at=expires_at,
             )
-            db.add(google_tokens)
+            db.add(oauth_account)
         else:
-            google_tokens.access_token = access_token
+            oauth_account.access_token = access_token
             # Google may omit refresh_token on subsequent exchanges.
             if refresh_token:
-                google_tokens.refresh_token = refresh_token
-            google_tokens.updated_at = datetime.now(timezone.utc)
+                oauth_account.refresh_token = refresh_token
+            if email:
+                oauth_account.email = email
+            if provider_user_id:
+                oauth_account.provider_user_id = provider_user_id
+            if expires_at:
+                oauth_account.expires_at = expires_at
+            oauth_account.updated_at = datetime.now(timezone.utc)
 
         db.commit()
 
 
-def get_google_tokens(username) -> tuple[str, str]:
+def get_google_tokens(username: str) -> tuple[str, str]:
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
@@ -200,22 +223,31 @@ def get_google_tokens(username) -> tuple[str, str]:
                 detail="User not found",
             )
 
-        google_tokens = db.scalar(
-            select(GoogleTokens).where(GoogleTokens.user_id == user.user_id)
+        oauth_account = db.scalar(
+            select(OAuthAccounts).where(
+                OAuthAccounts.user_id == user.user_id,
+                OAuthAccounts.provider == "google",
+            )
         )
-        if google_tokens is None:
+        if oauth_account is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Google tokens not found",
+                detail="Google OAuth account not found",
             )
 
-        if not google_tokens.refresh_token:
+        if not oauth_account.access_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Google access token missing",
+            )
+
+        if not oauth_account.refresh_token:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Google refresh token missing",
             )
 
-        return google_tokens.access_token, google_tokens.refresh_token
+        return oauth_account.access_token, oauth_account.refresh_token
 
 
 def create_calendar_event(access_token, username):
@@ -352,7 +384,22 @@ def callback_google(request: Request, code: str = Query(...), state: str = Query
     user_data = user_res.json()
     username = upsert_google_user(user_data)
 
-    save_google_tokens(username, access_token, refresh_token)
+    provider_user_id = user_data.get("sub")
+    if not provider_user_id:
+        raise HTTPException(status_code=400, detail="Google subject id missing")
+    expires_in = tokens.get("expires_in")
+    expires_at = None
+    if isinstance(expires_in, int):
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+
+    save_google_tokens(
+        username=username,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        provider_user_id=provider_user_id,
+        email=user_data.get("email"),
+        expires_at=expires_at,
+    )
 
     return issue_login_redirect(username)
 

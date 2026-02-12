@@ -55,14 +55,7 @@ CREATE TABLE IF NOT EXISTS oauth_accounts (
   UNIQUE (provider, provider_user_id)
 );
 
-CREATE TABLE IF NOT EXISTS google_tokens (
-  google_tokens_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id          UUID NOT NULL UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
-  access_token     TEXT NOT NULL,
-  refresh_token    TEXT,
-  created_at       TIMESTAMPTZ DEFAULT NOW(),
-  updated_at       TIMESTAMPTZ DEFAULT NOW()
-);
+DROP TABLE IF EXISTS google_tokens;
 
 CREATE TABLE IF NOT EXISTS calendar_connections (
   calendar_id    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
