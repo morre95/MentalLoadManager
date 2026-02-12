@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 let API_BASE_URL = "http://localhost:8000";
 
 if (window.location.href.includes('frontend-production')) {
-    API_BASE_URL = "https://mentalloadmanager-production.up.railway.app/"
+    API_BASE_URL = "https://mentalloadmanager-production.up.railway.app"
 } 
 
 function Login() {
