@@ -202,11 +202,12 @@ CREATE TABLE IF NOT EXISTS ai_summaries (
 
 
 CREATE TABLE IF NOT EXISTS contact_messages (
-  constact_message_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  contact_message_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID        REFERENCES users(user_id) ON DELETE SET NULL,
-  name                VARCHAR(100) NOT NULL,
-  email               VARCHAR(255) NOT NULL,
-  message             TEXT NOT NULL
+  name                VARCHAR(200) NOT NULL,
+  email               VARCHAR(320) NOT NULL,
+  message             TEXT NOT NULL,
+  created_at          TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- =========================
