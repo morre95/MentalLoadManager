@@ -65,6 +65,12 @@ class UserDB(Base):
     oauth_accounts: Mapped[list[OAuthAccounts]] = relationship(
         "OAuthAccounts", back_populates="user", cascade="all, delete-orphan"
     )
+    google_tokens: Mapped[GoogleTokens | None] = relationship(
+        "GoogleTokens",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
     calendar_connections: Mapped[list[CalendarConnections]] = relationship(
         "CalendarConnections", back_populates="user", cascade="all, delete-orphan"
     )
@@ -198,6 +204,32 @@ class OAuthAccounts(Base):
     )
 
     user: Mapped[UserDB] = relationship("UserDB", back_populates="oauth_accounts")
+
+
+class GoogleTokens(Base):
+    __tablename__ = "google_tokens"
+
+    google_tokens_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    access_token: Mapped[str] = mapped_column(Text, nullable=False)
+    refresh_token: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=text("NOW()")
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=text("NOW()")
+    )
+
+    user: Mapped[UserDB] = relationship("UserDB", back_populates="google_tokens")
 
 
 class CalendarConnections(Base):
@@ -572,6 +604,7 @@ __all__ = [
     "UsersHouseholds",
     "Preferences",
     "OAuthAccounts",
+    "GoogleTokens",
     "CalendarConnections",
     "Categories",
     "Tasks",

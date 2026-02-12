@@ -12,7 +12,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from models import Token, UserDB
+from models import GoogleTokens, Token, UserDB
 from helpers import (
     ALGORITHM,
     SECRET_KEY,
@@ -145,14 +145,76 @@ def require_env(name: str) -> str:
     return value
 
 
-# TODO: implemnt this function. Save access_token and refresh_token in DB connected to username
 def save_google_tokens(username, access_token, refresh_token) -> None:
-    pass
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        user = db.scalar(select(UserDB).where(UserDB.username == username))
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        google_tokens = db.scalar(
+            select(GoogleTokens).where(GoogleTokens.user_id == user.user_id)
+        )
+        if google_tokens is None:
+            google_tokens = GoogleTokens(
+                user_id=user.user_id,
+                access_token=access_token,
+                refresh_token=refresh_token,
+            )
+            db.add(google_tokens)
+        else:
+            google_tokens.access_token = access_token
+            # Google may omit refresh_token on subsequent exchanges.
+            if refresh_token:
+                google_tokens.refresh_token = refresh_token
+            google_tokens.updated_at = datetime.now(timezone.utc)
+
+        db.commit()
 
 
-# TODO: implement get google tokens from db
-def get_google_tokens(username):
-    pass
+def get_google_tokens(username) -> tuple[str, str]:
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        user = db.scalar(select(UserDB).where(UserDB.username == username))
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        google_tokens = db.scalar(
+            select(GoogleTokens).where(GoogleTokens.user_id == user.user_id)
+        )
+        if google_tokens is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Google tokens not found",
+            )
+
+        if not google_tokens.refresh_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Google refresh token missing",
+            )
+
+        return google_tokens.access_token, google_tokens.refresh_token
 
 
 def create_calendar_event(access_token, username):
