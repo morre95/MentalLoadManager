@@ -337,7 +337,8 @@ def login_google(request: Request):
             "client_id": client_id,
             "redirect_uri": oauth_redirect_uri(request, "google"),
             "response_type": "code",
-            "scope": "openid email profile https://www.googleapis.com/auth/calendar",
+            # "scope": "openid email profile https://www.googleapis.com/auth/calendar",
+            "scope": "openid email profile",
             "state": state,
             "access_type": "offline",
             "prompt": "consent",
@@ -509,4 +510,3 @@ def callback_instagram(
         f"instagram:{user_data.get('username') or user_data.get('id', 'unknown')}"
     )
     return issue_login_redirect(username)
-
