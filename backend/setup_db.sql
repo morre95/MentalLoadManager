@@ -87,8 +87,8 @@ CREATE TABLE IF NOT EXISTS categories (
   name          VARCHAR(100) NOT NULL
 );
 
-ALTER TABLE categories
-  ADD CONSTRAINT uq_categories_household_name UNIQUE (household_id, name);
+-- ALTER TABLE categories
+  -- ADD CONSTRAINT uq_categories_household_name UNIQUE (household_id, name);
 
 
 CREATE TABLE IF NOT EXISTS tasks (
