@@ -20,10 +20,6 @@ for router in all_routers:
     app.include_router(router)
 
 
-@app.on_event("startup")
-async def startup_event():
-    import db_setup
-    db_setup.main()
 
 @app.get("/api/hello")
 def read_root():
