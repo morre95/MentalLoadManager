@@ -2,6 +2,7 @@ import os
 import secrets
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
+from weakref import ref
 
 import jwt
 import requests
@@ -79,6 +80,16 @@ def issue_login_redirect(username: str) -> RedirectResponse:
     )
 
 
+def find_user(db, email, username) -> UserDB | None:
+    user = None
+    if email:
+        user = db.scalar(select(UserDB).where(UserDB.email == email))
+    if user is None:
+        user = db.scalar(select(UserDB).where(UserDB.username == username))
+
+    return user
+
+
 def upsert_google_user(user_data: dict) -> str:
     email = user_data.get("email")
     provider_sub = user_data.get("sub")
@@ -94,11 +105,7 @@ def upsert_google_user(user_data: dict) -> str:
         ) from exc
 
     with session_local() as db:
-        user = None
-        if email:
-            user = db.scalar(select(UserDB).where(UserDB.email == email))
-        if user is None:
-            user = db.scalar(select(UserDB).where(UserDB.username == username))
+        user = find_user(db=db, email=email, username=username)
 
         if user is None:
             user = UserDB(
@@ -117,10 +124,7 @@ def upsert_google_user(user_data: dict) -> str:
         except IntegrityError:
             db.rollback()
             # Handle race conditions on unique email.
-            if email:
-                user = db.scalar(select(UserDB).where(UserDB.email == email))
-            if user is None:
-                user = db.scalar(select(UserDB).where(UserDB.username == username))
+            user = find_user(db=db, email=email, username=username)
             if user is None:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -139,6 +143,65 @@ def require_env(name: str) -> str:
             detail=f"Missing environment variable: {name}",
         )
     return value
+
+
+# TODO: implemnt this function. Save access_token and refresh_token in DB connected to username
+def save_google_tokens(username, access_token, refresh_token) -> None:
+    pass
+
+
+# TODO: implement get google tokens from db
+def get_google_tokens(username):
+    pass
+
+
+def create_calendar_event(access_token, username):
+    url = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    event_data = {
+        "summary": "Möte med Gemini",
+        "description": "Diskussion om Google APIer",
+        "start": {"dateTime": "2026-02-15T10:00:00Z"},
+        "end": {"dateTime": "2026-02-15T11:00:00Z"},
+    }
+
+    response = requests.post(url, json=event_data, headers=headers)
+
+    if not response.ok and response.status_code == status.HTTP_401_UNAUTHORIZED:
+        access_token, refresh_token = get_google_tokens(username=username)
+        new_access_token = refresh_google_token(refresh_token)
+        save_google_tokens(
+            username=username,
+            access_token=new_access_token,
+            refresh_token=refresh_token,
+        )
+        return None
+
+    return response.json()
+
+
+def refresh_google_token(refresh_token: str):
+    client_id = require_env("GOOGLE_CLIENT_ID")
+    client_secret = require_env("GOOGLE_CLIENT_SECRET")
+
+    token_url = "https://oauth2.googleapis.com/token"
+
+    data = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "refresh_token": refresh_token,
+        "grant_type": "refresh_token",
+    }
+
+    response = requests.post(token_url, data=data, timeout=15)
+
+    if not response.ok:
+        raise HTTPException(status_code=401, detail="Could not refresh Google token")
+
+    new_tokens = response.json()
+
+    return new_tokens.get("access_token")
 
 
 @router.post("/api/token", response_model=Token)
@@ -172,7 +235,7 @@ def login_google(request: Request):
             "client_id": client_id,
             "redirect_uri": oauth_redirect_uri(request, "google"),
             "response_type": "code",
-            "scope": "openid email profile",
+            "scope": "openid email profile https://www.googleapis.com/auth/calendar",
             "state": state,
             "access_type": "offline",
             "prompt": "consent",
@@ -202,7 +265,10 @@ def callback_google(request: Request, code: str = Query(...), state: str = Query
     )
     if not token_res.ok:
         raise HTTPException(status_code=400, detail="Google token exchange failed")
-    access_token = token_res.json().get("access_token")
+
+    tokens = token_res.json()
+    access_token = tokens.get("access_token")
+    refresh_token = tokens.get("refresh_token")
     if not access_token:
         raise HTTPException(status_code=400, detail="Google access token missing")
 
@@ -215,6 +281,9 @@ def callback_google(request: Request, code: str = Query(...), state: str = Query
         raise HTTPException(status_code=400, detail="Google user info fetch failed")
     user_data = user_res.json()
     username = upsert_google_user(user_data)
+
+    save_google_tokens(username, access_token, refresh_token)
+
     return issue_login_redirect(username)
 
 
