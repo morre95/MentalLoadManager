@@ -1,12 +1,9 @@
 import Navbar from "../components/landing/Navbar";
 
 import { useEffect, useState } from 'react';
+import {GET_API_BASE_URL} from '../components/ui/base_url'
 
-let API_BASE_URL = "http://localhost:8000";
-
-if (window.location.href.includes('frontend-production')) {
-    API_BASE_URL = "https://mentalloadmanager-production.up.railway.app"
-} 
+const API_BASE_URL = GET_API_BASE_URL();
 
 function Login() {
   const [message, setMessage] = useState("Click to Load...");

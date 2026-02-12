@@ -462,3 +462,4 @@ def callback_instagram(
         f"instagram:{user_data.get('username') or user_data.get('id', 'unknown')}"
     )
     return issue_login_redirect(username)
+

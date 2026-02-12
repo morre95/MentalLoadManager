@@ -593,7 +593,24 @@ class AISummaries(Base):
     household: Mapped[Households] = relationship(
         "Households", back_populates="ai_summaries"
     )
+    
+class ContactMessages(Base):
+    __tablename__ = "contact_messages"
 
+    contact_message_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        server_default=text("NOW()"),
+    )
 
 __all__ = [
     "Base",
@@ -617,4 +634,5 @@ __all__ = [
     "MonthlyReports",
     "DailyReports",
     "AISummaries",
+    "ContactMessages",
 ]
