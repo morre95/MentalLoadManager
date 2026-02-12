@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Navbar from "../components/landing/Navbar";
 import { GET_API_BASE_URL } from "../components/ui/base_url";
+import { getAuthToken, isUserLoggedIn } from "../lib/utils";
 
 const API_BASE_URL = GET_API_BASE_URL();
 
@@ -12,19 +13,20 @@ const Contact = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const body = new URLSearchParams();
-    body.set("name", name);
-    body.set("email", email);
-    body.set("message", message);
+    const token = getAuthToken();
+    const headers = { "Content-Type": "application/json" };
+    if (isUserLoggedIn() && token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
 
     const response = await fetch(API_BASE_URL + "/api/contact/send/message", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ name, email, message }),
-});
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name, email, message }),
+    });
 
-const data = await response.json();
-console.log(data)
+    const data = await response.json();
+    console.log(data)
 
     if (response.ok) {
       setName("");
