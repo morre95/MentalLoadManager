@@ -4,10 +4,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers import all_routers
 from db_setup import main
 
-main()
+
 
 
 app = FastAPI()
+
+@app.on_event("startup")
+async def startup_event():
+    main()
 
 load_dotenv()
 
