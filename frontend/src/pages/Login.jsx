@@ -31,18 +31,16 @@ function Login() {
       const params = new URLSearchParams(hash);
       const hashToken = params.get("access_token");
       if (hashToken) {
-        localStorage.setItem("auth_token", hashToken);
-        localStorage.setItem("token", hashToken);
+        localStorage.setItem("access_token", hashToken);
         setToken(hashToken);
         window.history.replaceState(null, "", window.location.pathname + window.location.search);
         return;
       }
     }
 
-    const stored = localStorage.getItem("auth_token") || localStorage.getItem("token");
+    const stored = localStorage.getItem("access_token");
     if (stored) {
-      localStorage.setItem("auth_token", stored);
-      localStorage.setItem("token", stored);
+      localStorage.setItem("access_token", stored);
       setToken(stored);
     }
   }, []);
@@ -70,8 +68,7 @@ function Login() {
       }
 
       const data = await res.json();
-      localStorage.setItem("auth_token", data.access_token);
-      localStorage.setItem("token", data.access_token);
+      localStorage.setItem("access_token", data.access_token);
       setToken(data.access_token);
     } catch (err) {
       setAuthError(err.message || "Login failed");
@@ -99,8 +96,7 @@ function Login() {
   };
 
   const logout = () => {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("token");
+    localStorage.removeItem("access_token");
     setToken(null);
     setCurrentUser(null);
   };

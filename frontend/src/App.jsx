@@ -23,8 +23,7 @@ const App = () => {
     const token = params.get("access_token");
     if (!token) return;
 
-    localStorage.setItem("auth_token", token);
-    localStorage.setItem("token", token);
+    localStorage.setItem("access_token", token);
     window.history.replaceState(
       null,
       "",

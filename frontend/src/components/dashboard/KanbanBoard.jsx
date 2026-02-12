@@ -155,7 +155,7 @@ const KanbanBoard = () => {
     const [tasks, setTasks] = useState(normalizeTasks(mockTasks));
 
     useEffect(() => {
-        const token = localStorage.getItem("auth_token") || localStorage.getItem("token");
+        const token = localStorage.getItem("access_token");
         if (!token) return; // logged out -> keep mock
 
         let cancelled = false;

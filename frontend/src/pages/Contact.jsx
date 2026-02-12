@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Navbar from "../components/landing/Navbar";
 import { GET_API_BASE_URL } from "../components/ui/base_url";
-import { getAuthToken, isUserLoggedIn } from "../lib/utils";
+import { getAccessToken, isUserLoggedIn } from "../lib/utils";
 
 const API_BASE_URL = GET_API_BASE_URL();
 
@@ -13,7 +13,7 @@ const Contact = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const token = getAuthToken();
+    const token = getAccessToken();
     const headers = { "Content-Type": "application/json" };
     if (isUserLoggedIn() && token) {
       headers.Authorization = `Bearer ${token}`;
