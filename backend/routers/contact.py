@@ -18,7 +18,7 @@ class SendMessageRequest(BaseModel):
     message: str
 
 @router.post("/send/message")
-async def send_message(payload: SendMessageRequest):
+def send_message(payload: SendMessageRequest):
     name = payload.name.strip()
     email = payload.email.strip() 
     message = payload.message.strip()
