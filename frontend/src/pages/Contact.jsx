@@ -1,11 +1,17 @@
 import Navbar from "../components/landing/Navbar";
 
 const Contact = () => {
+    const sendMessage = async () => {
+        const response = await fetch("/api/contact/send/message");
+        console.log(response)
+    }
+
     return (
         <div className="min-h-screen bg-background">
             <Navbar />
             <main>
                 <p>HELLO FROM Contact</p>
+                <button onClick={sendMessage}>Ckicka meddelande</button>
             </main>
         </div>
     );
