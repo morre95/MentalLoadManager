@@ -11,13 +11,14 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from models import GoogleTokens, Token, UserDB
+from models import GoogleTokens, Token, UserDB, User
 from helpers import (
     ALGORITHM,
     SECRET_KEY,
     authenticate_user,
     create_access_token,
     get_session_local,
+    get_current_user,
 )
 
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "30"))
@@ -89,6 +90,7 @@ def find_user(db, email, username) -> UserDB | None:
     return user
 
 
+# FIXME: update oauth_accounts with the right information
 def upsert_google_user(user_data: dict) -> str:
     email = user_data.get("email")
     provider_sub = user_data.get("sub")
@@ -160,7 +162,7 @@ def save_google_tokens(username, access_token, refresh_token) -> None:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found",
             )
-
+        # FIXME: använd oauth_accounts istället för google_tokens
         google_tokens = db.scalar(
             select(GoogleTokens).where(GoogleTokens.user_id == user.user_id)
         )
@@ -263,6 +265,13 @@ def refresh_google_token(refresh_token: str):
     new_tokens = response.json()
 
     return new_tokens.get("access_token")
+
+
+@router.post("/api/test/calendar")
+def test_calendar(user: User = Depends(get_current_user)):
+    access_token, _ = get_google_tokens(user.username)
+    create_calendar_event(access_token=access_token, username=user.username)
+    return {"success": True}
 
 
 @router.post("/api/token", response_model=Token)

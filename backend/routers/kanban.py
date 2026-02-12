@@ -8,12 +8,12 @@ from helpers import get_current_user, get_session_local
 from models import Categories, Tasks, User, UserDB
 
 router = APIRouter(
-    prefix="/api/kamban",
-    tags=["kamban"],
+    prefix="/api/kanban",
+    tags=["kanban"],
 )
 
 
-class KambanTask(BaseModel):
+class KanbanTask(BaseModel):
     task_id: str
     name: str
     status: str
@@ -22,11 +22,11 @@ class KambanTask(BaseModel):
     category_name: str | None = None
 
 
-class KambanTasksResponse(BaseModel):
-    tasks: list[KambanTask]
+class KanbanTasksResponse(BaseModel):
+    tasks: list[KanbanTask]
 
 
-@router.get("/tasks", response_model=KambanTasksResponse)
+@router.get("/tasks", response_model=KanbanTasksResponse)
 def list_kamban_tasks(_: User = Depends(get_current_user)):
     try:
         session_local = get_session_local()
@@ -51,9 +51,9 @@ def list_kamban_tasks(_: User = Depends(get_current_user)):
             .order_by(Tasks.created_at.desc())
         ).all()
 
-    return KambanTasksResponse(
+    return KanbanTasksResponse(
         tasks=[
-            KambanTask(
+            KanbanTask(
                 task_id=str(row.task_id),
                 name=row.name,
                 status=row.status,
