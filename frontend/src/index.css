@@ -172,9 +172,15 @@
     a:visited {
         color: inherit;
     }
+
     button {
-    @apply bg-transparent border-0 p-0;
-    appearance: none;
+        @apply bg-transparent border-0 p-0;
+        appearance: none;
+    }
+
+    ul {
+        list-style: none;
+        padding-left: 0;
     }
 
 
