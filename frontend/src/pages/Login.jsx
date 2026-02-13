@@ -69,6 +69,7 @@ function Login() {
 
       const data = await res.json();
       localStorage.setItem("access_token", data.access_token);
+      window.dispatchEvent(new Event("auth:changed"));
       setToken(data.access_token);
     } catch (err) {
       setAuthError(err.message || "Login failed");
@@ -97,6 +98,9 @@ function Login() {
 
   const logout = () => {
     localStorage.removeItem("access_token");
+    localStorage.removeItem("username");
+    localStorage.removeItem("email");
+    window.dispatchEvent(new Event("auth:changed"));
     setToken(null);
     setCurrentUser(null);
   };
