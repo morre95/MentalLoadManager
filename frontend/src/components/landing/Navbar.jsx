@@ -56,6 +56,19 @@ const Navbar = () => {
             </span>
           </Link>
 
+          {/* Nav Items */}
+          <nav className="hidden md:flex items-center gap-1">
+            {navItems.map((item) => (
+              <Link
+                key={item.label}
+                to={item.href}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-muted"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+
           <div className="flex items-center gap-3">
             {loggedIn && user ? (
               <Link
