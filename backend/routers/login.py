@@ -299,13 +299,14 @@ def refresh_google_token(refresh_token: str):
     return new_tokens.get("access_token")
 
 
-@router.post("/api/test/calendar")
+@router.get("/api/test/calendar")
 def test_calendar(user: User = Depends(get_current_user)):
     access_token, _ = get_google_tokens(user.username)
     create_calendar_event(access_token=access_token, username=user.username)
     return {"success": True}
 
 
+@router.post("/api/token")
 @router.post("/api/passwrod/login", response_model=Token)
 def login(form: OAuth2PasswordRequestForm = Depends()):
     try:
