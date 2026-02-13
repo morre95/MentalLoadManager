@@ -4,7 +4,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 
 from helpers import get_current_user, get_session_local, password_hasher
-from models import User, UserDB
+from models import User, UserDB, UserEmail
 
 router = APIRouter(
     prefix="/api/users",
@@ -85,6 +85,6 @@ def register_user(payload: RegisterUserRequest):
     return response
 
 
-@router.get("/me", response_model=User)
-def read_users_me(current_user: User = Depends(get_current_user)):
+@router.get("/me", response_model=UserEmail)
+def read_users_me(current_user: UserEmail = Depends(get_current_user)):
     return current_user

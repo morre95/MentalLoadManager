@@ -33,35 +33,45 @@ export function isUserLoggedIn() {
 }
 
 export const fetchMe = async () => {
-
   const token = getAccessToken();
   if (!token) return null;
 
-  const user = getUserFromLocalStorage();
-  if (user) return user; 
+  const cached = getUserFromLocalStorage();
+
+  // Only return cache if it looks valid
+  if (cached?.username && cached?.email) {
+    return cached;
+  }
+
   try {
-    const res = await fetch(`${API_BASE_URL}/api/users/me`, {
+    const url = `${API_BASE_URL}/api/users/me`;
+
+    const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
+    // Read body once (avoids double-read issues)
+    const text = await res.text();
+
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+        console.error("Failed to fetch user");
+    }
+
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || "Failed to fetch user");
+      throw new Error(data?.detail || "Failed to fetch user");
+    }
+    if (!data?.username) {
+      throw new Error("No username in /api/users/me response");
     }
 
-    const user = await res.json();
+    saveUserToLocalStorage(data);
 
-    // spara username i localStorage
-    if (!user.username) {
-      throw new Error(err.detail || "No username")
-    }
-    saveUserToLocalStorage(user)
-
-    // returnera username & email
-    return user;
+    return data;
   } catch (err) {
+    console.error("[fetchMe] error:", err);
     return null;
   }
 };
-
-

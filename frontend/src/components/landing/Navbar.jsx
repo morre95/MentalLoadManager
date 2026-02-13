@@ -22,6 +22,7 @@ const Navbar = () => {
       return;
     }
     const user = await fetchUser();
+    console.log("after fetch" + user);
     setUser(user);
   };
 

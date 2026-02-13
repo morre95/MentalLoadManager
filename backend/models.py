@@ -33,6 +33,8 @@ class Token(BaseModel):
 class User(BaseModel):
     username: str
 
+class UserEmail(User):
+    email: str
 
 class UserDB(Base):
     __tablename__ = "users"

@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, func, or_, select
 from sqlalchemy.orm import sessionmaker
 
 from pwdlib.hashers.argon2 import Argon2Hasher
-from models import User, UserDB
+from models import User, UserDB, UserEmail
 
 password_hasher = PasswordHash([Argon2Hasher()])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/token")
@@ -108,7 +108,7 @@ def get_user_id_from_token(
         return user.user_id if user else None
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+def get_current_user(token: str = Depends(oauth2_scheme)) -> UserEmail:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username = payload.get("sub")
@@ -136,4 +136,4 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
                 detail="Could not validate credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        return User(username=user.username)
+        return UserEmail(username=user.username, email=user.email)
