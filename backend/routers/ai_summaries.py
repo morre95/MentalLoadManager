@@ -1,6 +1,8 @@
 import hashlib
 import json
 import os
+import time as time_module
+import logging
 from datetime import UTC, date, datetime, time, timedelta
 from uuid import UUID
 
@@ -13,13 +15,15 @@ from sqlalchemy.exc import SQLAlchemyError
 from helpers import get_current_user, get_session_local
 from models import AISummaries, Tasks, UserDB, UserEmail, UsersHouseholds
 
-DEFAULT_OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
+DEFAULT_OPENROUTER_MODEL = "openrouter/free"
 OPENROUTER_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions"
+DEFAULT_FALLBACK_MODELS = ["openrouter/free"]
 
 router = APIRouter(
     prefix="/api/ai",
     tags=["ai"],
 )
+logger = logging.getLogger(__name__)
 
 
 class GenerateWeeklySummaryRequest(BaseModel):
@@ -71,6 +75,31 @@ def _to_iso(value: datetime | None) -> str | None:
     return value.isoformat()
 
 
+def _parse_retry_after_seconds(response: requests.Response) -> float:
+    retry_after = response.headers.get("Retry-After")
+    if not retry_after:
+        return 1.5
+    try:
+        return max(float(retry_after), 0.5)
+    except ValueError:
+        return 1.5
+
+
+def _load_model_candidates(primary_model: str) -> list[str]:
+    fallback_raw = os.getenv("OPENROUTER_WEEKLY_SUMMARY_FALLBACK_MODELS", "")
+    fallbacks = [item.strip() for item in fallback_raw.split(",") if item.strip()]
+    if not fallbacks:
+        fallbacks = DEFAULT_FALLBACK_MODELS
+
+    candidates: list[str] = []
+    for model in [primary_model, *fallbacks]:
+        if model not in candidates:
+            candidates.append(model)
+    if "openrouter/free" not in candidates:
+        candidates.append("openrouter/free")
+    return candidates
+
+
 @router.post("/weekly-summary", response_model=GenerateWeeklySummaryResponse)
 def generate_weekly_summary(
     payload: GenerateWeeklySummaryRequest,
@@ -84,6 +113,7 @@ def generate_weekly_summary(
         )
 
     model_name = os.getenv("OPENROUTER_WEEKLY_SUMMARY_MODEL", DEFAULT_OPENROUTER_MODEL)
+    model_candidates = _load_model_candidates(model_name)
     week_start = _normalize_week_start(payload.week_start)
     week_end = week_start + timedelta(days=7)
     week_start_dt = datetime.combine(week_start, time.min, tzinfo=UTC)
@@ -108,11 +138,8 @@ def generate_weekly_summary(
         membership = db.scalar(
             select(UsersHouseholds).where(
                 and_(
-                    # UsersHouseholds.user_id == user.user_id,
-                    UsersHouseholds.user_id == "a1b2c3d4-1111-1111-1111-111111111111",
-                    # UsersHouseholds.household_id == payload.household_id,
-                    UsersHouseholds.household_id
-                    == "b1b2b3b4-1111-1111-1111-111111111111",
+                    UsersHouseholds.user_id == user.user_id,
+                    UsersHouseholds.household_id == payload.household_id,
                 )
             )
         )
@@ -239,8 +266,7 @@ def generate_weekly_summary(
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
-    body = {
-        "model": model_name,
+    base_body = {
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -248,19 +274,69 @@ def generate_weekly_summary(
         "temperature": 0.2,
     }
 
-    try:
-        ai_response = requests.post(
-            OPENROUTER_CHAT_COMPLETIONS_URL,
-            headers=headers,
-            json=body,
-            timeout=60,
-        )
-        ai_response.raise_for_status()
-    except requests.RequestException as exc:
+    ai_response: requests.Response | None = None
+    selected_model = model_name
+    request_failures: list[str] = []
+
+    for candidate_model in model_candidates:
+        selected_model = candidate_model
+        for attempt in range(2):
+            body = {"model": candidate_model, **base_body}
+            try:
+                ai_response = requests.post(
+                    OPENROUTER_CHAT_COMPLETIONS_URL,
+                    headers=headers,
+                    json=body,
+                    timeout=60,
+                )
+            except requests.RequestException as exc:
+                request_failures.append(f"{candidate_model}: network error ({exc})")
+                break
+
+            if ai_response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+                request_failures.append(
+                    f"{candidate_model}: rate limited (attempt {attempt + 1}/2)"
+                )
+                if attempt == 0:
+                    time_module.sleep(_parse_retry_after_seconds(ai_response))
+                    continue
+                break
+
+            if ai_response.ok:
+                break
+
+            request_failures.append(
+                f"{candidate_model}: {ai_response.status_code} {ai_response.text[:120]}"
+            )
+            break
+
+        if ai_response is not None and ai_response.ok:
+            break
+
+    if ai_response is None:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"OpenRouter request failed: {exc}",
-        ) from exc
+            detail="OpenRouter request failed before receiving a response",
+        )
+
+    if not ai_response.ok:
+        if ai_response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    "OpenRouter rate limit reached for configured free models. "
+                    f"Tried models: {', '.join(model_candidates)}. "
+                    "Set OPENROUTER_WEEKLY_SUMMARY_MODEL to a less busy model, "
+                    "or configure OPENROUTER_WEEKLY_SUMMARY_FALLBACK_MODELS."
+                ),
+            )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                f"OpenRouter request failed with status {ai_response.status_code}. "
+                f"Attempts: {' | '.join(request_failures)}"
+            ),
+        )
 
     response_json = ai_response.json()
     summary_text = _extract_text_content(response_json)
@@ -271,11 +347,12 @@ def generate_weekly_summary(
         )
 
     with session_local() as db:
+        model_for_db = selected_model[:100] if selected_model else None
         ai_summary = AISummaries(
             household_id=payload.household_id,
             week_start=week_start,
             content=summary_text,
-            model=model_name,
+            model=model_for_db,
             prompt_hash=prompt_hash,
         )
         db.add(ai_summary)
@@ -283,9 +360,10 @@ def generate_weekly_summary(
             db.commit()
         except SQLAlchemyError as exc:
             db.rollback()
+            logger.exception("Failed to store AI summary: %s", exc)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to store AI summary",
+                detail=f"Failed to store AI summary: {exc}",
             ) from exc
         db.refresh(ai_summary)
 
@@ -293,7 +371,7 @@ def generate_weekly_summary(
         ai_summary_id=str(ai_summary.ai_summary_id),
         household_id=str(ai_summary.household_id),
         week_start=ai_summary.week_start or week_start,
-        model=ai_summary.model or model_name,
+        model=ai_summary.model or selected_model,
         content=ai_summary.content,
         prompt_hash=ai_summary.prompt_hash or prompt_hash,
     )
