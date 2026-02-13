@@ -166,11 +166,11 @@
     }
 
     a {
-        @apply no-underline;
+        @apply no-underline text-inherit;
     }
 
     a:visited {
-        color: inherit;
+        @apply text-inherit;
     }
 
     button {

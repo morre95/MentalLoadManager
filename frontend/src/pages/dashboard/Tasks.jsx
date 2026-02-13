@@ -87,8 +87,8 @@ const SortableTaskCard = ({ task, onToggleStatus, onClick }) => {
                         <div className="flex items-center gap-2 flex-wrap">
                             <span
                                 className={`font-medium truncate ${task.status === "done"
-                                        ? "line-through text-muted-foreground"
-                                        : "text-foreground"
+                                    ? "line-through text-muted-foreground"
+                                    : "text-foreground"
                                     }`}
                             >
                                 {task.title}
@@ -289,8 +289,14 @@ const Tasks = () => {
                     {loading ? (
                         <p className="text-sm text-muted-foreground mt-2">Loading tasks…</p>
                     ) : null}
-                    {error ? (
-                        <p className="text-sm text-red-600 mt-2">Error: {error}</p>
+                    {error?.status === 401 ? (
+                        <p className="text-sm text-red-600 mt-2">
+                            Your session has expired. Please log in again.
+                        </p>
+                    ) : error ? (
+                        <p className="text-sm text-red-600 mt-2">
+                            Couldn’t load tasks. Check console/network.
+                        </p>
                     ) : null}
                 </div>
 

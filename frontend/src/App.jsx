@@ -3,6 +3,9 @@ import "./App.css";
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { setAuthToken } from "@/lib/utils";
+import RequireAuth from "@/components/RequireAuth";
+
 
 // Pages
 import Index from "./pages/Index";
@@ -39,7 +42,7 @@ const App = () => {
     const token = params.get("access_token");
     if (!token) return;
 
-    localStorage.setItem("access_token", token);
+    setAuthToken(token);
 
     // Clean URL
     window.history.replaceState(
@@ -64,7 +67,8 @@ const App = () => {
           <Route path="/test" element={<Test />} />
 
           {/* Dashboard layout wrapper */}
-          <Route path="/dashboard" element={<DashboardLayout />}>
+          
+          <Route path="/dashboard" element={<RequireAuth><DashboardLayout /></RequireAuth>}>
             <Route index element={<Dashboard />} />
             <Route path="tasks" element={<Tasks />} />
             <Route path="calendar" element={<Calendar />} />
