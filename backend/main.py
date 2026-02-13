@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 import os
+import random
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import all_routers
@@ -34,4 +35,16 @@ for router in all_routers:
 
 @app.get("/api/hello")
 def read_root():
-    return {"message": "Hello from Fastapi backend"}
+    messages = [
+        "Hello from FastAPI backend!",
+        "Welcome back! Everything is running smoothly.",
+        "Hi there! Your API is alive and ready.",
+        "Nice to see you. Keep going!",
+        "Ping received. Response delivered.",
+        "System check complete. All good.",
+        "Today is a great day to ship code.",
+        "Request accepted. Sending positive vibes.",
+        "Backend says hello from the server side.",
+        "You reached /api/hello successfully.",
+    ]
+    return {"message": random.choice(messages)}
