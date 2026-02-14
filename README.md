@@ -31,14 +31,14 @@ MentalLoadManager/
 
 ### Frontend
 
-1. Gaa till frontend-mappen: `cd frontend`
+1. Gå till frontend-mappen: `cd frontend`
 2. Installera beroenden: `npm install`
 3. Starta dev-servern: `npm run dev`
 
 ## Anvaandning
 
-- Backend kors paa: `http://localhost:5000` (eller din konfigurerade port)
-- Frontend kors paa: `http://localhost:5173` (Vite default)
+- Backend kors på: `http://localhost:8000` (eller din konfigurerade port)
+- Frontend kors på: `http://localhost:5173` (Vite default)
 
 ## Licens
 
