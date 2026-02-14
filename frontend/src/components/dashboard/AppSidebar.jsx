@@ -10,6 +10,10 @@ import {
 } from "lucide-react";
 
 import { NavLink } from "@/components/NavLink";
+import { clearAuth } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+
 
 import {
     Sidebar,
@@ -42,6 +46,13 @@ const teamItems = [
 export function AppSidebar() {
     const { state } = useSidebar();
     const collapsed = state === "collapsed";
+    const navigate = useNavigate();
+
+    const handleSignOut = () => {
+        clearAuth();
+        queryClient.clear();
+        navigate("/", { replace: true });
+    };
 
     return (
         <Sidebar collapsible="icon" className="border-r border-border">
@@ -144,6 +155,8 @@ export function AppSidebar() {
                     {/* Logout */}
                     <SidebarMenuItem>
                         <SidebarMenuButton
+                            type="button"
+                            onClick={handleSignOut}
                             className="text-muted-foreground hover:text-destructive"
                             tooltip="Sign out"
                         >
