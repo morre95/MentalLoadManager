@@ -52,6 +52,7 @@ class KanbanTask(BaseModel):
     task_id: str
     name: str
     status: str
+    priority: str
     due_date: datetime | None = None
     assignee_name: str | None = None
     category_name: str | None = None
@@ -89,6 +90,7 @@ def list_kamban_tasks(_: User = Depends(get_current_user)):
                 Tasks.task_id,
                 Tasks.name,
                 Tasks.status,
+                Tasks.priority,
                 Tasks.due_date,
                 UserDB.username.label("assignee_name"),
                 Categories.name.label("category_name"),
@@ -104,6 +106,7 @@ def list_kamban_tasks(_: User = Depends(get_current_user)):
                 task_id=str(row.task_id),
                 name=row.name,
                 status=row.status,
+                priority=row.priority,
                 due_date=row.due_date,
                 assignee_name=row.assignee_name,
                 category_name=row.category_name,

@@ -102,7 +102,7 @@ const SortableTaskCard = ({ task, onToggleStatus, onClick }) => {
                             </span>
                             <Badge
                                 variant="outline"
-                                className={`text-xs flex-shrink-0 ${priorityColors[task.priority]}`}
+                                className={`text-xs flex-shrink-0 ${priorityColors[task.priority] || priorityColors.medium}`}
                             >
                                 {task.priority}
                             </Badge>
@@ -137,7 +137,7 @@ const TaskOverlayCard = ({ task }) => (
     <div className="p-3 rounded-lg border bg-card shadow-xl ring-2 ring-primary/20 w-72">
         <div className="flex items-center gap-2">
             <span className="font-medium truncate text-foreground">{task.title}</span>
-            <Badge variant="outline" className={`text-xs flex-shrink-0 ${priorityColors[task.priority]}`}>
+            <Badge variant="outline" className={`text-xs flex-shrink-0 ${priorityColors[task.priority] || priorityColors.medium}`}>
                 {task.priority}
             </Badge>
         </div>

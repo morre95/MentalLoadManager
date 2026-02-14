@@ -9,6 +9,23 @@ function normalizeStatus(s) {
     return v;
 }
 
+function normalizePriority(task) {
+    const raw =
+        task?.priority ??
+        task?.priority_level ??
+        task?.priority_name ??
+        task?.priorityLabel ??
+        "medium";
+
+    const value = String(raw).trim().toLowerCase();
+
+    if (["high", "h", "3", "p1", "urgent"].includes(value)) return "high";
+    if (["low", "l", "1", "p3"].includes(value)) return "low";
+    if (["medium", "med", "m", "2", "p2", "normal"].includes(value)) return "medium";
+
+    return "medium";
+}
+
 function formatDueDate(iso) {
     if (!iso) return undefined;
     const d = new Date(iso);
@@ -22,7 +39,7 @@ function mapApiTaskToUi(t) {
         title: t.name || "",
         description: undefined,
         status: normalizeStatus(t.status),
-        priority: "medium",
+        priority: normalizePriority(t),
         assignee: t.assignee_name || "Unassigned",
         dueDate: formatDueDate(t.due_date),
         category: t.category_name || "Other",
