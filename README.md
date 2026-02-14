@@ -50,8 +50,8 @@ npm run dev
 
 ## Anvaandning
 
-- Backend kors på: [http://localhost:8000](http://localhost:8000)
-- Frontend kors på: [http://localhost:5173](http://localhost:5173)
+- Backend swagger körs på: [http://localhost:8000/docs](http://localhost:8000/docs)
+- Frontend körs på: [http://localhost:5173](http://localhost:5173)
 
 ## Licens
 
