@@ -38,6 +38,7 @@ import AddTaskDialog from "@/components/tasks/AddTaskDialog";
 import TaskDetailDialog from "@/components/tasks/TaskDetailDialog";
 
 import { useTaskboardTasks } from "@/hooks/useTaskboardTasks";
+import { updateKanbanTaskStatus } from "@/lib/utils";
 
 const priorityColors = {
     low: "bg-sage-light text-sage border-sage/30",
@@ -51,6 +52,12 @@ const columns = [
     { id: "on-hold", title: "On Hold", colorClass: "bg-[hsl(var(--lavender))]", icon: PauseCircle },
     { id: "done", title: "Done", colorClass: "bg-status-done", icon: CheckCircle2 },
 ];
+
+function toApiStatus(status) {
+    if (status === "in-progress") return "in_progress";
+    if (status === "on-hold") return "on_hold";
+    return status;
+}
 
 // Sortable task card
 const SortableTaskCard = ({ task, onToggleStatus, onClick }) => {
@@ -193,20 +200,41 @@ const Tasks = () => {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [selectedTask, setSelectedTask] = useState(null);
     const [activeId, setActiveId] = useState(null);
+    const [dragStartColumn, setDragStartColumn] = useState(null);
+    const [dragSnapshot, setDragSnapshot] = useState(null);
+    const [syncError, setSyncError] = useState(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
-    const handleToggleStatus = (id) => {
+    const persistTaskStatus = async (taskId, nextStatus, rollbackTasks) => {
+        try {
+            await updateKanbanTaskStatus(taskId, toApiStatus(nextStatus));
+        } catch (e) {
+            if (Array.isArray(rollbackTasks)) {
+                setTasks(rollbackTasks);
+            }
+            setSyncError(e);
+        }
+    };
+
+    const handleToggleStatus = async (id) => {
+        const currentTask = tasks.find((task) => task.id === id);
+        if (!currentTask) return;
+
+        const rollbackTasks = tasks;
+        const nextStatus = currentTask.status === "done" ? "todo" : "done";
+        setSyncError(null);
         setTasks((prev) =>
             prev.map((task) =>
                 task.id === id
-                    ? { ...task, status: task.status === "done" ? "todo" : "done" }
+                    ? { ...task, status: nextStatus }
                     : task
             )
         );
+        await persistTaskStatus(id, nextStatus, rollbackTasks);
     };
 
     const handleAddTask = (newTask) => {
@@ -219,7 +247,11 @@ const Tasks = () => {
     };
 
     const handleDragStart = (event) => {
-        setActiveId(String(event.active.id));
+        const taskId = String(event.active.id);
+        setActiveId(taskId);
+        setDragStartColumn(findColumnForTask(taskId));
+        setDragSnapshot(tasks);
+        setSyncError(null);
     };
 
     const handleDragOver = (event) => {
@@ -244,12 +276,20 @@ const Tasks = () => {
     const handleDragEnd = (event) => {
         const { active, over } = event;
         setActiveId(null);
-        if (!over) return;
+        if (!over) {
+            if (Array.isArray(dragSnapshot)) {
+                setTasks(dragSnapshot);
+            }
+            setDragStartColumn(null);
+            setDragSnapshot(null);
+            return;
+        }
 
         const aId = String(active.id);
         const oId = String(over.id);
 
         const isOverColumn = columns.some((c) => c.id === oId);
+        const targetColumn = isOverColumn ? oId : findColumnForTask(oId);
 
         // Reorder within same column
         if (!isOverColumn && aId !== oId) {
@@ -266,6 +306,13 @@ const Tasks = () => {
                 });
             }
         }
+
+        if (dragStartColumn && targetColumn && dragStartColumn !== targetColumn) {
+            persistTaskStatus(aId, targetColumn, dragSnapshot);
+        }
+
+        setDragStartColumn(null);
+        setDragSnapshot(null);
     };
 
     const activeTask = tasks.find((t) => t.id === activeId);
@@ -296,6 +343,11 @@ const Tasks = () => {
                     ) : error ? (
                         <p className="text-sm text-red-600 mt-2">
                             Couldn’t load tasks. Check console/network.
+                        </p>
+                    ) : null}
+                    {syncError ? (
+                        <p className="text-sm text-red-600 mt-2">
+                            Couldn’t update task status. Changes were reverted.
                         </p>
                     ) : null}
                 </div>

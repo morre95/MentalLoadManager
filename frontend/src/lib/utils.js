@@ -146,3 +146,10 @@ export async function apiFetch(path, options = {}) {
 export async function fetchKanbanTasks() {
   return apiFetch("/api/kanban/tasks", { method: "GET" });
 }
+
+export async function updateKanbanTaskStatus(taskId, status) {
+  return apiFetch(`/api/kanban/tasks/${taskId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}

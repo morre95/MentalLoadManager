@@ -61,6 +61,18 @@ class KanbanTasksResponse(BaseModel):
     tasks: list[KanbanTask]
 
 
+class UpdateTaskStatusRequest(BaseModel):
+    status: str
+
+
+class UpdateTaskStatusResponse(BaseModel):
+    task_id: str
+    status: str
+    started_at: datetime | None = None
+    complete_date: datetime | None = None
+    updated_at: datetime | None = None
+
+
 @router.get("/tasks", response_model=KanbanTasksResponse)
 def list_kamban_tasks(_: User = Depends(get_current_user)):
     try:
@@ -241,4 +253,96 @@ def create_task(
             complete_date=new_task.complete_date,
             created_at=new_task.created_at,
             updated_at=new_task.updated_at,
+        )
+
+
+@router.patch(
+    "/tasks/{task_id}/status",
+    response_model=UpdateTaskStatusResponse,
+)
+def update_task_status(
+    task_id: UUID,
+    payload: UpdateTaskStatusRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    next_status = payload.status.strip().lower()
+    if next_status not in ALLOWED_TASK_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid task status",
+        )
+
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        me = db.scalar(select(UserDB).where(UserDB.username == current_user.username))
+        if not me:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        task = db.scalar(select(Tasks).where(Tasks.task_id == task_id))
+        if task is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Task was not found",
+            )
+
+        requester_membership = db.scalar(
+            select(UsersHouseholds).where(
+                and_(
+                    UsersHouseholds.user_id == me.user_id,
+                    UsersHouseholds.household_id == task.household_id,
+                )
+            )
+        )
+        if requester_membership is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a member of the task household",
+            )
+
+        now_utc = datetime.now(timezone.utc)
+        task.status = next_status
+        task.updated_at = now_utc
+
+        if next_status == "todo":
+            task.started_at = None
+            task.complete_date = None
+        elif next_status == "in_progress":
+            if task.started_at is None:
+                task.started_at = now_utc
+            task.complete_date = None
+        elif next_status == "on_hold":
+            task.complete_date = None
+        elif next_status == "done":
+            if task.started_at is None:
+                task.started_at = now_utc
+            if task.complete_date is None:
+                task.complete_date = now_utc
+
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Unable to update task status",
+            ) from exc
+
+        db.refresh(task)
+        return UpdateTaskStatusResponse(
+            task_id=str(task.task_id),
+            status=task.status,
+            started_at=task.started_at,
+            complete_date=task.complete_date,
+            updated_at=task.updated_at,
         )
