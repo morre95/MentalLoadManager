@@ -13,6 +13,8 @@ import { NavLink } from "@/components/NavLink";
 import { clearAuth } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { getUserFromLocalStorage } from "@/lib/utils";
+
 
 
 import {
@@ -47,6 +49,24 @@ export function AppSidebar() {
     const { state } = useSidebar();
     const collapsed = state === "collapsed";
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
+
+    const user = getUserFromLocalStorage();
+
+    // Convert username
+    const fullName =
+        user?.username
+            ?.split("_")
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(" ") || "User";
+
+    // Extract initials:
+    const initials = fullName
+        .split(" ")
+        .map((n) => n.charAt(0))
+        .slice(0, 2);
+
+
 
     const handleSignOut = () => {
         clearAuth();
@@ -57,7 +77,10 @@ export function AppSidebar() {
     return (
         <Sidebar collapsible="icon" className="border-r border-border">
             {/* Logo/Header */}
-            <div className="flex items-center gap-3 p-4 border-b border-border">
+            <NavLink
+                to="/"
+                className="flex items-center gap-3 p-4 border-b border-border no-underline"
+            >
                 <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
                     <span className="text-sm font-bold text-primary-foreground">M</span>
                 </div>
@@ -67,7 +90,7 @@ export function AppSidebar() {
                         Mental Load
                     </span>
                 )}
-            </div>
+            </NavLink>
 
             {/* Sidebar Content */}
             <SidebarContent className="px-2">
@@ -133,18 +156,19 @@ export function AppSidebar() {
                         <SidebarMenuButton className="w-full" tooltip="Profile">
                             <div className="flex items-center gap-3 w-full">
                                 <Avatar className="h-8 w-8 shrink-0">
-                                    <AvatarFallback className="bg-sage text-sage-light text-xs">
-                                        MA
+                                    <AvatarFallback className="bg-sage text-sage-light text-sm font-bold">
+                                        {initials[0]}
+                                        {initials[1]}
                                     </AvatarFallback>
                                 </Avatar>
 
                                 {!collapsed && (
                                     <div className="flex-1 text-left truncate">
                                         <p className="text-sm font-medium truncate">
-                                            Maria Andersson
+                                            {fullName}
                                         </p>
                                         <p className="text-xs text-muted-foreground truncate">
-                                            maria@example.com
+                                            {user?.email || ""}
                                         </p>
                                     </div>
                                 )}

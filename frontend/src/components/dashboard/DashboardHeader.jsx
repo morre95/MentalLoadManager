@@ -46,18 +46,24 @@ const DashboardHeader = ({ onAddTask }) => {
                     <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-terracotta rounded-full" />
                 </Button>
 
+                {/* Household Avatars */}
                 <div className="flex -space-x-2">
-                    <Avatar className="h-8 w-8 ring-2 ring-background">
-                        <AvatarFallback className="bg-sage text-sage-light text-xs">
-                            M
-                        </AvatarFallback>
-                    </Avatar>
+                    {members.slice(0, 5).map((person, i) => (
+                        <Avatar key={i} className="h-8 w-8 ring-2 ring-background">
+                            <AvatarFallback className="bg-sage text-sage-light text-xs font-semibold">
+                                {person.name?.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                        </Avatar>
+                    ))}
 
-                    <Avatar className="h-8 w-8 ring-2 ring-background">
-                        <AvatarFallback className="bg-terracotta text-terracotta-light text-xs">
-                            E
-                        </AvatarFallback>
-                    </Avatar>
+                    {/* If more than 5, show +X */}
+                    {members.length > 5 && (
+                        <Avatar className="h-8 w-8 ring-2 ring-background">
+                            <AvatarFallback className="bg-muted text-muted-foreground text-xs">
+                                +{members.length - 5}
+                            </AvatarFallback>
+                        </Avatar>
+                    )}
                 </div>
             </div>
         </header>
