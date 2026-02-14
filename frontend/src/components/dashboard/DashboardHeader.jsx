@@ -1,20 +1,25 @@
+// src/components/dashboard/DashboardHeader.jsx
+import { useState } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Bell, Search, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useHouseholdMembers } from "@/hooks/useHouseholdMembers";
+
+function firstLetter(name) {
+    const s = String(name || "").trim();
+    return s ? s[0].toUpperCase() : "?";
+}
 
 const DashboardHeader = ({ onAddTask }) => {
     const navigate = useNavigate();
-    const location = useLocation();
+    const { members } = useHouseholdMembers();
 
     const handleAddClick = () => {
-        if (onAddTask) {
-            onAddTask();
-        } else {
-            navigate("/dashboard/tasks");
-        }
+        if (onAddTask) onAddTask();
+        else navigate("/dashboard/tasks");
     };
 
     return (
@@ -32,11 +37,7 @@ const DashboardHeader = ({ onAddTask }) => {
             </div>
 
             <div className="flex items-center gap-3">
-                <Button
-                    size="sm"
-                    className="gap-2 bg-primary hover:bg-primary/90"
-                    onClick={handleAddClick}
-                >
+                <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90" onClick={handleAddClick}>
                     <Plus className="h-4 w-4" />
                     <span className="hidden sm:inline">Add Task</span>
                 </Button>
@@ -46,20 +47,18 @@ const DashboardHeader = ({ onAddTask }) => {
                     <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-terracotta rounded-full" />
                 </Button>
 
-                {/* Household Avatars */}
                 <div className="flex -space-x-2">
                     {members.slice(0, 5).map((person, i) => (
-                        <Avatar key={i} className="h-8 w-8 ring-2 ring-background">
+                        <Avatar key={person.id ?? `${person.name ?? "member"}-${i}`} className="h-8 w-8 ring-2 ring-background">
                             <AvatarFallback className="bg-sage text-sage-light text-xs font-semibold">
-                                {person.name?.charAt(0).toUpperCase()}
+                                {firstLetter(person.name)}
                             </AvatarFallback>
                         </Avatar>
                     ))}
 
-                    {/* If more than 5, show +X */}
                     {members.length > 5 && (
                         <Avatar className="h-8 w-8 ring-2 ring-background">
-                            <AvatarFallback className="bg-muted text-muted-foreground text-xs">
+                            <AvatarFallback className="bg-muted text-muted-foreground text-xs font-semibold">
                                 +{members.length - 5}
                             </AvatarFallback>
                         </Avatar>
