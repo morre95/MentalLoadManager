@@ -6,7 +6,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from helpers import get_current_user, get_session_local
-from models import UserEmail, UserDB, UsersHouseholds
+from models import Households, UserEmail, UserDB, UsersHouseholds
 
 
 router = APIRouter(
@@ -30,6 +30,15 @@ class AddHouseholdMemberRequest(BaseModel):
     user_id: UUID | None = None
     username: str | None = None
     email: str | None = None
+
+
+class CreateHouseholdRequest(BaseModel):
+    name: str
+
+
+class CreateHouseholdResponse(BaseModel):
+    household_id: str
+    name: str
 
 
 @router.get("/members", response_model=HouseholdMembersResponse)
@@ -81,6 +90,65 @@ def list_household_members(current_user: UserEmail = Depends(get_current_user)):
         ]
 
         return HouseholdMembersResponse(members=members)
+
+
+@router.post(
+    "",
+    response_model=CreateHouseholdResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_household(
+    payload: CreateHouseholdRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Household name is required",
+        )
+
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        me = db.scalar(select(UserDB).where(UserDB.username == current_user.username))
+        if not me:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        new_household = Households(name=name)
+        db.add(new_household)
+        db.flush()
+
+        db.add(
+            UsersHouseholds(
+                user_id=me.user_id,
+                household_id=new_household.household_id,
+            )
+        )
+
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Unable to create household",
+            ) from exc
+
+        return CreateHouseholdResponse(
+            household_id=str(new_household.household_id),
+            name=new_household.name,
+        )
 
 
 @router.post(
