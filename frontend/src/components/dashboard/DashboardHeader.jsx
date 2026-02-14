@@ -22,6 +22,11 @@ const DashboardHeader = ({ onAddTask }) => {
         else navigate("/dashboard/tasks");
     };
 
+    const avatarColors = [
+        "bg-sage text-sage-light",
+        "bg-terracotta text-white",
+    ];
+
     return (
         <header className="sticky top-0 z-40 flex items-center justify-between h-14 px-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="flex items-center gap-4">
@@ -48,13 +53,20 @@ const DashboardHeader = ({ onAddTask }) => {
                 </Button>
 
                 <div className="flex -space-x-2">
-                    {members.slice(0, 5).map((person, i) => (
-                        <Avatar key={person.id ?? `${person.name ?? "member"}-${i}`} className="h-8 w-8 ring-2 ring-background">
-                            <AvatarFallback className="bg-sage text-sage-light text-xs font-semibold">
-                                {firstLetter(person.name)}
-                            </AvatarFallback>
-                        </Avatar>
-                    ))}
+                    {members.slice(0, 5).map((person, i) => {
+                        const colorClass = avatarColors[i % avatarColors.length]; // ✅ green/red alternating
+
+                        return (
+                            <Avatar
+                                key={person.id ?? `${person.name ?? "member"}-${i}`}
+                                className="h-8 w-8 ring-2 ring-background"
+                            >
+                                <AvatarFallback className={`${colorClass} text-xs font-semibold`}>
+                                    {firstLetter(person.name)}
+                                </AvatarFallback>
+                            </Avatar>
+                        );
+                    })}
 
                     {members.length > 5 && (
                         <Avatar className="h-8 w-8 ring-2 ring-background">
@@ -64,6 +76,7 @@ const DashboardHeader = ({ onAddTask }) => {
                         </Avatar>
                     )}
                 </div>
+
             </div>
         </header>
     );
