@@ -15,12 +15,13 @@ export function useHouseholdMembers() {
         setLoading(members.length === 0);
 
         try {
-            // ✅ adjust to your backend route if needed
-            // expected response: { members: [{ name, email?, id? }, ...] } OR an array
             const data = await apiFetch("/api/household/members", { method: "GET" });
 
-            const list = Array.isArray(data) ? data : data?.members;
-            const normalized = Array.isArray(list) ? list : [];
+            const normalized = (data.members || []).map((m) => ({
+                id: m.user_id,
+                name: m.username,
+                email: m.email,
+            }));
 
             setMembers(normalized);
             saveHouseholdMembers(normalized);

@@ -29,6 +29,7 @@ export function clearAuth() {
   localStorage.removeItem("auth_token");
   localStorage.removeItem("username");
   localStorage.removeItem("email");
+  localStorage.removeItem("household_members");
 }
 
 export function isUserLoggedIn() {
