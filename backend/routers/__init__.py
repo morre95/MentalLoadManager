@@ -6,7 +6,7 @@ from .contact import router as contact_router
 from .dashboard import router as dashboard_router
 from .features import router as feature_router
 from .ai_summaries import router as ai_summaries_router
-from routers.household import router as household_router
+from .household import router as household_router
 
 all_routers = [
     users_router,
