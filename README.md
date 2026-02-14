@@ -22,23 +22,36 @@ MentalLoadManager/
 
 ### Backend
 
-1. Gaa till backend-mappen: `cd backend`
-2. Aktivera virtual environment:
-   - Windows: `venv\Scripts\activate`
-   - Linux/Mac: `source venv/bin/activate`
-3. Installera beroenden: `pip install -r requirements.txt`
-4. Starta servern: `python main.py`
+```bash
+# 1. Gå till backend-mappen:
+cd backend
+# 2. Aktivera virtual environment:
+# Windows:
+venv\Scripts\activate
+
+# Linux/Mac: 
+# source venv/bin/activate 
+# 3. Installera beroenden:
+pip install -r requirements.txt
+# 4. Starta servern:
+fastapi dev main.py
+```
 
 ### Frontend
 
-1. Gå till frontend-mappen: `cd frontend`
-2. Installera beroenden: `npm install`
-3. Starta dev-servern: `npm run dev`
+```bash
+# 1. Gå till frontend-mappen:
+cd frontend
+# 2. Installera beroenden:
+npm install
+# 3. Starta dev-servern:
+npm run dev
+```
 
 ## Anvaandning
 
-- Backend kors på: `http://localhost:8000` (eller din konfigurerade port)
-- Frontend kors på: `http://localhost:5173` (Vite default)
+- Backend kors på: [http://localhost:8000](http://localhost:8000)
+- Frontend kors på: [http://localhost:5173](http://localhost:5173)
 
 ## Licens
 
