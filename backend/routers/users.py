@@ -16,12 +16,14 @@ class RegisterUserRequest(BaseModel):
     username: str
     password: str
     email: str | None = None
+    display_name: str | None = None
 
 
 class RegisterUserResponse(BaseModel):
     user_id: str
     username: str
     email: str | None = None
+    display_name: str | None = None
 
 
 @router.post(
@@ -32,6 +34,7 @@ class RegisterUserResponse(BaseModel):
 def register_user(payload: RegisterUserRequest):
     username = payload.username.strip()
     email = payload.email.strip() if payload.email else None
+    display_name = payload.display_name.strip() if payload.display_name else None
     if not username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -67,6 +70,7 @@ def register_user(payload: RegisterUserRequest):
             username=username,
             password=password_hasher.hash(payload.password),
             email=email,
+            display_name=display_name,
         )
         db.add(new_user)
 
@@ -84,6 +88,7 @@ def register_user(payload: RegisterUserRequest):
             user_id=str(new_user.user_id),
             username=new_user.username,
             email=new_user.email,
+            display_name=new_user.display_name,
         )
 
     return response
