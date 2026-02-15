@@ -35,7 +35,8 @@ class User(BaseModel):
 
 
 class UserEmail(User):
-    email: str
+    email: str | None
+    display_name: str | None
 
 
 class UserDB(Base):
