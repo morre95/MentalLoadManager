@@ -9,17 +9,18 @@ import { Separator } from "@/components/ui/separator";
 import { Link, useNavigate } from "react-router-dom";
 
 import { GET_API_BASE_URL } from "@/components/ui/base_url";
-import { setAuthToken, fetchMe, clearAuth } from "@/lib/utils";
+import { setAuthToken, fetchMe } from "@/lib/utils";
 
 const API_BASE_URL = GET_API_BASE_URL();
 
 const Login = () => {
-  const [isSignUp, setIsSignUp] = useState(false); // UI only for now
+  const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState(""); // UI only for now
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
 
   const [authError, setAuthError] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
@@ -60,45 +61,65 @@ const Login = () => {
     }
   }, [navigate]);
 
-  // 2) Password login
+  const finishLogin = async (accessToken) => {
+    setAuthToken(accessToken);
+    window.dispatchEvent(new Event("auth:changed"));
+
+    await fetchMe();
+
+    const pending = localStorage.getItem("pending_invite_code");
+    if (pending) {
+      navigate(`/join?code=${encodeURIComponent(pending)}`, { replace: true });
+      return;
+    }
+
+    navigate("/dashboard", { replace: true });
+  };
+
   const login = async (e) => {
     e.preventDefault();
     setAuthError(null);
     setAuthLoading(true);
 
     try {
+      if (isSignUp) {
+        const registerRes = await fetch(`${API_BASE_URL}/api/users/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: identifier,
+            password,
+            email: email || null,
+            display_name: name || null,
+          }),
+        });
+
+        if (!registerRes.ok) {
+          const err = await registerRes.json().catch(() => ({}));
+          throw new Error(err.detail || `Registration failed (${registerRes.status})`);
+        }
+      }
+
       const body = new URLSearchParams();
       body.set("grant_type", "password");
       body.set("username", identifier);
       body.set("password", password);
 
-      const res = await fetch(`${API_BASE_URL}/api/passwrod/login`, {
+      const loginRes = await fetch(`${API_BASE_URL}/api/passwrod/login`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body,
       });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || `Login failed (${res.status})`);
+      if (!loginRes.ok) {
+        const err = await loginRes.json().catch(() => ({}));
+        throw new Error(err.detail || `Login failed (${loginRes.status})`);
       }
 
-      const data = await res.json();
-      setAuthToken(data.access_token);
-      window.dispatchEvent(new Event("auth:changed"));
-
-      // Fetch user to store username/email
-      await fetchMe();
-
-      const pending = localStorage.getItem("pending_invite_code");
-      if (pending) {
-        navigate(`/join?code=${encodeURIComponent(pending)}`, { replace: true });
-        return;
-      }
-
-      navigate("/dashboard", { replace: true });
+      const loginData = await loginRes.json();
+      await finishLogin(loginData.access_token);
     } catch (err) {
-      setAuthError(err?.message || "Login failed");
+      setAuthError(err?.message || (isSignUp ? "Registration failed" : "Login failed"));
     } finally {
       setAuthLoading(false);
     }
@@ -210,6 +231,24 @@ const Login = () => {
               </div>
             )}
 
+            {isSignUp && (
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="pl-10"
+                    autoComplete="email"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="identifier">Username</Label>
               <div className="relative">
@@ -236,7 +275,7 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="pl-10 pr-10"
-                  autoComplete="current-password"
+                  autoComplete={isSignUp ? "new-password" : "current-password"}
                 />
                 <button
                   type="button"
@@ -255,7 +294,13 @@ const Login = () => {
             )}
 
             <Button type="submit" className="w-full h-11" disabled={authLoading}>
-              {authLoading ? "Signing in..." : isSignUp ? "Create Account" : "Sign In"}
+              {authLoading
+                ? isSignUp
+                  ? "Creating account..."
+                  : "Signing in..."
+                : isSignUp
+                  ? "Create Account"
+                  : "Sign In"}
             </Button>
           </form>
 

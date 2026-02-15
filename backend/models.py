@@ -33,8 +33,11 @@ class Token(BaseModel):
 class User(BaseModel):
     username: str
 
+
 class UserEmail(User):
-    email: str
+    email: str | None
+    display_name: str | None
+
 
 class UserDB(Base):
     __tablename__ = "users"
@@ -47,6 +50,7 @@ class UserDB(Base):
     username: Mapped[str] = mapped_column(String(100), nullable=False)
     password: Mapped[str | None] = mapped_column(String(255), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), server_default=text("NOW()")
     )
@@ -563,7 +567,8 @@ class AISummaries(Base):
     household: Mapped[Households] = relationship(
         "Households", back_populates="ai_summaries"
     )
-    
+
+
 class ContactMessages(Base):
     __tablename__ = "contact_messages"
 
@@ -585,6 +590,7 @@ class ContactMessages(Base):
         DateTime(timezone=True),
         server_default=text("NOW()"),
     )
+
 
 __all__ = [
     "Base",

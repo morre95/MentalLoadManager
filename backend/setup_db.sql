@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   username       VARCHAR(100) NOT NULL,
   password       VARCHAR(255),                 -- nullable om du kör OAuth-only
   email          VARCHAR(255) UNIQUE,
+  display_name   VARCHAR(100),
   created_at     TIMESTAMPTZ DEFAULT NOW(),
   last_login     TIMESTAMPTZ,
   updated_at     TIMESTAMPTZ DEFAULT NOW()

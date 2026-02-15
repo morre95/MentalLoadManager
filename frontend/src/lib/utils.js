@@ -52,6 +52,8 @@ export function saveUserToLocalStorage(user) {
   if (!user) return;
   if (user.username) localStorage.setItem("username", user.username);
   if (user.email) localStorage.setItem("email", user.email);
+  if (user.display_name)
+    localStorage.setItem("display_name", user.display_name);
 }
 
 /** Fetch current user */
@@ -60,7 +62,7 @@ export const fetchMe = async () => {
   if (!token) return null;
 
   const cached = getUserFromLocalStorage();
-  if (cached?.username && cached?.email) return cached;
+  if (cached?.username && cached?.email && cached?.display_name) return cached;
 
   try {
     const url = `${API_BASE_URL}/api/users/me`;

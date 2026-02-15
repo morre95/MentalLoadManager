@@ -17,7 +17,7 @@ import Contact from "./pages/Contact";
 import HowItWorks from "./pages/HowItWorks";
 import NotFound from "./pages/NotFound";
 import Test from "./pages/Test";
-import JoinHousehold from "./pages/JoinHouseHold";
+import JoinHousehold from "./pages/JoinHousehold";
 
 
 // Dashboard pages
@@ -70,7 +70,7 @@ const App = () => {
           <Route path="/join" element={<JoinHousehold />} />
 
           {/* Dashboard layout wrapper */}
-          
+
           <Route path="/dashboard" element={<RequireAuth><DashboardLayout /></RequireAuth>}>
             <Route index element={<Dashboard />} />
             <Route path="tasks" element={<Tasks />} />

@@ -136,4 +136,6 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> UserEmail:
                 detail="Could not validate credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        return UserEmail(username=user.username, email=user.email)
+        return UserEmail(
+            username=user.username, email=user.email, display_name=user.display_name
+        )
