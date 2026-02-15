@@ -25,7 +25,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "30"))
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 BACKEND_URL = os.getenv("BACKEND_URL", "").rstrip("/")
 
-router = APIRouter()
+router = APIRouter(tags=["login"])
 
 
 def create_oauth_state(provider: str) -> str:
