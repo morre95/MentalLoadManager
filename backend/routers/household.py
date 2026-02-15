@@ -27,6 +27,7 @@ class HouseholdMember(BaseModel):
     user_id: str
     username: str
     email: str | None = None
+    display_name: str | None = None
 
 
 class HouseholdMembersResponse(BaseModel):
@@ -268,6 +269,7 @@ def add_household_member(
             user_id=str(user_to_add.user_id),
             username=user_to_add.username,
             email=user_to_add.email,
+            display_name=user_to_add.display_name,
         )
 
 
@@ -311,6 +313,7 @@ def get_my_household(current_user: UserEmail = Depends(get_current_user)):
                     user_id=str(r.user_id),
                     username=r.username,
                     email=r.email,
+                    display_name=r.display_name,
                 )
                 for r in rows
             ],
@@ -362,6 +365,7 @@ def get_my_households(current_user: UserEmail = Depends(get_current_user)):
                     user_id=str(r.user_id),
                     username=r.username,
                     email=r.email,
+                    display_name=r.display_name,
                 )
             )
 
