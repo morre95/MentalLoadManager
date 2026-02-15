@@ -7,7 +7,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.exc import IntegrityError
 
 from helpers import get_current_user, get_session_local
-from models import Categories, Tasks, User, UserDB, UserEmail, UsersHouseholds
+from models import Categories, Tasks, UserDB, UserEmail, UsersHouseholds
 
 router = APIRouter(
     prefix="/api/kanban",
@@ -75,7 +75,7 @@ class UpdateTaskStatusResponse(BaseModel):
 
 
 @router.get("/tasks", response_model=KanbanTasksResponse)
-def list_kamban_tasks(_: User = Depends(get_current_user)):
+def list_kamban_tasks(current_user: UserEmail = Depends(get_current_user)):
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
@@ -85,6 +85,14 @@ def list_kamban_tasks(_: User = Depends(get_current_user)):
         ) from exc
 
     with session_local() as db:
+        me = db.scalar(select(UserDB).where(UserDB.username == current_user.username))
+        if not me:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
         rows = db.execute(
             select(
                 Tasks.task_id,
@@ -94,6 +102,13 @@ def list_kamban_tasks(_: User = Depends(get_current_user)):
                 Tasks.due_date,
                 UserDB.username.label("assignee_name"),
                 Categories.name.label("category_name"),
+            )
+            .join(
+                UsersHouseholds,
+                and_(
+                    UsersHouseholds.household_id == Tasks.household_id,
+                    UsersHouseholds.user_id == me.user_id,
+                ),
             )
             .outerjoin(UserDB, Tasks.assigns_to == UserDB.user_id)
             .outerjoin(Categories, Tasks.category_id == Categories.category_id)
