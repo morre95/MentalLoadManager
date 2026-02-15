@@ -14,7 +14,7 @@ const navItems = [
 
 
 const Navbar = () => {
-  const [user, setUser] = useState (null);
+  const [user, setUser] = useState(null);
 
   const refreshUser = async () => {
     if (!isUserLoggedIn()) {
@@ -40,7 +40,7 @@ const Navbar = () => {
   const loggedIn = isUserLoggedIn();
 
   return (
-        <motion.header
+    <motion.header
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md"
@@ -76,7 +76,7 @@ const Navbar = () => {
                 className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-muted transition"
               >
                 <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-semibold">
-                    {(user?.username?.[0] || "?").toUpperCase()}
+                  {((user?.display_name || user?.username)?.[0] || "?").toUpperCase()}
                 </div>
 
                 <div className="hidden sm:flex flex-col leading-tight">
