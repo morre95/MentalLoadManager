@@ -142,9 +142,15 @@ export async function apiFetch(path, options = {}) {
   return body;
 }
 
-/** API convenience wrappers */
 export async function fetchKanbanTasks() {
   return apiFetch("/api/kanban/tasks", { method: "GET" });
+}
+
+export async function acceptHouseholdInvite(code) {
+  return apiFetch("/api/household/invite/accept", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
 }
 
 export async function updateKanbanTaskStatus(taskId, status) {

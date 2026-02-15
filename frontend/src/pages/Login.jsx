@@ -45,6 +45,13 @@ const Login = () => {
 
         (async () => {
           await fetchMe();
+
+          const pending = localStorage.getItem("pending_invite_code");
+          if (pending) {
+            navigate(`/join?code=${encodeURIComponent(pending)}`, { replace: true });
+            return;
+          }
+
           navigate("/dashboard", { replace: true });
         })();
 
@@ -82,6 +89,12 @@ const Login = () => {
 
       // Fetch user to store username/email
       await fetchMe();
+
+      const pending = localStorage.getItem("pending_invite_code");
+      if (pending) {
+        navigate(`/join?code=${encodeURIComponent(pending)}`, { replace: true });
+        return;
+      }
 
       navigate("/dashboard", { replace: true });
     } catch (err) {
