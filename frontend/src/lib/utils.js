@@ -128,7 +128,6 @@ export async function apiFetch(path, options = {}) {
     : await res.text().catch(() => null);
 
   if (!res.ok) {
-    // ✅ IMPORTANT: wipe stale auth tokens on unauthorized
     if (res.status === 401) {
       clearAuth();
     }

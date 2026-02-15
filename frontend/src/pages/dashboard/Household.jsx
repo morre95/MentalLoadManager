@@ -20,8 +20,21 @@ function initialsFromUsername(username) {
 
 const colors = ["bg-sage text-sage-light", "bg-terracotta text-white"];
 
+function displayNameFromUsername(username) {
+    return String(username || "")
+        .trim()
+        .replace(/[_-]+/g, " ") // maria_eriksson -> maria eriksson
+        .replace(/\s+/g, " ")
+        .split(" ")
+        .filter(Boolean)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1)) // Maria Eriksson
+        .join(" ");
+}
+
 export default function Household() {
-    const { household, members, loading, error } = useHousehold();
+    // ✅ updated hook shape: households[]
+    const { households, loading, error } = useHousehold();
+
     const [inviteUrl, setInviteUrl] = useState("");
     const [copied, setCopied] = useState(false);
     const [inviting, setInviting] = useState(false);
@@ -29,11 +42,12 @@ export default function Household() {
     const handleInvite = async () => {
         setInviting(true);
         setCopied(false);
+
         try {
-            const data = await createHouseholdInvite();
+            const data = await createHouseholdInvite(household.household_id);
+
             setInviteUrl(data.invite_url);
 
-            // auto copy
             await navigator.clipboard.writeText(data.invite_url);
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
@@ -44,6 +58,7 @@ export default function Household() {
             setInviting(false);
         }
     };
+
 
     return (
         <div className="p-4 md:p-6">
@@ -58,13 +73,15 @@ export default function Household() {
                         Household
                     </h1>
                     <p className="text-muted-foreground mt-1">
-                        {household?.name ? `Members in ${household.name}` : "Manage your household members"}
+                        Manage your household members
                     </p>
 
-                    {loading && <p className="text-sm text-muted-foreground mt-2">Loading…</p>}
+                    {loading && (
+                        <p className="text-sm text-muted-foreground mt-2">Loading…</p>
+                    )}
                     {error && (
                         <p className="text-sm text-destructive mt-2">
-                            {error?.message || "Failed to load household"}
+                            {error?.message || "Failed to load households"}
                         </p>
                     )}
                 </div>
@@ -81,6 +98,7 @@ export default function Household() {
                         <p className="text-sm font-medium text-foreground">Invite link</p>
                         <p className="text-sm text-muted-foreground truncate">{inviteUrl}</p>
                     </div>
+
                     <Button
                         variant="outline"
                         className="gap-2"
@@ -96,32 +114,61 @@ export default function Household() {
                 </div>
             ) : null}
 
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
-            >
-                {members.map((member, idx) => (
-                    <div
-                        key={member.user_id}
-                        className="p-4 rounded-xl border border-border bg-card flex items-center gap-4"
+            {/* ✅ Multiple households, clearly separated */}
+            <div className="space-y-8">
+                {(households || []).map((h) => (
+                    <motion.section
+                        key={h.household_id}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-4"
                     >
-                        <Avatar className="h-12 w-12">
-                            <AvatarFallback className={`${colors[idx % colors.length]} font-semibold`}>
-                                {initialsFromUsername(member.username)}
-                            </AvatarFallback>
-                        </Avatar>
-
-                        <div className="min-w-0">
-                            <p className="font-medium text-foreground truncate">{member.username}</p>
-                            {member.email ? (
-                                <p className="text-sm text-muted-foreground truncate">{member.email}</p>
-                            ) : null}
+                        <div className="flex items-baseline justify-between">
+                            <h2 className="font-display text-xl font-bold text-foreground">
+                                {h.name}
+                            </h2>
+                            <p className="text-sm text-muted-foreground">
+                                {h.members?.length ?? 0} member{(h.members?.length ?? 0) === 1 ? "" : "s"}
+                            </p>
                         </div>
-                    </div>
+
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                            {(h.members || []).map((member, idx) => (
+                                <div
+                                    // ✅ HERE is the key fix:
+                                    key={`${h.household_id}:${member.user_id}`}
+                                    className="p-4 rounded-xl border border-border bg-card flex items-center gap-4"
+                                >
+                                    <Avatar className="h-12 w-12">
+                                        <AvatarFallback
+                                            className={`${colors[idx % colors.length]} font-semibold`}
+                                        >
+                                            {initialsFromUsername(member.username)}
+                                        </AvatarFallback>
+                                    </Avatar>
+
+                                    <div className="min-w-0">
+                                        <p className="font-medium text-foreground truncate">
+                                            {displayNameFromUsername(member.username)}
+                                        </p>
+                                        {member.email ? (
+                                            <p className="text-sm text-muted-foreground truncate">
+                                                {member.email}
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </motion.section>
                 ))}
-            </motion.div>
+
+                {!loading && !error && (households || []).length === 0 ? (
+                    <div className="rounded-xl border border-border bg-card p-6 text-muted-foreground">
+                        You’re not in a household yet.
+                    </div>
+                ) : null}
+            </div>
         </div>
     );
 }

@@ -1,20 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/utils";
 
-const LS_HOUSEHOLD_KEY = "household";
+const LS_HOUSEHOLDS_KEY = "households";
 
 export function useHousehold() {
-    const [household, setHousehold] = useState(() => {
+    const [households, setHouseholds] = useState(() => {
         try {
-            const raw = localStorage.getItem(LS_HOUSEHOLD_KEY);
-            return raw ? JSON.parse(raw) : null;
+            const raw = localStorage.getItem(LS_HOUSEHOLDS_KEY);
+            return raw ? JSON.parse(raw) : [];
         } catch {
-            return null;
+            return [];
         }
     });
 
-    const [members, setMembers] = useState(() => household?.members ?? []);
-    const [loading, setLoading] = useState(!household);
+    const [loading, setLoading] = useState(households.length === 0);
     const [error, setError] = useState(null);
 
     useEffect(() => {
@@ -25,28 +24,13 @@ export function useHousehold() {
             setError(null);
 
             try {
-                // 1) Get my household
-                const me = await apiFetch("/api/household/me", { method: "GET" });
-
+                // NEW multi-household endpoint
+                const data = await apiFetch("/api/household/my", { method: "GET" });
                 if (!alive) return;
 
-                setHousehold(me);
-                localStorage.setItem(LS_HOUSEHOLD_KEY, JSON.stringify(me));
-
-                // 2) Get members
-                // If your backend infers household from token, this works as-is:
-                const list = await apiFetch("/api/household/members", { method: "GET" });
-
-                if (!alive) return;
-
-                // list could be { members: [...] } OR just [...]
-                const arr = Array.isArray(list) ? list : list?.members ?? [];
-                setMembers(arr);
-
-                // optional: also store members inside household cache
-                const merged = { ...me, members: arr };
-                setHousehold(merged);
-                localStorage.setItem(LS_HOUSEHOLD_KEY, JSON.stringify(merged));
+                const arr = Array.isArray(data?.households) ? data.households : [];
+                setHouseholds(arr);
+                localStorage.setItem(LS_HOUSEHOLDS_KEY, JSON.stringify(arr));
             } catch (e) {
                 if (!alive) return;
                 setError(e);
@@ -62,24 +46,41 @@ export function useHousehold() {
         };
     }, []);
 
-    const normalizedMembers = useMemo(() => {
-        return (members || []).map((m) => ({
-            user_id: m.user_id ?? m.id,
-            username: m.username ?? "",
-            email: m.email ?? null,
+    const normalizedHouseholds = useMemo(() => {
+        return (households || []).map((h) => ({
+            household_id: h.household_id,
+            name: h.name ?? h.household_name ?? "Household",
+            members: (h.members || []).map((m) => ({
+                user_id: m.user_id ?? m.id,
+                username: m.username ?? "",
+                email: m.email ?? null,
+            })),
         }));
-    }, [members]);
+    }, [households]);
+
+    const membersFlat = useMemo(() => {
+        return normalizedHouseholds.flatMap((h) =>
+            h.members.map((m) => ({
+                ...m,
+                household_id: h.household_id,
+                household_name: h.name,
+            }))
+        );
+    }, [normalizedHouseholds]);
 
     return {
-        household,
-        members: normalizedMembers,
+        households: normalizedHouseholds,
+        membersFlat, // optional convenience
         loading,
         error,
-        setHousehold,
-        setMembers,
+        setHouseholds,
     };
 }
 
-export async function createHouseholdInvite() {
-    return apiFetch("/api/household/invite", { method: "POST" });
+export async function createHouseholdInvite(household_id) {
+    return apiFetch("/api/household/invite", {
+        method: "POST",
+        body: JSON.stringify({ household_id }),
+        headers: { "Content-Type": "application/json" },
+    });
 }

@@ -1,3 +1,10 @@
+# backend/routers/household.py
+
+from __future__ import annotations
+
+import os
+import secrets
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,30 +13,16 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from helpers import get_current_user, get_session_local
-from models import (
-    Households,
-    UserEmail,
-    UserDB,
-    UsersHouseholds,
-    User,
-    UsersHouseholds,
-    Invitations,
-)
+from models import Households, Invitations, UserDB, UsersHouseholds, UserEmail
 
-
-from datetime import datetime, timedelta, timezone
-import os
-import secrets
-
-
-router = APIRouter(
-    prefix="/api/household",
-    tags=["household"],
-)
+router = APIRouter(prefix="/api/household", tags=["household"])
 
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173")
 
 
+# =========================
+# Pydantic models
+# =========================
 class HouseholdMember(BaseModel):
     user_id: str
     username: str
@@ -56,10 +49,14 @@ class CreateHouseholdResponse(BaseModel):
     name: str
 
 
-class HouseholdMeResponse(BaseModel):
+class HouseholdWithMembers(BaseModel):
     household_id: str
-    household_name: str
+    name: str
     members: list[HouseholdMember]
+
+
+class MyHouseholdsResponse(BaseModel):
+    households: list[HouseholdWithMembers]
 
 
 class InviteResponse(BaseModel):
@@ -68,30 +65,49 @@ class InviteResponse(BaseModel):
     expires_at: datetime
 
 
+class InviteCreateRequest(BaseModel):
+    # Pattern A: invite for a specific household
+    household_id: UUID
+
+
+class AcceptInviteRequest(BaseModel):
+    code: str
+
+
+class AcceptInviteResponse(BaseModel):
+    household_id: str
+
+
+# =========================
+# Helpers
+# =========================
+def _get_db_user(db, current_user: UserEmail) -> UserDB:
+    user = db.scalar(select(UserDB).where(UserDB.username == current_user.username))
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+
+
+# =========================
+# Endpoints
+# =========================
 @router.get("/members", response_model=HouseholdMembersResponse)
 def list_household_members(current_user: UserEmail = Depends(get_current_user)):
     """
-    Returns all members in the *same household(s)* as the current user.
-    If the user belongs to multiple households, you get the union of members.
+    Union of members across ALL households the current user belongs to.
     """
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     with session_local() as db:
-        me = db.scalar(select(UserDB).where(UserDB.username == current_user.username))
-        if not me:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not validate credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+        me = _get_db_user(db, current_user)
 
-        # Find household ids for the current user
         household_ids = db.scalars(
             select(UsersHouseholds.household_id).where(
                 UsersHouseholds.user_id == me.user_id
@@ -101,7 +117,6 @@ def list_household_members(current_user: UserEmail = Depends(get_current_user)):
         if not household_ids:
             return HouseholdMembersResponse(members=[])
 
-        # Get all users in those households
         rows = db.execute(
             select(UserDB.user_id, UserDB.username, UserDB.email)
             .join(UsersHouseholds, UsersHouseholds.user_id == UserDB.user_id)
@@ -109,16 +124,16 @@ def list_household_members(current_user: UserEmail = Depends(get_current_user)):
             .order_by(UserDB.username.asc())
         ).all()
 
-        members = [
-            HouseholdMember(
-                user_id=str(r.user_id),
-                username=r.username,
-                email=r.email,
-            )
-            for r in rows
-        ]
-
-        return HouseholdMembersResponse(members=members)
+        return HouseholdMembersResponse(
+            members=[
+                HouseholdMember(
+                    user_id=str(r.user_id),
+                    username=r.username,
+                    email=r.email,
+                )
+                for r in rows
+            ]
+        )
 
 
 @router.post(
@@ -132,27 +147,15 @@ def create_household(
 ):
     name = payload.name.strip()
     if not name:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Household name is required",
-        )
+        raise HTTPException(status_code=400, detail="Household name is required")
 
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     with session_local() as db:
-        me = db.scalar(select(UserDB).where(UserDB.username == current_user.username))
-        if not me:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not validate credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+        me = _get_db_user(db, current_user)
 
         new_household = Households(name=name)
         db.add(new_household)
@@ -170,8 +173,7 @@ def create_household(
         except IntegrityError as exc:
             db.rollback()
             raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Unable to create household",
+                status_code=409, detail="Unable to create household"
             ) from exc
 
         return CreateHouseholdResponse(
@@ -189,10 +191,12 @@ def add_household_member(
     payload: AddHouseholdMemberRequest,
     current_user: UserEmail = Depends(get_current_user),
 ):
+    """
+    Adds a user to a household (must already be a member yourself).
+    """
     if not any([payload.user_id, payload.username, payload.email]):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="One of user_id, username, or email is required",
+            status_code=400, detail="One of user_id, username, or email is required"
         )
 
     username = payload.username.strip() if payload.username else None
@@ -201,19 +205,10 @@ def add_household_member(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     with session_local() as db:
-        me = db.scalar(select(UserDB).where(UserDB.username == current_user.username))
-        if not me:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not validate credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+        me = _get_db_user(db, current_user)
 
         my_membership = db.scalar(
             select(UsersHouseholds).where(
@@ -225,7 +220,7 @@ def add_household_member(
         )
         if my_membership is None:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
+                status_code=403,
                 detail="User is not a member of the specified household",
             )
 
@@ -239,10 +234,7 @@ def add_household_member(
 
         user_to_add = db.scalar(select(UserDB).where(or_(*query_conditions)))
         if not user_to_add:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User to add was not found",
-            )
+            raise HTTPException(status_code=404, detail="User to add was not found")
 
         existing_membership = db.scalar(
             select(UsersHouseholds).where(
@@ -254,8 +246,7 @@ def add_household_member(
         )
         if existing_membership is not None:
             raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="User is already a member of this household",
+                status_code=409, detail="User is already a member of this household"
             )
 
         db.add(
@@ -270,8 +261,7 @@ def add_household_member(
         except IntegrityError as exc:
             db.rollback()
             raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Unable to add household member",
+                status_code=409, detail="Unable to add household member"
             ) from exc
 
         return HouseholdMember(
@@ -281,26 +271,23 @@ def add_household_member(
         )
 
 
-@router.get("/me", response_model=HouseholdMeResponse)
-def get_my_household(current: User = Depends(get_current_user)):
+@router.get("/me", response_model=HouseholdWithMembers)
+def get_my_household(current_user: UserEmail = Depends(get_current_user)):
+    """
+    Backwards-compatible single-household endpoint:
+    returns the FIRST household the user belongs to (by join order).
+    """
     session_local = get_session_local()
 
     with session_local() as db:
-        # get the user row
-        user = db.scalar(select(UserDB).where(UserDB.username == current.username))
-        if not user:
-            raise HTTPException(
-                status_code=401, detail="Could not validate credentials"
-            )
+        user = _get_db_user(db, current_user)
 
-        # find their household (assuming 1 household per user for now)
         uh = db.scalar(
             select(UsersHouseholds).where(UsersHouseholds.user_id == user.user_id)
         )
         if not uh:
             raise HTTPException(
-                status_code=404,
-                detail="User is not in a household yet",
+                status_code=404, detail="User is not in a household yet"
             )
 
         household = db.scalar(
@@ -309,7 +296,6 @@ def get_my_household(current: User = Depends(get_current_user)):
         if not household:
             raise HTTPException(status_code=404, detail="Household not found")
 
-        # fetch all members in the household
         rows = db.execute(
             select(UserDB.user_id, UserDB.username, UserDB.email)
             .join(UsersHouseholds, UsersHouseholds.user_id == UserDB.user_id)
@@ -317,9 +303,9 @@ def get_my_household(current: User = Depends(get_current_user)):
             .order_by(UserDB.username.asc())
         ).all()
 
-        return HouseholdMeResponse(
+        return HouseholdWithMembers(
             household_id=str(household.household_id),
-            household_name=household.name,
+            name=household.name,
             members=[
                 HouseholdMember(
                     user_id=str(r.user_id),
@@ -331,31 +317,97 @@ def get_my_household(current: User = Depends(get_current_user)):
         )
 
 
-@router.post("/invite", response_model=InviteResponse)
-def create_invite(current: User = Depends(get_current_user)):
+@router.get("/my", response_model=MyHouseholdsResponse)
+def get_my_households(current_user: UserEmail = Depends(get_current_user)):
+    """
+    Multi-household endpoint:
+    returns ALL households + their members.
+    """
     session_local = get_session_local()
 
     with session_local() as db:
-        user = db.scalar(select(UserDB).where(UserDB.username == current.username))
-        if not user:
-            raise HTTPException(
-                status_code=401, detail="Could not validate credentials"
+        user = _get_db_user(db, current_user)
+
+        household_rows = db.execute(
+            select(Households.household_id, Households.name)
+            .join(
+                UsersHouseholds, UsersHouseholds.household_id == Households.household_id
+            )
+            .where(UsersHouseholds.user_id == user.user_id)
+            .order_by(Households.name.asc())
+        ).all()
+
+        if not household_rows:
+            return MyHouseholdsResponse(households=[])
+
+        household_ids = [r.household_id for r in household_rows]
+
+        member_rows = db.execute(
+            select(
+                UsersHouseholds.household_id,
+                UserDB.user_id,
+                UserDB.username,
+                UserDB.email,
+            )
+            .join(UserDB, UsersHouseholds.user_id == UserDB.user_id)
+            .where(UsersHouseholds.household_id.in_(household_ids))
+            .order_by(UsersHouseholds.household_id, UserDB.username.asc())
+        ).all()
+
+        members_by_household: dict[str, list[HouseholdMember]] = {}
+        for r in member_rows:
+            hid = str(r.household_id)
+            members_by_household.setdefault(hid, []).append(
+                HouseholdMember(
+                    user_id=str(r.user_id),
+                    username=r.username,
+                    email=r.email,
+                )
             )
 
-        uh = db.scalar(
-            select(UsersHouseholds).where(UsersHouseholds.user_id == user.user_id)
+        households = [
+            HouseholdWithMembers(
+                household_id=str(h.household_id),
+                name=h.name,
+                members=members_by_household.get(str(h.household_id), []),
+            )
+            for h in household_rows
+        ]
+
+        return MyHouseholdsResponse(households=households)
+
+
+@router.post("/invite", response_model=InviteResponse)
+def create_invite(
+    payload: InviteCreateRequest, current_user: UserEmail = Depends(get_current_user)
+):
+    """
+    Pattern A:
+    Create an invite for a SPECIFIC household (payload.household_id),
+    only if the current user is a member of that household.
+    """
+    session_local = get_session_local()
+
+    with session_local() as db:
+        user = _get_db_user(db, current_user)
+
+        # Must be a member of that household to invite
+        membership = db.scalar(
+            select(UsersHouseholds).where(
+                UsersHouseholds.user_id == user.user_id,
+                UsersHouseholds.household_id == payload.household_id,
+            )
         )
-        if not uh:
+        if not membership:
             raise HTTPException(
-                status_code=404, detail="User is not in a household yet"
+                status_code=403, detail="You are not a member of that household"
             )
 
-        # Create a unique code
         code = secrets.token_urlsafe(16)
         expires_at = datetime.now(timezone.utc) + timedelta(days=7)
 
         inv = Invitations(
-            household_id=uh.household_id,
+            household_id=payload.household_id,
             code=code,
             expires_at=expires_at,
             created_by=user.user_id,
@@ -364,30 +416,17 @@ def create_invite(current: User = Depends(get_current_user)):
         db.commit()
 
         invite_url = f"{FRONTEND_BASE_URL}/join?code={code}"
-
         return InviteResponse(code=code, invite_url=invite_url, expires_at=expires_at)
-
-
-class AcceptInviteRequest(BaseModel):
-    code: str
-
-
-class AcceptInviteResponse(BaseModel):
-    household_id: str
 
 
 @router.post("/invite/accept", response_model=AcceptInviteResponse)
 def accept_invite(
-    payload: AcceptInviteRequest, current: User = Depends(get_current_user)
+    payload: AcceptInviteRequest, current_user: UserEmail = Depends(get_current_user)
 ):
     session_local = get_session_local()
 
     with session_local() as db:
-        user = db.scalar(select(UserDB).where(UserDB.username == current.username))
-        if not user:
-            raise HTTPException(
-                status_code=401, detail="Could not validate credentials"
-            )
+        user = _get_db_user(db, current_user)
 
         inv = db.scalar(select(Invitations).where(Invitations.code == payload.code))
         if not inv:
@@ -396,7 +435,6 @@ def accept_invite(
         if inv.expires_at and inv.expires_at < datetime.now(timezone.utc):
             raise HTTPException(status_code=400, detail="Invite has expired")
 
-        # already in this household? just return OK
         existing = db.scalar(
             select(UsersHouseholds).where(
                 UsersHouseholds.user_id == user.user_id,
@@ -406,7 +444,6 @@ def accept_invite(
         if existing:
             return AcceptInviteResponse(household_id=str(inv.household_id))
 
-        # add membership
         db.add(
             UsersHouseholds(
                 user_id=user.user_id,
@@ -418,7 +455,6 @@ def accept_invite(
             db.commit()
         except IntegrityError:
             db.rollback()
-            # If a race condition happened and membership was created by another request
             return AcceptInviteResponse(household_id=str(inv.household_id))
 
         return AcceptInviteResponse(household_id=str(inv.household_id))
