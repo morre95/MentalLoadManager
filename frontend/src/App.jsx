@@ -17,7 +17,7 @@ import Contact from "./pages/Contact";
 import HowItWorks from "./pages/HowItWorks";
 import NotFound from "./pages/NotFound";
 import Test from "./pages/Test";
-import JoinHousehold from "./pages/joinaaa";
+import JoinHousehold from "./pages/JoinaHousehold";
 
 
 // Dashboard pages

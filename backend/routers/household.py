@@ -119,7 +119,7 @@ def list_household_members(current_user: UserEmail = Depends(get_current_user)):
             return HouseholdMembersResponse(members=[])
 
         rows = db.execute(
-            select(UserDB.user_id, UserDB.username, UserDB.email)
+            select(UserDB.user_id, UserDB.username, UserDB.email, UserDB.display_name)
             .join(UsersHouseholds, UsersHouseholds.user_id == UserDB.user_id)
             .where(UsersHouseholds.household_id.in_(household_ids))
             .order_by(UserDB.username.asc())
@@ -299,7 +299,7 @@ def get_my_household(current_user: UserEmail = Depends(get_current_user)):
             raise HTTPException(status_code=404, detail="Household not found")
 
         rows = db.execute(
-            select(UserDB.user_id, UserDB.username, UserDB.email)
+            select(UserDB.user_id, UserDB.username, UserDB.email, UserDB.display_name)
             .join(UsersHouseholds, UsersHouseholds.user_id == UserDB.user_id)
             .where(UsersHouseholds.household_id == household.household_id)
             .order_by(UserDB.username.asc())
@@ -351,6 +351,7 @@ def get_my_households(current_user: UserEmail = Depends(get_current_user)):
                 UserDB.user_id,
                 UserDB.username,
                 UserDB.email,
+                UserDB.display_name,
             )
             .join(UserDB, UsersHouseholds.user_id == UserDB.user_id)
             .where(UsersHouseholds.household_id.in_(household_ids))
