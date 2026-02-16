@@ -337,7 +337,7 @@ const Tasks = () => {
             <p className="text-sm text-muted-foreground mt-2">Loading tasks…</p>
           ) : null}
           {error?.status === 401 ? (
-            <p className="text-sm text-red-600 mt-2">
+            <p classNare="text-sm text-red-600 mt-2">
               Your session has expired. Please log in again.
             </p>
           ) : error ? (
@@ -352,9 +352,6 @@ const Tasks = () => {
           ) : null}
         </div>
 
-        <Button className="gap-2" onClick={() => setIsAddDialogOpen(true)}>
-          <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Task</span>
-        </Button>
       </motion.div>
 
       <DndContext
