@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import aliased
 
 from helpers import get_current_user, get_session_local
 from models import AISummaries, Tasks, UserDB, UserEmail, UsersHouseholds
@@ -149,6 +150,8 @@ def generate_weekly_summary(
                 detail="User is not a member of the specified household",
             )
 
+        creator_user = aliased(UserDB)
+        assignee_user = aliased(UserDB)
         weekly_tasks = db.execute(
             select(
                 Tasks.task_id,
@@ -159,6 +162,10 @@ def generate_weekly_summary(
                 Tasks.started_at,
                 Tasks.complete_date,
                 Tasks.due_date,
+                Tasks.created_by,
+                Tasks.assigns_to,
+                creator_user.username.label("created_by_username"),
+                assignee_user.username.label("assignee_username"),
             ).where(
                 and_(
                     Tasks.household_id == payload.household_id,
@@ -181,13 +188,23 @@ def generate_weekly_summary(
                         ),
                     ),
                 )
-            )
+            ).outerjoin(creator_user, Tasks.created_by == creator_user.user_id)
+            .outerjoin(assignee_user, Tasks.assigns_to == assignee_user.user_id)
         ).all()
 
+        household_assignee_user = aliased(UserDB)
         household_tasks = db.execute(
-            select(Tasks.status, Tasks.priority).where(
-                Tasks.household_id == payload.household_id
+            select(
+                Tasks.status,
+                Tasks.priority,
+                Tasks.assigns_to,
+                household_assignee_user.username.label("assignee_username"),
             )
+            .outerjoin(
+                household_assignee_user,
+                Tasks.assigns_to == household_assignee_user.user_id,
+            )
+            .where(Tasks.household_id == payload.household_id)
         ).all()
 
     status_counts: dict[str, int] = {}
@@ -199,6 +216,10 @@ def generate_weekly_summary(
     weekly_completed = 0
     weekly_due = 0
     priority_counts: dict[str, int] = {}
+    completed_by_user_counts: dict[str, int] = {}
+    household_assignee_counts: dict[str, int] = {}
+    assigned_by_user_counts: dict[str, int] = {}
+    assigned_to_user_counts: dict[str, int] = {}
     serialized_tasks: list[dict[str, str | None]] = []
 
     for row in weekly_tasks:
@@ -211,8 +232,22 @@ def generate_weekly_summary(
             weekly_started += 1
         if row.complete_date and week_start_dt <= row.complete_date < week_end_dt:
             weekly_completed += 1
+            completed_by_label = row.assignee_username or "unassigned"
+            completed_by_user_counts[completed_by_label] = (
+                completed_by_user_counts.get(completed_by_label, 0) + 1
+            )
         if row.due_date and week_start_dt <= row.due_date < week_end_dt:
             weekly_due += 1
+
+        if row.created_at and week_start_dt <= row.created_at < week_end_dt:
+            creator_label = row.created_by_username or "unknown_creator"
+            assigned_by_user_counts[creator_label] = (
+                assigned_by_user_counts.get(creator_label, 0) + 1
+            )
+            assignee_label = row.assignee_username or "unassigned"
+            assigned_to_user_counts[assignee_label] = (
+                assigned_to_user_counts.get(assignee_label, 0) + 1
+            )
 
         serialized_tasks.append(
             {
@@ -220,12 +255,28 @@ def generate_weekly_summary(
                 "name": row.name,
                 "status": row.status,
                 "priority": row.priority,
+                "assigned_by_user_id": str(row.created_by) if row.created_by else None,
+                "assigned_by_user": row.created_by_username or "unknown_creator",
+                "assigned_to_user_id": str(row.assigns_to) if row.assigns_to else None,
+                "assigned_to_user": row.assignee_username or "unassigned",
                 "created_at": _to_iso(row.created_at),
                 "started_at": _to_iso(row.started_at),
                 "complete_date": _to_iso(row.complete_date),
                 "due_date": _to_iso(row.due_date),
             }
         )
+
+    for row in household_tasks:
+        assignee_label = row.assignee_username or "unassigned"
+        household_assignee_counts[assignee_label] = (
+            household_assignee_counts.get(assignee_label, 0) + 1
+        )
+
+    total_household_tasks = len(household_tasks)
+    household_task_percentage_by_assignee = {
+        assignee: round((count / total_household_tasks) * 100, 1)
+        for assignee, count in household_assignee_counts.items()
+    } if total_household_tasks else {}
 
     prompt_payload = {
         "week_start": week_start.isoformat(),
@@ -239,6 +290,11 @@ def generate_weekly_summary(
             "weekly_due": weekly_due,
             "status_counts_household": status_counts,
             "priority_counts_touched_this_week": priority_counts,
+            "tasks_assigned_this_week_by_user": assigned_by_user_counts,
+            "tasks_assigned_this_week_to_user": assigned_to_user_counts,
+            "completed_this_week_by_user": completed_by_user_counts,
+            "household_task_count_by_assignee": household_assignee_counts,
+            "household_task_percentage_by_assignee": household_task_percentage_by_assignee,
         },
         "tasks_touched_this_week": serialized_tasks[:40],
     }
@@ -257,8 +313,11 @@ def generate_weekly_summary(
         "2) Mention key trends in created/started/completed/due tasks.\n"
         "3) Mention backlog/status distribution.\n"
         "4) Mention notable priorities if visible.\n"
-        "5) Maximum 180 words.\n"
-        "6) If there is little/no activity, say so clearly and neutrally.\n\n"
+        "5) Include who assigned tasks to whom (based on assigned_by_user and assigned_to_user).\n"
+        "6) Include which users completed tasks this week.\n"
+        "7) Include task percentage distribution by assignee when available.\n"
+        "8) Maximum 180 words.\n"
+        "9) If there is little/no activity, say so clearly and neutrally.\n\n"
         f"Data:\n{prompt_json}"
     )
 
