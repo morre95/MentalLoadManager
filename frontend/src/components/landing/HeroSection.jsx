@@ -1,7 +1,9 @@
 import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { ArrowRight, Heart, LayoutGrid, BarChart3, CalendarDays } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { fetchMe, getDisplayName } from "@/lib/utils";
 
 const features = [
     {
@@ -22,6 +24,16 @@ const features = [
 ];
 
 const HeroSection = () => {
+    const [me, setMe] = useState(null);
+
+    useEffect(() => {
+        let alive = true;
+        (async () => {
+            const user = await fetchMe();
+            if (alive) setMe(user);
+        })();
+        return () => { alive = false; };
+    }, []);
     return (
         <section className="relative min-h-[70vh] flex flex-col items-center justify-center px-4 py-16 gradient-hero overflow-hidden">
             {/* Decorative elements */}
@@ -53,17 +65,31 @@ const HeroSection = () => {
                 </motion.div>
 
                 {/* Headline */}
-                <motion.h1
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.1 }}
-                    className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-6 leading-tight"
-                >
-                    Share the{" "}
-                    <span className="gradient-text">mental load</span>
-                    <br />
-                    of your household
-                </motion.h1>
+                {me?.username ? (
+                    <motion.h1
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.1 }}
+                        className="font-display text-2xl md:text-4xl lg:text-5xl font-bold text-foreground mb-6 leading-tight"
+                    >
+                        Welcome back,{" "}
+                        <span className="gradient-text">{getDisplayName(me)}</span>
+                        <br />
+                        Share the mental load
+                    </motion.h1>
+                ) : (
+                    <motion.h1
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.1 }}
+                        className="font-display text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-6 leading-tight"
+                    >
+                        Share the{" "}
+                        <span className="gradient-text">mental load</span>
+                        <br />
+                        of your household
+                    </motion.h1>
+                )}
 
                 {/* Subtitle */}
                 <motion.p

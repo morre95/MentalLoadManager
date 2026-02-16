@@ -185,10 +185,10 @@ export function normalizeNameFromUsername(username) {
     .join(" ");
 }
 
-export function getDisplayName(member) {
-  const dn = member.display_name;
-  if (dn) return capitalizeWords(dn.replace(/[_-]+/g, " "));;
-  return normalizeNameFromUsername(member?.username);
+export function getDisplayName(user) {
+  const dn = user.display_name;
+  if (dn) return capitalizeWords(String(dn).replace(/[_-]+/g, " "));
+  return normalizeNameFromUsername(user?.username);
 }
 
 export function getInitials(nameOrUsername) {
