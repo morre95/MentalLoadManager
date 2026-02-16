@@ -119,10 +119,16 @@ def list_household_members(current_user: UserEmail = Depends(get_current_user)):
             return HouseholdMembersResponse(members=[])
 
         rows = db.execute(
-            select(UserDB.user_id, UserDB.username, UserDB.email, UserDB.display_name)
+            select(
+                UserDB.user_id,
+                UserDB.username,
+                UserDB.email,
+                UserDB.display_name,
+            )
+            .distinct(UserDB.user_id)
             .join(UsersHouseholds, UsersHouseholds.user_id == UserDB.user_id)
             .where(UsersHouseholds.household_id.in_(household_ids))
-            .order_by(UserDB.username.asc())
+            .order_by(UserDB.user_id, UserDB.username.asc())
         ).all()
 
         return HouseholdMembersResponse(
@@ -131,6 +137,7 @@ def list_household_members(current_user: UserEmail = Depends(get_current_user)):
                     user_id=str(r.user_id),
                     username=r.username,
                     email=r.email,
+                    display_name=r.display_name,
                 )
                 for r in rows
             ]

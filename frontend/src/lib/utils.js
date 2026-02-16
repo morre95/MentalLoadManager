@@ -32,6 +32,7 @@ export function clearAuth() {
   localStorage.removeItem("household_members");
   localStorage.removeItem("households");
   localStorage.removeItem("household");
+  localStorage.removeItem("display_name");
 }
 
 export function isUserLoggedIn() {
@@ -45,6 +46,7 @@ export function getUserFromLocalStorage() {
   return {
     username: localStorage.getItem("username"),
     email: localStorage.getItem("email"),
+    display_name: localStorage.getItem("display_name"),
   };
 }
 
@@ -161,4 +163,42 @@ export async function updateKanbanTaskStatus(taskId, status) {
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
+}
+
+export function capitalizeWords(str) {
+  return String(str || "")
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+export function normalizeNameFromUsername(username) {
+  return String(username || "")
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+export function getDisplayName(member) {
+  const dn = member.display_name;
+  if (dn) return capitalizeWords(dn.replace(/[_-]+/g, " "));;
+  return normalizeNameFromUsername(member?.username);
+}
+
+export function getInitials(nameOrUsername) {
+  const parts = String(nameOrUsername || "")
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0][0].toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
 }

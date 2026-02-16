@@ -1,175 +1,274 @@
-// src/pages/dashboard/Household.jsx
 import { motion } from "framer-motion";
 import { Users, UserPlus, Copy, Check } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-// import { useHousehold, createHouseholdInvite } from "@/hooks/useHousehold";
-import { useHousehold, createHouseholdInvite } from "../../hooks/useHouseHold";
+import { useHousehold, createHouseholdInvite, createHousehold } from "../../hooks/useHouseHold";
 
-function initialsFromUsername(username) {
-  const parts = String(username || "")
-    .replace(/[_-]+/g, " ")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-}
+import { getDisplayName, getInitials } from "@/lib/utils";
 
 const colors = ["bg-sage text-sage-light", "bg-terracotta text-white"];
 
-function displayNameFromUsername(username) {
-  return String(username || "")
-    .trim()
-    .replace(/[_-]+/g, " ") // maria_eriksson -> maria eriksson
-    .replace(/\s+/g, " ")
-    .split(" ")
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1)) // Maria Eriksson
-    .join(" ");
-}
-
 export default function Household() {
-  // ✅ updated hook shape: households[]
-  const { households, loading, error } = useHousehold();
+    // Hook should ideally return households as an array:
+    // { households: [...], loading, error }
+    const { households, loading, error, refetch } = useHousehold();
+    const [creating, setCreating] = useState(false);
+    const [isCreatingUI, setIsCreatingUI] = useState(false);
+    const [newHouseholdName, setNewHouseholdName] = useState("");
 
-  const [inviteUrl, setInviteUrl] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [inviting, setInviting] = useState(false);
+    const handleCreateHousehold = async () => {
+        if (!newHouseholdName.trim()) return;
 
-  const handleInvite = async () => {
-    setInviting(true);
-    setCopied(false);
+        setCreating(true);
 
-    try {
-      const data = await createHouseholdInvite(households.household_id);
+        try {
+            await createHousehold(newHouseholdName.trim());
 
-      setInviteUrl(data.invite_url);
+            localStorage.removeItem("households");
+            setIsCreatingUI(false);
+            setNewHouseholdName("");
+            await refetch();
 
-      await navigator.clipboard.writeText(data.invite_url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch (e) {
-      console.error(e);
-      alert(e?.message || "Could not create invite");
-    } finally {
-      setInviting(false);
-    }
-  };
+        } catch (e) {
+            console.error(e);
+            alert(e?.message || "Could not create household");
+        } finally {
+            setCreating(false);
+        }
+    };
 
 
-  return (
-    <div className="p-4 md:p-6">
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between mb-6"
-      >
-        <div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
-            <Users className="h-7 w-7 text-primary" />
-            Household
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your household members
-          </p>
+    /**
+     * Per-household invite state:
+     * inviteByHousehold[household_id] = {
+     *   inviteUrl: string,
+     *   copied: boolean,
+     *   inviting: boolean
+     * }
+     */
+    const [inviteByHousehold, setInviteByHousehold] = useState({});
 
-          {loading && (
-            <p className="text-sm text-muted-foreground mt-2">Loading…</p>
-          )}
-          {error && (
-            <p className="text-sm text-destructive mt-2">
-              {error?.message || "Failed to load households"}
-            </p>
-          )}
-        </div>
+    const setHouseholdInviteState = (householdId, patch) => {
+        setInviteByHousehold((prev) => ({
+            ...prev,
+            [householdId]: {
+                ...(prev[householdId] || {}),
+                ...patch,
+            },
+        }));
+    };
 
-        <Button className="gap-2" onClick={handleInvite} disabled={inviting}>
-          <UserPlus className="h-4 w-4" />
-          {inviting ? "Creating…" : "Invite Member"}
-        </Button>
-      </motion.div>
+    const handleInvite = async (householdId) => {
+        setHouseholdInviteState(householdId, { inviting: true, copied: false });
 
-      {inviteUrl ? (
-        <div className="mb-6 rounded-xl border border-border bg-card p-4 flex items-center gap-3 justify-between">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">Invite link</p>
-            <p className="text-sm text-muted-foreground truncate">{inviteUrl}</p>
-          </div>
+        try {
+            const data = await createHouseholdInvite(householdId);
 
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={async () => {
-              await navigator.clipboard.writeText(inviteUrl);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1500);
-            }}
-          >
-            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            {copied ? "Copied" : "Copy"}
-          </Button>
-        </div>
-      ) : null}
+            const url = data?.invite_url || "";
+            setHouseholdInviteState(householdId, { inviteUrl: url });
 
-      {/* ✅ Multiple households, clearly separated */}
-      <div className="space-y-8">
-        {(households || []).map((h) => (
-          <motion.section
-            key={h.household_id}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
-          >
-            <div className="flex items-baseline justify-between">
-              <h2 className="font-display text-xl font-bold text-foreground">
-                {h.name}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {h.members?.length ?? 0} member{(h.members?.length ?? 0) === 1 ? "" : "s"}
-              </p>
-            </div>
+            if (url) {
+                await navigator.clipboard.writeText(url);
+                setHouseholdInviteState(householdId, { copied: true });
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {(h.members || []).map((member, idx) => (
-                <div
-                  // ✅ HERE is the key fix:
-                  key={`${h.household_id}:${member.user_id}`}
-                  className="p-4 rounded-xl border border-border bg-card flex items-center gap-4"
-                >
-                  <Avatar className="h-12 w-12">
-                    <AvatarFallback
-                      className={`${colors[idx % colors.length]} font-semibold`}
-                    >
-                      {initialsFromUsername(member.username)}
-                    </AvatarFallback>
-                  </Avatar>
+                setTimeout(() => {
+                    setHouseholdInviteState(householdId, { copied: false });
+                }, 1500);
+            }
+        } catch (e) {
+            console.error(e);
+            alert(e?.message || "Could not create invite");
+        } finally {
+            setHouseholdInviteState(householdId, { inviting: false });
+        }
+    };
 
-                  <div className="min-w-0">
-                    <p className="font-medium text-foreground truncate">
-                      {displayNameFromUsername(member.username)}
-                    </p>
-                    {member.email ? (
-                      <p className="text-sm text-muted-foreground truncate">
-                        {member.email}
-                      </p>
-                    ) : null}
-                  </div>
+    const handleCopy = async (householdId) => {
+        const url = inviteByHousehold[householdId]?.inviteUrl;
+        if (!url) return;
+
+        await navigator.clipboard.writeText(url);
+        setHouseholdInviteState(householdId, { copied: true });
+
+        setTimeout(() => {
+            setHouseholdInviteState(householdId, { copied: false });
+        }, 1500);
+    };
+
+    return (
+        <div className="p-4 md:p-6">
+
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center justify-between mb-6"
+            >
+                <div>
+                    <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
+                        <Users className="h-7 w-7 text-primary" />
+                        Household
+                    </h1>
+                    <p className="text-muted-foreground mt-1">Manage your household members</p>
+
+                    {loading && <p className="text-sm text-muted-foreground mt-2">Loading…</p>}
+                    {error && (
+                        <p className="text-sm text-destructive mt-2">
+                            {error?.message || "Failed to load households"}
+                        </p>
+                    )}
                 </div>
-              ))}
-            </div>
-          </motion.section>
-        ))}
+            </motion.div>
 
-        {!loading && !error && (households || []).length === 0 ? (
-          <div className="rounded-xl border border-border bg-card p-6 text-muted-foreground">
-            You’re not in a household yet.
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
+            {/* Multiple households*/}
+            <div className="space-y-8">
+                {(households || []).map((h) => {
+                    const inviteState = inviteByHousehold[h.household_id] || {};
+                    const inviteUrl = inviteState.inviteUrl || "";
+                    const copied = !!inviteState.copied;
+                    const inviting = !!inviteState.inviting;
+
+                    return (
+                        <motion.section
+                            key={h.household_id}
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="space-y-4"
+                        >
+                            <div className="flex items-baseline justify-between gap-4">
+                                <div className="min-w-0">
+                                    <h2 className="font-display text-xl font-bold text-foreground truncate">
+                                        {h.name}
+                                    </h2>
+                                    <p className="text-sm text-muted-foreground">
+                                        {h.members?.length ?? 0} member
+                                        {(h.members?.length ?? 0) === 1 ? "" : "s"}
+                                    </p>
+                                </div>
+
+                                {/* ✅ Invite button per household */}
+                                <Button
+                                    className="gap-2 shrink-0"
+                                    onClick={() => handleInvite(h.household_id)}
+                                    disabled={inviting}
+                                >
+                                    <UserPlus className="h-4 w-4" />
+                                    {inviting ? "Creating…" : "Invite Member"}
+                                </Button>
+                            </div>
+
+                            {/* ✅ Invite url shown per household */}
+                            {inviteUrl ? (
+                                <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-3 justify-between">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-medium text-foreground">Invite link</p>
+                                        <p className="text-sm text-muted-foreground truncate">{inviteUrl}</p>
+                                    </div>
+
+                                    <Button
+                                        variant="outline"
+                                        className="gap-2 shrink-0"
+                                        onClick={() => handleCopy(h.household_id)}
+                                    >
+                                        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                        {copied ? "Copied" : "Copy"}
+                                    </Button>
+                                </div>
+                            ) : null}
+
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                {(h.members || []).map((member, idx) => {
+                                    // Use display_name if backend provides it; fallback to formatted username
+                                    const name = getDisplayName(member);
+
+                                    // ✅ For initials, use display string (better than raw username)
+                                    const initials = getInitials(name);
+
+                                    return (
+                                        <div
+                                            key={`${h.household_id}:${member.user_id}`}
+                                            className="p-4 rounded-xl border border-border bg-card flex items-center gap-4"
+                                        >
+                                            <Avatar className="h-12 w-12">
+                                                <AvatarFallback
+                                                    className={`${colors[idx % colors.length]} font-semibold`}
+                                                >
+                                                    {initials}
+                                                </AvatarFallback>
+                                            </Avatar>
+
+                                            <div className="min-w-0">
+                                                <p className="font-medium text-foreground truncate">{name}</p>
+                                                {member.email ? (
+                                                    <p className="text-sm text-muted-foreground truncate">{member.email}</p>
+                                                ) : null}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </motion.section>
+                    );
+                })}
+
+                {!loading && !error && (households || []).length === 0 ? (
+                    <div className="rounded-xl border border-border bg-card p-6 text-muted-foreground">
+                        You’re not in a household yet.
+                    </div>
+                ) : null}
+
+                <div className="mb-6 rounded-xl border border-border bg-card p-4 space-y-3">
+                    <p className="text-sm text-muted-foreground">Create a new household</p>
+
+                    {!isCreatingUI ? (
+                        <Button className="gap-2" onClick={() => setIsCreatingUI(true)}>
+                            <Users className="h-4 w-4" />
+                            Create Household
+                        </Button>
+                    ) : (
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <input
+                                type="text"
+                                value={newHouseholdName}
+                                onChange={(e) => setNewHouseholdName(e.target.value)}
+                                placeholder="Household name"
+                                className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" && newHouseholdName.trim() && !creating) {
+                                        handleCreateHousehold();
+                                    }
+                                    if (e.key === "Escape") {
+                                        setIsCreatingUI(false);
+                                        setNewHouseholdName("");
+                                    }
+                                }}
+                            />
+
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        setIsCreatingUI(false);
+                                        setNewHouseholdName("");
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+
+                                <Button
+                                    onClick={handleCreateHousehold}
+                                    disabled={creating || !newHouseholdName.trim()}
+                                >
+                                    {creating ? "Creating…" : "Create"}
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+
+            </div>
+        </div>
+    );
 }
