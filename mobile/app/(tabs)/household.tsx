@@ -9,7 +9,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
 
 import {
   createHousehold,
@@ -20,7 +19,6 @@ import {
   type Household,
 } from '../../../shared/index.js';
 import { mobileApiBaseUrl, mobileApiClient } from '@/lib/api';
-import { clearAccessToken } from '@/lib/auth';
 
 const COLORS = {
   bg: '#f7f6f2',
@@ -140,16 +138,6 @@ export default function HouseholdScreen() {
         <Text style={styles.subtitle}>
           Households: {households.length} • Members: {totalMembers}
         </Text>
-
-        <Pressable
-          style={styles.logoutButton}
-          onPress={() => {
-            clearAccessToken();
-            router.replace('/login');
-          }}
-        >
-          <Text style={styles.logoutButtonText}>Log out</Text>
-        </Pressable>
       </View>
 
       <View style={styles.createCard}>
@@ -214,6 +202,7 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
     backgroundColor: COLORS.bg,
+    paddingTop: 16
   },
   pageContent: {
     padding: 16,
@@ -238,20 +227,6 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: COLORS.muted,
-  },
-  logoutButton: {
-    alignSelf: 'flex-start',
-    marginTop: 8,
-    borderRadius: 10,
-    borderColor: '#ebc3b8',
-    borderWidth: 1,
-    backgroundColor: '#fff4f1',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  logoutButtonText: {
-    color: COLORS.terracotta,
-    fontWeight: '700',
   },
   createCard: {
     borderRadius: 16,

@@ -111,9 +111,9 @@ export default function TasksScreen() {
         current.map((item) =>
           item.id === task.id
             ? {
-                ...item,
-                status: targetStatus,
-              }
+              ...item,
+              status: targetStatus,
+            }
             : item
         )
       );
@@ -193,6 +193,7 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
     backgroundColor: COLORS.bg,
+    paddingTop: 16
   },
   pageContent: {
     padding: 16,
