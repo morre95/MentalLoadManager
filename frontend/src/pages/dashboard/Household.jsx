@@ -1,175 +1,49 @@
-import { X, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { Users, UserPlus, Copy, Check } from "lucide-react";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useHousehold, createHouseholdInvite, createHousehold, removeHouseholdMember, leaveHousehold } from "../../hooks/useHouseHold";
-import { getDisplayName, getInitials, getUserFromLocalStorage, acceptHouseholdInvite } from "@/lib/utils";
 import { HouseholdModal } from "@/components/ui/CreateHouseholdModal";
-
+import MemberCard from "@/components/household/MemberCard";
+import { useHouseholdPage } from "@/hooks/useHouseholdPage";
 
 const colors = ["bg-sage text-sage-light", "bg-terracotta text-white"];
 
-
 export default function Household() {
-    // Hook should ideally return households as an array:
-    // { households: [...], loading, error }
-    const { households, loading, error, refetch } = useHousehold();
-    const [creating, setCreating] = useState(false);
-    const [newHouseholdName, setNewHouseholdName] = useState("");
-    const me = getUserFromLocalStorage();
-    const [confirmKey, setConfirmKey] = useState(null); // "householdId:userId"
-    const [removingKey, setRemovingKey] = useState(null);
-    const [inviteByHousehold, setInviteByHousehold] = useState({});
-    const [leaveConfirmHouseholdId, setLeaveConfirmHouseholdId] = useState(null);
-    const [leavingHouseholdId, setLeavingHouseholdId] = useState(null);
-    const memberKey = (householdId, userId) => `${householdId}:${userId}`;
-    const [joinCodeOrLink, setJoinCodeOrLink] = useState("");
-    const [joining, setJoining] = useState(false);
-    const [isCreatingUI, setIsCreatingUI] = useState(false);
-    const [isJoiningUI, setIsJoiningUI] = useState(false);
+    const {
+        households,
+        loading,
+        error,
+        me,
 
+        confirmKey,
+        setConfirmKey,
+        removingKey,
 
+        inviteByHousehold,
 
+        leaveConfirmHouseholdId,
+        setLeaveConfirmHouseholdId,
 
+        isCreatingUI,
+        setIsCreatingUI,
+        newHouseholdName,
+        setNewHouseholdName,
+        creating,
 
-    const handleCreateHousehold = async () => {
-        if (!newHouseholdName.trim()) return;
+        isJoiningUI,
+        setIsJoiningUI,
+        joinCodeOrLink,
+        setJoinCodeOrLink,
+        joining,
 
-        setCreating(true);
+        handleCreateHousehold,
+        handleJoinHousehold,
+        handleInvite,
+        handleCopyInvite,
+        handleRemoveMember,
+        handleLeave,
+    } = useHouseholdPage();
 
-        try {
-            await createHousehold(newHouseholdName.trim());
-
-            localStorage.removeItem("households");
-            setIsCreatingUI(false);
-            setNewHouseholdName("");
-            await refetch();
-
-        } catch (e) {
-            console.error(e);
-            alert(e?.message || "Could not create household");
-        } finally {
-            setCreating(false);
-        }
-    };
-
-    const handleRemoveMember = async (householdId, userId) => {
-        const key = memberKey(householdId, userId);
-        setRemovingKey(key);
-
-        try {
-            await removeHouseholdMember(householdId, userId);
-            setConfirmKey(null);
-            await refetch();
-        } catch (e) {
-            console.error(e);
-            alert(e?.message || "Could not remove member");
-        } finally {
-            setRemovingKey(null);
-        }
-    };
-
-    const handleLeave = async (householdId) => {
-        setLeavingHouseholdId(householdId);
-        try {
-            await leaveHousehold(householdId);
-            setLeaveConfirmHouseholdId(null);
-            setConfirmKey(null); // close any other confirms
-            await refetch();
-        } catch (e) {
-            console.error(e);
-            alert(e?.message || "Could not leave household");
-        } finally {
-            setLeavingHouseholdId(null);
-        }
-    };
-
-    const setHouseholdInviteState = (householdId, patch) => {
-        setInviteByHousehold((prev) => ({
-            ...prev,
-            [householdId]: {
-                ...(prev[householdId] || {}),
-                ...patch,
-            },
-        }));
-    };
-
-    const handleInvite = async (householdId) => {
-        setHouseholdInviteState(householdId, { inviting: true, copied: false });
-
-        try {
-            const data = await createHouseholdInvite(householdId);
-
-            const url = data?.invite_url || "";
-            setHouseholdInviteState(householdId, { inviteUrl: url });
-
-            if (url) {
-                await navigator.clipboard.writeText(url);
-                setHouseholdInviteState(householdId, { copied: true });
-
-                setTimeout(() => {
-                    setHouseholdInviteState(householdId, { copied: false });
-                }, 1500);
-            }
-        } catch (e) {
-            console.error(e);
-            alert(e?.message || "Could not create invite");
-        } finally {
-            setHouseholdInviteState(householdId, { inviting: false });
-        }
-    };
-
-    const extractInviteCode = (value) => {
-        const v = String(value || "").trim();
-        if (!v) return "";
-
-        // If user pastes full URL: /join?code=XXXX
-        try {
-            const url = new URL(v);
-            const code = url.searchParams.get("code");
-            if (code) return code.trim();
-        } catch {
-            // not a full URL
-        }
-
-        // If user pastes just the code
-        return v;
-    };
-
-    const handleJoinHousehold = async () => {
-        const code = extractInviteCode(joinCodeOrLink);
-        if (!code) return;
-
-        setJoining(true);
-        try {
-            await acceptHouseholdInvite(code);
-
-            // clean up UI
-            setIsJoiningUI(false);
-            setJoinCodeOrLink("");
-
-            await refetch();
-        } catch (e) {
-            console.error(e);
-            alert(e?.message || "Could not join household");
-        } finally {
-            setJoining(false);
-        }
-    };
-
-    const handleCopy = async (householdId) => {
-        const url = inviteByHousehold[householdId]?.inviteUrl;
-        if (!url) return;
-
-        await navigator.clipboard.writeText(url);
-        setHouseholdInviteState(householdId, { copied: true });
-
-        setTimeout(() => {
-            setHouseholdInviteState(householdId, { copied: false });
-        }, 1500);
-    };
 
     return (
         <div className="p-4 md:p-6">
@@ -200,19 +74,6 @@ export default function Household() {
                     const inviteUrl = inviteState.inviteUrl || "";
                     const copied = !!inviteState.copied;
                     const inviting = !!inviteState.inviting;
-
-                    const sortedMembers = [...(h.members || [])].sort((a, b) => {
-                        const aIsMe = me?.username === a.username;
-                        const bIsMe = me?.username === b.username;
-
-                        if (aIsMe) return -1;
-                        if (bIsMe) return 1;
-
-                        const nameA = getDisplayName(a).toLowerCase();
-                        const nameB = getDisplayName(b).toLowerCase();
-
-                        return nameA.localeCompare(nameB);
-                    });
 
 
                     return (
@@ -249,7 +110,10 @@ export default function Household() {
                                         hover:border-terracotta
                                         transition-colors
                                         "
-                                        onClick={() => setLeaveConfirmHouseholdId(h.household_id)}
+                                        onClick={() => {
+                                            setConfirmKey(null);
+                                            setLeaveConfirmHouseholdId(h.household_id);
+                                        }}
                                     >
                                         Leave
                                     </Button>
@@ -292,7 +156,7 @@ export default function Household() {
                                     <Button
                                         variant="outline"
                                         className="gap-2 shrink-0"
-                                        onClick={() => handleCopy(h.household_id)}
+                                        onClick={() => handleCopyInvite(h.household_id)}
                                     >
                                         {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                                         {copied ? "Copied" : "Copy"}
@@ -301,79 +165,24 @@ export default function Household() {
                             ) : null}
 
                             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                {(sortedMembers || []).map((member, idx) => {
-                                    const name = getDisplayName(member);
-                                    const initials = getInitials(name);
-
-                                    const key = memberKey(h.household_id, member.user_id);
-                                    const isConfirming = confirmKey === key;
-                                    const isRemoving = removingKey === key;
-                                    const isMe = me?.username && member?.username && me.username === member.username;
-
-                                    const isLeavingThisHousehold = leaveConfirmHouseholdId === h.household_id;
-                                    const isLeavingLoading = leavingHouseholdId === h.household_id;
-                                    const isDimmed = isConfirming || isLeavingThisHousehold;
-
-
-                                    return (
-                                        <div className="relative overflow-hidden p-4 pr-6 rounded-xl border border-border bg-card">
-
-                                            {/* Remove button only for others */}
-                                            {!isMe && !isConfirming ? (
-                                                <button
-                                                    type="button"
-                                                    className="absolute top-2 right-2 h-8 w-8 flex items-center justify-center rounded-md
-                                                    text-muted-foreground hover:text-terracotta hover:bg-terracotta/10 transition"
-                                                    onClick={() => setConfirmKey(key)}
-                                                >
-                                                    <X className="h-4 w-4" />
-                                                </button>
-                                            ) : null}
-
-                                            {/* Main content dims */}
-                                            <div
-                                                className={`flex items-start gap-4 transition ${isConfirming ? "opacity-50" : ""
-                                                    }`}
-                                            >
-                                                <Avatar className="h-12 w-12 shrink-0">
-                                                    <AvatarFallback className={`${colors[idx % colors.length]} font-semibold`}>
-                                                        {initials}
-                                                    </AvatarFallback>
-                                                </Avatar>
-
-                                                <div className="min-w-0 flex-1 pr-4">
-                                                    <p className="font-medium text-foreground truncate flex items-center gap-2">
-                                                        {name}
-                                                    </p>
-
-                                                    {member.email && (
-                                                        <p className="text-sm text-muted-foreground truncate">
-                                                            {member.email}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Confirm UI stays strong */}
-                                            {!isMe && isConfirming && (
-                                                <div className="mt-3 flex gap-2 opacity-100">
-                                                    <Button
-                                                        variant="destructive"
-                                                        className="bg-terracotta hover:bg-terracotta/90"
-                                                        onClick={() => handleRemoveMember(h.household_id, member.user_id)}
-                                                    >
-                                                        Confirm remove
-                                                    </Button>
-
-                                                    <Button variant="outline" onClick={() => setConfirmKey(null)}>
-                                                        Cancel
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
+                                {(h.members || []).map((member, idx) => (
+                                    <MemberCard
+                                        key={`${h.household_id}:${member.user_id}`}
+                                        member={member}
+                                        householdId={h.household_id}
+                                        idx={idx}
+                                        colors={colors}
+                                        me={me}
+                                        confirmKey={confirmKey}
+                                        setConfirmKey={setConfirmKey}
+                                        removingKey={removingKey}
+                                        onConfirmRemove={(userId) =>
+                                            handleRemoveMember(h.household_id, userId)
+                                        }
+                                    />
+                                ))}
                             </div>
+
                         </motion.section>
                     );
                 })}
