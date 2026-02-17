@@ -165,6 +165,7 @@ export async function updateKanbanTaskStatus(taskId, status) {
   });
 }
 
+<<<<<<< HEAD
 export function capitalizeWords(str) {
   return String(str || "")
     .trim()
@@ -201,5 +202,14 @@ export function getInitials(nameOrUsername) {
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0][0].toUpperCase();
   return (parts[0][0] + parts[1][0]).toUpperCase();
+=======
+export async function updateKanbanTaskOrder(status, orderedTaskIds) {
+  return apiFetch("/api/kanban/tasks/reorder", {
+    method: "PATCH",
+    body: JSON.stringify({
+      status,
+      ordered_task_ids: orderedTaskIds,
+    }),
+  });
+>>>>>>> 43e3d24 (feat: add task reordering functionality)
 }
-

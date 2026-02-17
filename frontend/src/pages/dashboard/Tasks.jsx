@@ -38,7 +38,7 @@ import AddTaskDialog from "@/components/tasks/AddTaskDialog";
 import TaskDetailDialog from "@/components/tasks/TaskDetailDialog";
 
 import { useTaskboardTasks } from "@/hooks/useTaskboardTasks";
-import { updateKanbanTaskStatus } from "@/lib/utils";
+import { updateKanbanTaskOrder, updateKanbanTaskStatus } from "@/lib/utils";
 
 const priorityColors = {
   low: "bg-sage-light text-sage border-sage/30",
@@ -220,6 +220,17 @@ const Tasks = () => {
     }
   };
 
+  const persistTaskOrder = async (columnStatus, orderedTaskIds, rollbackTasks) => {
+    try {
+      await updateKanbanTaskOrder(toApiStatus(columnStatus), orderedTaskIds);
+    } catch (e) {
+      if (Array.isArray(rollbackTasks)) {
+        setTasks(rollbackTasks);
+      }
+      setSyncError(e);
+    }
+  };
+
   const handleToggleStatus = async (id) => {
     const currentTask = tasks.find((task) => task.id === id);
     if (!currentTask) return;
@@ -297,13 +308,24 @@ const Tasks = () => {
       const overColumn = findColumnForTask(oId);
 
       if (activeColumn && activeColumn === overColumn) {
-        setTasks((prev) => {
-          const columnTasks = prev.filter((t) => t.status === activeColumn);
-          const otherTasks = prev.filter((t) => t.status !== activeColumn);
-          const oldIndex = columnTasks.findIndex((t) => t.id === aId);
-          const newIndex = columnTasks.findIndex((t) => t.id === oId);
-          return [...otherTasks, ...arrayMove(columnTasks, oldIndex, newIndex)];
-        });
+        const columnTasks = tasks.filter((t) => t.status === activeColumn);
+        const oldIndex = columnTasks.findIndex((t) => t.id === aId);
+        const newIndex = columnTasks.findIndex((t) => t.id === oId);
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const reorderedColumnTasks = arrayMove(columnTasks, oldIndex, newIndex);
+          const orderedTaskIds = reorderedColumnTasks.map((task) => task.id);
+
+          let reorderCursor = 0;
+          const nextTasks = tasks.map((task) => {
+            if (task.status !== activeColumn) return task;
+            const reorderedTask = reorderedColumnTasks[reorderCursor];
+            reorderCursor += 1;
+            return reorderedTask;
+          });
+
+          setTasks(nextTasks);
+          persistTaskOrder(activeColumn, orderedTaskIds, dragSnapshot);
+        }
       }
     }
 
@@ -347,7 +369,7 @@ const Tasks = () => {
           ) : null}
           {syncError ? (
             <p className="text-sm text-red-600 mt-2">
-              Couldn’t update task status. Changes were reverted.
+              Couldn’t sync task changes. Changes were reverted.
             </p>
           ) : null}
         </div>

@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, case
 from sqlalchemy.exc import IntegrityError
 
 from helpers import get_current_user, get_session_local
@@ -74,6 +74,17 @@ class UpdateTaskStatusResponse(BaseModel):
     updated_at: datetime | None = None
 
 
+class ReorderTasksRequest(BaseModel):
+    status: str
+    ordered_task_ids: list[str]
+
+
+class ReorderTasksResponse(BaseModel):
+    status: str
+    updated_count: int
+    updated_at: datetime | None = None
+
+
 @router.get("/tasks", response_model=KanbanTasksResponse)
 def list_kamban_tasks(current_user: UserEmail = Depends(get_current_user)):
     try:
@@ -92,6 +103,13 @@ def list_kamban_tasks(current_user: UserEmail = Depends(get_current_user)):
                 detail="Could not validate credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+
+        priority_sort = case(
+            (Tasks.priority == "high", 0),
+            (Tasks.priority == "medium", 1),
+            (Tasks.priority == "low", 2),
+            else_=3,
+        )
 
         rows = db.execute(
             select(
@@ -112,7 +130,13 @@ def list_kamban_tasks(current_user: UserEmail = Depends(get_current_user)):
             )
             .outerjoin(UserDB, Tasks.assigns_to == UserDB.user_id)
             .outerjoin(Categories, Tasks.category_id == Categories.category_id)
-            .order_by(Tasks.created_at.desc())
+            .order_by(
+                case((Tasks.order.is_(None), 1), else_=0),
+                Tasks.order.asc().nulls_last(),
+                priority_sort,
+                Tasks.due_date.asc().nulls_last(),
+                Tasks.created_at.desc(),
+            )
         ).all()
 
     return KanbanTasksResponse(
@@ -329,8 +353,11 @@ def update_task_status(
             )
 
         now_utc = datetime.now(timezone.utc)
+        previous_status = task.status
         task.status = next_status
         task.updated_at = now_utc
+        if previous_status != next_status:
+            task.order = None
 
         if next_status == "todo":
             task.started_at = None
@@ -363,4 +390,99 @@ def update_task_status(
             started_at=task.started_at,
             complete_date=task.complete_date,
             updated_at=task.updated_at,
+        )
+
+
+@router.patch(
+    "/tasks/reorder",
+    response_model=ReorderTasksResponse,
+)
+def reorder_tasks(
+    payload: ReorderTasksRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    target_status = payload.status.strip().lower()
+    if target_status not in ALLOWED_TASK_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid task status",
+        )
+
+    ordered_ids_raw = [task_id.strip() for task_id in payload.ordered_task_ids if task_id]
+    if not ordered_ids_raw:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="ordered_task_ids must not be empty",
+        )
+    if len(ordered_ids_raw) != len(set(ordered_ids_raw)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="ordered_task_ids must be unique",
+        )
+
+    try:
+        ordered_ids = [UUID(task_id) for task_id in ordered_ids_raw]
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="ordered_task_ids contains an invalid UUID",
+        ) from exc
+
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        me = db.scalar(select(UserDB).where(UserDB.username == current_user.username))
+        if not me:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        tasks = db.execute(
+            select(Tasks)
+            .join(
+                UsersHouseholds,
+                and_(
+                    UsersHouseholds.household_id == Tasks.household_id,
+                    UsersHouseholds.user_id == me.user_id,
+                ),
+            )
+            .where(
+                Tasks.task_id.in_(ordered_ids),
+                Tasks.status == target_status,
+            )
+        ).scalars().all()
+        if len(tasks) != len(ordered_ids):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="All tasks must exist, belong to your household, and match status",
+            )
+
+        task_by_id = {task.task_id: task for task in tasks}
+        now_utc = datetime.now(timezone.utc)
+        for index, task_id in enumerate(ordered_ids):
+            task = task_by_id[task_id]
+            task.order = index
+            task.updated_at = now_utc
+
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Unable to reorder tasks",
+            ) from exc
+
+        return ReorderTasksResponse(
+            status=target_status,
+            updated_count=len(ordered_ids),
+            updated_at=now_utc,
         )
