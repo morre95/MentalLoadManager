@@ -56,7 +56,6 @@ export default function TabLayout() {
         options={{
           title: 'Tasks',
           tabBarIcon: ({ color }) => <FontAwesome5 name="tasks" size={26} color={color} />,
-          headerShown: false,
         }}
       />
       <Tabs.Screen
@@ -64,7 +63,6 @@ export default function TabLayout() {
         options={{
           title: 'Household',
           tabBarIcon: ({ color }) => <IconSymbol size={26} name="house.fill" color={color} />,
-          headerShown: false,
         }}
       />
     </Tabs>
