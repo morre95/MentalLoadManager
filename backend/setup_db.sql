@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   description    TEXT,
   status         VARCHAR(50) NOT NULL CHECK (status IN ('todo', 'in_progress', 'done', 'on_hold')),
   priority       VARCHAR(50) NOT NULL CHECK (priority IN ('low', 'medium', 'high')),
+  order          INT,
   category_id    UUID REFERENCES categories(category_id) ON DELETE SET NULL,
   complete_date  TIMESTAMPTZ,
   created_at     TIMESTAMPTZ DEFAULT NOW(),

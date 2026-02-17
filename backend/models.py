@@ -282,6 +282,7 @@ class Tasks(Base):
     description: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(50), nullable=False)
     priority: Mapped[str | None] = mapped_column(String(50))
+    order: Mapped[int | None] = mapped_column(Integer)
     category_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("categories.category_id", ondelete="SET NULL"),
