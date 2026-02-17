@@ -1,26 +1,29 @@
-import { createApiClient, getApiBaseUrl } from '../../shared/index.js';
+import { Platform } from 'react-native';
+import { createApiClient } from '../../shared/index.js';
+import { clearAccessToken, getAccessToken } from '@/lib/auth';
 
-let accessToken = process.env.EXPO_PUBLIC_ACCESS_TOKEN || '';
+function resolveMobileApiBaseUrl() {
+  const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (envUrl) {
+    return String(envUrl).replace(/\/$/, '');
+  }
 
-export function setMobileAccessToken(nextToken: string) {
-  accessToken = String(nextToken || '').trim();
+  // Android emulator cannot reach host machine via localhost.
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:8000';
+  }
+
+  return 'http://localhost:8000';
 }
 
-export function getMobileAccessToken() {
-  return accessToken || null;
-}
-
-export function hasMobileAccessToken() {
-  return Boolean(accessToken);
-}
-
-export const mobileApiBaseUrl = getApiBaseUrl({
-  env: process.env as Record<string, string | undefined>,
-});
+export const mobileApiBaseUrl = resolveMobileApiBaseUrl();
 
 export const mobileApiClient = createApiClient({
-  getAccessToken: () => getMobileAccessToken(),
+  getAccessToken,
+  onUnauthorized: clearAccessToken,
   envOptions: {
-    env: process.env as Record<string, string | undefined>,
+    env: {
+      API_BASE_URL: mobileApiBaseUrl,
+    },
   },
 });

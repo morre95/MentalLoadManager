@@ -18,13 +18,8 @@ import {
   removeHouseholdMember,
   type Household,
 } from '../../../shared/index.js';
-import {
-  getMobileAccessToken,
-  hasMobileAccessToken,
-  mobileApiBaseUrl,
-  mobileApiClient,
-  setMobileAccessToken,
-} from '@/lib/api';
+import { mobileApiBaseUrl, mobileApiClient } from '@/lib/api';
+import { clearAccessToken } from '@/lib/auth';
 
 const COLORS = {
   bg: '#f7f6f2',
@@ -42,7 +37,6 @@ export default function HouseholdScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
-  const [tokenInput, setTokenInput] = useState(getMobileAccessToken() || '');
 
   const load = useCallback(async () => {
     setError(null);
@@ -108,23 +102,29 @@ export default function HouseholdScreen() {
     }
   }, []);
 
-  const onLeave = useCallback(async (householdId: string | number) => {
-    try {
-      await leaveHousehold(mobileApiClient, householdId);
-      await onRefresh();
-    } catch (err: any) {
-      setError(err?.message || 'Could not leave household');
-    }
-  }, [onRefresh]);
+  const onLeave = useCallback(
+    async (householdId: string | number) => {
+      try {
+        await leaveHousehold(mobileApiClient, householdId);
+        await onRefresh();
+      } catch (err: any) {
+        setError(err?.message || 'Could not leave household');
+      }
+    },
+    [onRefresh]
+  );
 
-  const onRemove = useCallback(async (householdId: string | number, userId: string | number) => {
-    try {
-      await removeHouseholdMember(mobileApiClient, householdId, userId);
-      await onRefresh();
-    } catch (err: any) {
-      setError(err?.message || 'Could not remove member');
-    }
-  }, [onRefresh]);
+  const onRemove = useCallback(
+    async (householdId: string | number, userId: string | number) => {
+      try {
+        await removeHouseholdMember(mobileApiClient, householdId, userId);
+        await onRefresh();
+      } catch (err: any) {
+        setError(err?.message || 'Could not remove member');
+      }
+    },
+    [onRefresh]
+  );
 
   return (
     <ScrollView
@@ -135,34 +135,15 @@ export default function HouseholdScreen() {
       <View style={styles.headerWrap}>
         <Text style={styles.eyebrow}>Mental Load Manager</Text>
         <Text style={styles.title}>Household</Text>
-        <Text style={styles.subtitle}>Shared API: {mobileApiBaseUrl}</Text>
-        <Text style={styles.subtitle}>Households: {households.length} • Members: {totalMembers}</Text>
-      </View>
+        <Text style={styles.subtitle}>Backend: {mobileApiBaseUrl}</Text>
+        <Text style={styles.subtitle}>
+          Households: {households.length} • Members: {totalMembers}
+        </Text>
 
-      {!hasMobileAccessToken() ? (
-        <View style={styles.noticeCard}>
-          <Text style={styles.noticeTitle}>Missing access token</Text>
-          <Text style={styles.noticeBody}>
-            Set EXPO_PUBLIC_ACCESS_TOKEN or paste a token below.
-          </Text>
-          <TextInput
-            value={tokenInput}
-            onChangeText={setTokenInput}
-            placeholder="access_token"
-            autoCapitalize="none"
-            style={styles.input}
-          />
-          <Pressable
-            style={styles.primaryButton}
-            onPress={() => {
-              setMobileAccessToken(tokenInput);
-              onRefresh();
-            }}
-          >
-            <Text style={styles.primaryButtonText}>Save Token</Text>
-          </Pressable>
-        </View>
-      ) : null}
+        <Pressable style={styles.logoutButton} onPress={clearAccessToken}>
+          <Text style={styles.logoutButtonText}>Log out</Text>
+        </Pressable>
+      </View>
 
       <View style={styles.createCard}>
         <Text style={styles.sectionTitle}>Create Household</Text>
@@ -251,22 +232,19 @@ const styles = StyleSheet.create({
   subtitle: {
     color: COLORS.muted,
   },
-  noticeCard: {
-    backgroundColor: '#fff9f7',
-    borderRadius: 14,
+  logoutButton: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    borderRadius: 10,
+    borderColor: '#ebc3b8',
     borderWidth: 1,
-    borderColor: '#f2d2c9',
-    padding: 14,
-    gap: 10,
+    backgroundColor: '#fff4f1',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
   },
-  noticeTitle: {
-    color: COLORS.text,
+  logoutButtonText: {
+    color: COLORS.terracotta,
     fontWeight: '700',
-    fontSize: 16,
-  },
-  noticeBody: {
-    color: COLORS.muted,
-    lineHeight: 20,
   },
   createCard: {
     borderRadius: 16,

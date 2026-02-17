@@ -1,6 +1,6 @@
 # Mobile app (Expo)
 
-This app now shares backend logic with the web frontend through `../shared`.
+This app shares backend logic with the web frontend through `../shared`.
 
 ## Setup
 
@@ -10,12 +10,15 @@ This app now shares backend logic with the web frontend through `../shared`.
 npm install
 ```
 
-2. Configure backend URL and token (recommended):
+2. Optional backend URL override:
 
 ```bash
 EXPO_PUBLIC_API_BASE_URL=http://localhost:8000
-EXPO_PUBLIC_ACCESS_TOKEN=your_jwt_token
 ```
+
+Defaults:
+- Android emulator: `http://10.0.2.2:8000`
+- iOS simulator/web: `http://localhost:8000`
 
 3. Start Expo:
 
@@ -23,4 +26,4 @@ EXPO_PUBLIC_ACCESS_TOKEN=your_jwt_token
 npx expo start
 ```
 
-If `EXPO_PUBLIC_ACCESS_TOKEN` is not set, the app shows a token input on the `Tasks` and `Household` tabs.
+If the user is not logged in, the app shows a login screen and requests credentials.

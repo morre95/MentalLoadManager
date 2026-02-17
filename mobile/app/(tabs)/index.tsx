@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
@@ -15,13 +14,7 @@ import {
   updateKanbanTaskStatus,
   type UiTask,
 } from '../../../shared/index.js';
-import {
-  getMobileAccessToken,
-  hasMobileAccessToken,
-  mobileApiBaseUrl,
-  mobileApiClient,
-  setMobileAccessToken,
-} from '@/lib/api';
+import { mobileApiBaseUrl, mobileApiClient } from '@/lib/api';
 
 const COLORS = {
   bg: '#f7f6f2',
@@ -30,7 +23,6 @@ const COLORS = {
   muted: '#78736b',
   border: '#ddd7ca',
   primary: '#64786f',
-  terracotta: '#c7674a',
   todo: '#d49a00',
   doing: '#5470b3',
   hold: '#8a7bbf',
@@ -65,7 +57,6 @@ export default function TasksScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tokenInput, setTokenInput] = useState(getMobileAccessToken() || '');
 
   const loadTasks = useCallback(async () => {
     setError(null);
@@ -111,28 +102,31 @@ export default function TasksScreen() {
     }));
   }, [tasks]);
 
-  const onCycleStatus = useCallback(async (task: UiTask) => {
-    const targetStatus = nextStatus(task.status);
-    const previous = tasks;
+  const onCycleStatus = useCallback(
+    async (task: UiTask) => {
+      const targetStatus = nextStatus(task.status);
+      const previous = tasks;
 
-    setTasks((current) =>
-      current.map((item) =>
-        item.id === task.id
-          ? {
-              ...item,
-              status: targetStatus,
-            }
-          : item
-      )
-    );
+      setTasks((current) =>
+        current.map((item) =>
+          item.id === task.id
+            ? {
+                ...item,
+                status: targetStatus,
+              }
+            : item
+        )
+      );
 
-    try {
-      await updateKanbanTaskStatus(mobileApiClient, task.id, targetStatus);
-    } catch {
-      setTasks(previous);
-      setError('Could not sync task status. Reverted local change.');
-    }
-  }, [tasks]);
+      try {
+        await updateKanbanTaskStatus(mobileApiClient, task.id, targetStatus);
+      } catch {
+        setTasks(previous);
+        setError('Could not sync task status. Reverted local change.');
+      }
+    },
+    [tasks]
+  );
 
   return (
     <ScrollView
@@ -143,33 +137,8 @@ export default function TasksScreen() {
       <View style={styles.headerWrap}>
         <Text style={styles.eyebrow}>Mental Load Manager</Text>
         <Text style={styles.title}>Tasks</Text>
-        <Text style={styles.subtitle}>Shared API: {mobileApiBaseUrl}</Text>
+        <Text style={styles.subtitle}>Backend: {mobileApiBaseUrl}</Text>
       </View>
-
-      {!hasMobileAccessToken() ? (
-        <View style={styles.noticeCard}>
-          <Text style={styles.noticeTitle}>Missing access token</Text>
-          <Text style={styles.noticeBody}>
-            Set EXPO_PUBLIC_ACCESS_TOKEN or paste a token below.
-          </Text>
-          <TextInput
-            value={tokenInput}
-            onChangeText={setTokenInput}
-            placeholder="access_token"
-            autoCapitalize="none"
-            style={styles.input}
-          />
-          <Pressable
-            style={styles.primaryButton}
-            onPress={() => {
-              setMobileAccessToken(tokenInput);
-              onRefresh();
-            }}
-          >
-            <Text style={styles.primaryButtonText}>Save Token</Text>
-          </Pressable>
-        </View>
-      ) : null}
 
       {loading ? (
         <View style={styles.loadingWrap}>
@@ -202,11 +171,15 @@ export default function TasksScreen() {
                 </View>
               </View>
 
-              <Text style={styles.taskMeta}>{task.category} • {task.assignee}</Text>
+              <Text style={styles.taskMeta}>
+                {task.category} • {task.assignee}
+              </Text>
               {task.dueDate ? <Text style={styles.taskMeta}>Due {task.dueDate}</Text> : null}
 
               <Pressable style={styles.secondaryButton} onPress={() => onCycleStatus(task)}>
-                <Text style={styles.secondaryButtonText}>Move to {COLUMN_LABELS[nextStatus(task.status)]}</Text>
+                <Text style={styles.secondaryButtonText}>
+                  Move to {COLUMN_LABELS[nextStatus(task.status)]}
+                </Text>
               </Pressable>
             </View>
           ))}
@@ -244,41 +217,6 @@ const styles = StyleSheet.create({
   subtitle: {
     color: COLORS.muted,
     marginTop: 4,
-  },
-  noticeCard: {
-    backgroundColor: '#fff9f7',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#f2d2c9',
-    padding: 14,
-    gap: 10,
-  },
-  noticeTitle: {
-    color: COLORS.text,
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  noticeBody: {
-    color: COLORS.muted,
-    lineHeight: 20,
-  },
-  input: {
-    borderColor: COLORS.border,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: COLORS.card,
-  },
-  primaryButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 10,
-    paddingVertical: 11,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontWeight: '700',
   },
   loadingWrap: {
     paddingVertical: 22,
