@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { router } from 'expo-router';
 
 import {
   createHousehold,
@@ -140,7 +141,13 @@ export default function HouseholdScreen() {
           Households: {households.length} • Members: {totalMembers}
         </Text>
 
-        <Pressable style={styles.logoutButton} onPress={clearAccessToken}>
+        <Pressable
+          style={styles.logoutButton}
+          onPress={() => {
+            clearAccessToken();
+            router.replace('/login');
+          }}
+        >
           <Text style={styles.logoutButtonText}>Log out</Text>
         </Pressable>
       </View>

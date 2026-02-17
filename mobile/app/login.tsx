@@ -9,10 +9,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 
 import { mobileApiBaseUrl } from '@/lib/api';
-import { setAccessToken } from '@/lib/auth';
+import { setAccessToken, useAuthToken } from '@/lib/auth';
 
 const COLORS = {
   bg: '#f7f6f2',
@@ -25,10 +25,15 @@ const COLORS = {
 } as const;
 
 export default function LoginScreen() {
+  const token = useAuthToken();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  if (token) {
+    return <Redirect href="/(tabs)" />;
+  }
 
   const handleLogin = async () => {
     if (!username.trim() || !password) {
