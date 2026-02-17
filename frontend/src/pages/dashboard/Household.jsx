@@ -21,8 +21,8 @@ export default function Household() {
     const [confirmKey, setConfirmKey] = useState(null); // "householdId:userId"
     const [removingKey, setRemovingKey] = useState(null);
     const [inviteByHousehold, setInviteByHousehold] = useState({});
-
-
+    const [leaveConfirmHouseholdId, setLeaveConfirmHouseholdId] = useState(null);
+    const [leavingHouseholdId, setLeavingHouseholdId] = useState(null);
     const memberKey = (householdId, userId) => `${householdId}:${userId}`;
 
 
@@ -60,6 +60,21 @@ export default function Household() {
             alert(e?.message || "Could not remove member");
         } finally {
             setRemovingKey(null);
+        }
+    };
+
+    const handleLeave = async (householdId) => {
+        setLeavingHouseholdId(householdId);
+        try {
+            await leaveHousehold(householdId);
+            setLeaveConfirmHouseholdId(null);
+            setConfirmKey(null); // close any other confirms
+            await refetch();
+        } catch (e) {
+            console.error(e);
+            alert(e?.message || "Could not leave household");
+        } finally {
+            setLeavingHouseholdId(null);
         }
     };
 
