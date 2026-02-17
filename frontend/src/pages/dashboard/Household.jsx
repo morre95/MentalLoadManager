@@ -1,11 +1,11 @@
-import { X, LogOut } from "lucide-react";
+import { X, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { Users, UserPlus, Copy, Check } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useHousehold, createHouseholdInvite, createHousehold, removeHouseholdMember, leaveHousehold } from "../../hooks/useHouseHold";
-import { getDisplayName, getInitials, getUserFromLocalStorage } from "@/lib/utils";
+import { getDisplayName, getInitials, getUserFromLocalStorage, acceptHouseholdInvite } from "@/lib/utils";
 
 const colors = ["bg-sage text-sage-light", "bg-terracotta text-white"];
 
@@ -24,6 +24,10 @@ export default function Household() {
     const [leaveConfirmHouseholdId, setLeaveConfirmHouseholdId] = useState(null);
     const [leavingHouseholdId, setLeavingHouseholdId] = useState(null);
     const memberKey = (householdId, userId) => `${householdId}:${userId}`;
+    const [isJoiningUI, setIsJoiningUI] = useState(false);
+    const [joinCodeOrLink, setJoinCodeOrLink] = useState("");
+    const [joining, setJoining] = useState(false);
+
 
 
     const handleCreateHousehold = async () => {
@@ -112,6 +116,46 @@ export default function Household() {
             setHouseholdInviteState(householdId, { inviting: false });
         }
     };
+
+    const extractInviteCode = (value) => {
+        const v = String(value || "").trim();
+        if (!v) return "";
+
+        // If user pastes full URL: /join?code=XXXX
+        try {
+            const url = new URL(v);
+            const code = url.searchParams.get("code");
+            if (code) return code.trim();
+        } catch {
+            // not a full URL
+        }
+
+        // If user pastes just the code
+        return v;
+    };
+
+    const handleJoinHousehold = async () => {
+        const code = extractInviteCode(joinCodeOrLink);
+        if (!code) return;
+
+        setJoining(true);
+        try {
+            await acceptHouseholdInvite(code);
+
+            // clean up UI
+            setIsJoiningUI(false);
+            setJoinCodeOrLink("");
+
+            // refresh households (best: call your hook's refetch; simplest: reload)
+            window.location.reload();
+        } catch (e) {
+            console.error(e);
+            alert(e?.message || "Could not join household");
+        } finally {
+            setJoining(false);
+        }
+    };
+
 
     const handleCopy = async (householdId) => {
         const url = inviteByHousehold[householdId]?.inviteUrl;
@@ -338,16 +382,24 @@ export default function Household() {
                     </div>
                 ) : null}
 
-                {/* Create household (always available) */}
-                <div className="mb-6 rounded-xl border border-border bg-card p-4 space-y-3">
-                    <p className="text-sm text-muted-foreground">Create a new household</p>
+                <div className="mb-6 rounded-xl border border-border bg-card p-4 space-y-4">
+                    <p className="text-sm text-muted-foreground">Manage households</p>
 
-                    {!isCreatingUI ? (
+                    {/* Actions row */}
+                    <div className="flex flex-col sm:flex-row gap-2">
                         <Button className="gap-2" onClick={() => setIsCreatingUI(true)}>
                             <Users className="h-4 w-4" />
                             Create Household
                         </Button>
-                    ) : (
+
+                        <Button variant="outline" className="gap-2" onClick={() => setIsJoiningUI(true)}>
+                            <ArrowRight className="h-4 w-4" />
+                            Join Household
+                        </Button>
+                    </div>
+
+                    {/* Create UI */}
+                    {isCreatingUI ? (
                         <div className="flex flex-col sm:flex-row gap-3">
                             <input
                                 type="text"
@@ -378,16 +430,54 @@ export default function Household() {
                                     Cancel
                                 </Button>
 
-                                <Button
-                                    onClick={handleCreateHousehold}
-                                    disabled={creating || !newHouseholdName.trim()}
-                                >
+                                <Button onClick={handleCreateHousehold} disabled={creating || !newHouseholdName.trim()}>
                                     {creating ? "Creating…" : "Create"}
                                 </Button>
                             </div>
                         </div>
-                    )}
+                    ) : null}
+
+                    {/* Join UI */}
+                    {isJoiningUI ? (
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <input
+                                type="text"
+                                value={joinCodeOrLink}
+                                onChange={(e) => setJoinCodeOrLink(e.target.value)}
+                                placeholder="Paste invite link or code"
+                                className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" && joinCodeOrLink.trim() && !joining) {
+                                        handleJoinHousehold();
+                                    }
+                                    if (e.key === "Escape") {
+                                        setIsJoiningUI(false);
+                                        setJoinCodeOrLink("");
+                                    }
+                                }}
+                            />
+
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        setIsJoiningUI(false);
+                                        setJoinCodeOrLink("");
+                                    }}
+                                    disabled={joining}
+                                >
+                                    Cancel
+                                </Button>
+
+                                <Button onClick={handleJoinHousehold} disabled={joining || !joinCodeOrLink.trim()}>
+                                    {joining ? "Joining…" : "Join"}
+                                </Button>
+                            </div>
+                        </div>
+                    ) : null}
                 </div>
+
             </div>
         </div>
     );
