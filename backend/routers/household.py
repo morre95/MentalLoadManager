@@ -78,6 +78,11 @@ class AcceptInviteRequest(BaseModel):
 class AcceptInviteResponse(BaseModel):
     household_id: str
 
+class RemoveHouseholdMemberRequest(BaseModel):
+    household_id: UUID
+    user_id: UUID
+class LeaveHouseholdRequest(BaseModel):
+    household_id: UUID
 
 # =========================
 # Helpers
@@ -279,9 +284,6 @@ def add_household_member(
             display_name=user_to_add.display_name,
         )
 
-
-@router.get("/me", response_model=HouseholdWithMembers)
-def get_my_household(current_user: UserEmail = Depends(get_current_user)):
     """
     Backwards-compatible single-household endpoint:
     returns the FIRST household the user belongs to (by join order).
@@ -327,7 +329,7 @@ def get_my_household(current_user: UserEmail = Depends(get_current_user)):
         )
 
 
-@router.get("/my", response_model=MyHouseholdsResponse)
+@router.get("", response_model=MyHouseholdsResponse)
 def get_my_households(current_user: UserEmail = Depends(get_current_user)):
     """
     Multi-household endpoint:
@@ -470,3 +472,73 @@ def accept_invite(
             return AcceptInviteResponse(household_id=str(inv.household_id))
 
         return AcceptInviteResponse(household_id=str(inv.household_id))
+
+@router.delete("/members", status_code=status.HTTP_204_NO_CONTENT)
+def remove_household_member(
+    payload: RemoveHouseholdMemberRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    """
+    Remove a user from a household.
+    Rules:
+    - You must be a member of the household.
+    - You cannot remove yourself.
+    """
+    session_local = get_session_local()
+
+    with session_local() as db:
+        me = _get_db_user(db, current_user)
+
+        # must be member of this household
+        my_membership = db.scalar(
+            select(UsersHouseholds).where(
+                UsersHouseholds.user_id == me.user_id,
+                UsersHouseholds.household_id == payload.household_id,
+            )
+        )
+        if not my_membership:
+            raise HTTPException(status_code=403, detail="Not a member of that household")
+
+        # cannot remove yourself
+        if payload.user_id == me.user_id:
+            raise HTTPException(status_code=400, detail="You cannot remove yourself")
+
+        membership = db.scalar(
+            select(UsersHouseholds).where(
+                UsersHouseholds.user_id == payload.user_id,
+                UsersHouseholds.household_id == payload.household_id,
+            )
+        )
+        if not membership:
+            raise HTTPException(status_code=404, detail="User is not in that household")
+
+        db.delete(membership)
+        db.commit()
+
+    return
+
+@router.post("/leave", status_code=status.HTTP_204_NO_CONTENT)
+def leave_household(
+    payload: LeaveHouseholdRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    session_local = get_session_local()
+
+    with session_local() as db:
+        me = _get_db_user(db, current_user)
+
+        membership = db.scalar(
+            select(UsersHouseholds).where(
+                UsersHouseholds.user_id == me.user_id,
+                UsersHouseholds.household_id == payload.household_id,
+            )
+        )
+        if not membership:
+            raise HTTPException(status_code=404, detail="You are not in that household")
+
+        db.delete(membership)
+        db.commit()
+
+    return
+
+

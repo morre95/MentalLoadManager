@@ -21,7 +21,7 @@ export function useHousehold() {
         setError(null);
 
         try {
-            const data = await apiFetch("/api/household/my", { method: "GET" });
+            const data = await apiFetch("/api/household", { method: "GET" });
             const arr = Array.isArray(data?.households) ? data.households : [];
             setHouseholds(arr);
             localStorage.setItem(LS_HOUSEHOLDS_KEY, JSON.stringify(arr));
@@ -86,3 +86,18 @@ export async function createHousehold(name) {
     });
 }
 
+export async function removeHouseholdMember(household_id, user_id) {
+    return apiFetch("/api/household/members", {
+        method: "DELETE",
+        body: JSON.stringify({ household_id, user_id }),
+        headers: { "Content-Type": "application/json" },
+    });
+}
+
+export async function leaveHousehold(household_id) {
+    return apiFetch("/api/household/leave", {
+        method: "POST",
+        body: JSON.stringify({ household_id }),
+        headers: { "Content-Type": "application/json" },
+    });
+}

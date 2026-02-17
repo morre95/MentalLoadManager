@@ -1,13 +1,14 @@
+import { X, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
 import { Users, UserPlus, Copy, Check } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useHousehold, createHouseholdInvite, createHousehold } from "../../hooks/useHouseHold";
-
-import { getDisplayName, getInitials } from "@/lib/utils";
+import { useHousehold, createHouseholdInvite, createHousehold, removeHouseholdMember, leaveHousehold } from "../../hooks/useHouseHold";
+import { getDisplayName, getInitials, getUserFromLocalStorage } from "@/lib/utils";
 
 const colors = ["bg-sage text-sage-light", "bg-terracotta text-white"];
+
 
 export default function Household() {
     // Hook should ideally return households as an array:
@@ -16,6 +17,14 @@ export default function Household() {
     const [creating, setCreating] = useState(false);
     const [isCreatingUI, setIsCreatingUI] = useState(false);
     const [newHouseholdName, setNewHouseholdName] = useState("");
+    const me = getUserFromLocalStorage();
+    const [confirmKey, setConfirmKey] = useState(null); // "householdId:userId"
+    const [removingKey, setRemovingKey] = useState(null);
+    const [inviteByHousehold, setInviteByHousehold] = useState({});
+
+
+    const memberKey = (householdId, userId) => `${householdId}:${userId}`;
+
 
     const handleCreateHousehold = async () => {
         if (!newHouseholdName.trim()) return;
@@ -38,16 +47,21 @@ export default function Household() {
         }
     };
 
+    const handleRemoveMember = async (householdId, userId) => {
+        const key = memberKey(householdId, userId);
+        setRemovingKey(key);
 
-    /**
-     * Per-household invite state:
-     * inviteByHousehold[household_id] = {
-     *   inviteUrl: string,
-     *   copied: boolean,
-     *   inviting: boolean
-     * }
-     */
-    const [inviteByHousehold, setInviteByHousehold] = useState({});
+        try {
+            await removeHouseholdMember(householdId, userId);
+            setConfirmKey(null);
+            await refetch();
+        } catch (e) {
+            console.error(e);
+            alert(e?.message || "Could not remove member");
+        } finally {
+            setRemovingKey(null);
+        }
+    };
 
     const setHouseholdInviteState = (householdId, patch) => {
         setInviteByHousehold((prev) => ({
@@ -183,27 +197,77 @@ export default function Household() {
 
                                     // ✅ For initials, use display string (better than raw username)
                                     const initials = getInitials(name);
+                                    const key = memberKey(h.household_id, member.user_id);
+                                    const isConfirming = confirmKey === key;
+                                    const isRemoving = removingKey === key;
+                                    const isMe = me?.username && member?.username && me.username === member.username;
+
 
                                     return (
                                         <div
                                             key={`${h.household_id}:${member.user_id}`}
-                                            className="p-4 rounded-xl border border-border bg-card flex items-center gap-4"
+                                            className="relative p-4 pr-6 rounded-xl border border-border bg-card flex items-start gap-4"
                                         >
-                                            <Avatar className="h-12 w-12">
-                                                <AvatarFallback
-                                                    className={`${colors[idx % colors.length]} font-semibold`}
+                                            {/* ❌ top-right remove button (not for yourself) */}
+                                            {!isMe && !isConfirming ? (
+                                                <button
+                                                    type="button"
+                                                    className="
+                                                    absolute top-2 right-2
+                                                    h-8 w-8
+                                                    flex items-center justify-center
+                                                    rounded-md
+                                                    text-muted-foreground
+                                                    hover:text-terracotta
+                                                    hover:bg-terracotta/10
+                                                    transition-colors
+                                                    "
+                                                    onClick={() => setConfirmKey(key)}
+                                                    aria-label="Remove member"
+                                                    title="Remove member"
                                                 >
+                                                    <X className="h-4 w-4" />
+                                                </button>
+                                            ) : null}
+
+                                            <Avatar className="h-12 w-12">
+                                                <AvatarFallback className={`${colors[idx % colors.length]} font-semibold`}>
                                                     {initials}
                                                 </AvatarFallback>
                                             </Avatar>
 
-                                            <div className="min-w-0">
+                                            <div className="min-w-0 flex-1">
                                                 <p className="font-medium text-foreground truncate">{name}</p>
                                                 {member.email ? (
                                                     <p className="text-sm text-muted-foreground truncate">{member.email}</p>
                                                 ) : null}
+
+                                                {/* Confirm UI */}
+                                                {!isMe && isConfirming ? (
+                                                    <div className="mt-3 flex flex-col sm:flex-row gap-2 w-full">
+                                                        <Button
+                                                            variant="destructive"
+                                                            className="gap-2 w-full sm:w-auto sm:flex-0 whitespace-normal bg-terracotta text-white hover:bg-terracotta/90"
+                                                            onClick={() => handleRemoveMember(h.household_id, member.user_id)}
+                                                            disabled={isRemoving}
+                                                        >
+                                                            {isRemoving ? "Removing…" : "Confirm remove"}
+                                                        </Button>
+
+                                                        <Button
+                                                            variant="outline"
+                                                            className="w-full sm:w-auto hover:bg-sage transition-colors"
+                                                            onClick={() => setConfirmKey(null)}
+                                                            disabled={isRemoving}
+                                                        >
+                                                            Cancel
+                                                        </Button>
+                                                    </div>
+
+                                                ) : null}
                                             </div>
                                         </div>
+
                                     );
                                 })}
                             </div>
