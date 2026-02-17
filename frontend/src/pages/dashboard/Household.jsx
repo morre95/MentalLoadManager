@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useHousehold, createHouseholdInvite, createHousehold, removeHouseholdMember, leaveHousehold } from "../../hooks/useHouseHold";
 import { getDisplayName, getInitials, getUserFromLocalStorage, acceptHouseholdInvite } from "@/lib/utils";
+import { HouseholdModal } from "@/components/ui/CreateHouseholdModal";
+
 
 const colors = ["bg-sage text-sage-light", "bg-terracotta text-white"];
 
@@ -15,7 +17,6 @@ export default function Household() {
     // { households: [...], loading, error }
     const { households, loading, error, refetch } = useHousehold();
     const [creating, setCreating] = useState(false);
-    const [isCreatingUI, setIsCreatingUI] = useState(false);
     const [newHouseholdName, setNewHouseholdName] = useState("");
     const me = getUserFromLocalStorage();
     const [confirmKey, setConfirmKey] = useState(null); // "householdId:userId"
@@ -24,9 +25,12 @@ export default function Household() {
     const [leaveConfirmHouseholdId, setLeaveConfirmHouseholdId] = useState(null);
     const [leavingHouseholdId, setLeavingHouseholdId] = useState(null);
     const memberKey = (householdId, userId) => `${householdId}:${userId}`;
-    const [isJoiningUI, setIsJoiningUI] = useState(false);
     const [joinCodeOrLink, setJoinCodeOrLink] = useState("");
     const [joining, setJoining] = useState(false);
+    const [isCreatingUI, setIsCreatingUI] = useState(false);
+    const [isJoiningUI, setIsJoiningUI] = useState(false);
+
+
 
 
 
@@ -146,8 +150,7 @@ export default function Household() {
             setIsJoiningUI(false);
             setJoinCodeOrLink("");
 
-            // refresh households (best: call your hook's refetch; simplest: reload)
-            window.location.reload();
+            await refetch();
         } catch (e) {
             console.error(e);
             alert(e?.message || "Could not join household");
@@ -155,7 +158,6 @@ export default function Household() {
             setJoining(false);
         }
     };
-
 
     const handleCopy = async (householdId) => {
         const url = inviteByHousehold[householdId]?.inviteUrl;
@@ -199,6 +201,20 @@ export default function Household() {
                     const copied = !!inviteState.copied;
                     const inviting = !!inviteState.inviting;
 
+                    const sortedMembers = [...(h.members || [])].sort((a, b) => {
+                        const aIsMe = me?.username === a.username;
+                        const bIsMe = me?.username === b.username;
+
+                        if (aIsMe) return -1;
+                        if (bIsMe) return 1;
+
+                        const nameA = getDisplayName(a).toLowerCase();
+                        const nameB = getDisplayName(b).toLowerCase();
+
+                        return nameA.localeCompare(nameB);
+                    });
+
+
                     return (
                         <motion.section
                             key={h.household_id}
@@ -215,16 +231,56 @@ export default function Household() {
                                         {h.members?.length ?? 0} member{(h.members?.length ?? 0) === 1 ? "" : "s"}
                                     </p>
                                 </div>
+                                <div className="flex gap-2">
+                                    <Button
+                                        className="gap-2"
+                                        onClick={() => handleInvite(h.household_id)}
+                                        disabled={inviting}
+                                    >
+                                        <UserPlus className="h-4 w-4" />
+                                        Invite Member
+                                    </Button>
 
-                                <Button
-                                    className="gap-2 shrink-0"
-                                    onClick={() => handleInvite(h.household_id)}
-                                    disabled={inviting}
-                                >
-                                    <UserPlus className="h-4 w-4" />
-                                    {inviting ? "Creating…" : "Invite Member"}
-                                </Button>
+                                    <Button
+                                        variant="outline"
+                                        className="
+                                        border-terracotta text-terracotta
+                                        hover:bg-terracotta hover:text-white
+                                        hover:border-terracotta
+                                        transition-colors
+                                        "
+                                        onClick={() => setLeaveConfirmHouseholdId(h.household_id)}
+                                    >
+                                        Leave
+                                    </Button>
+                                </div>
+
                             </div>
+                            {leaveConfirmHouseholdId === h.household_id ? (
+                                <div className="rounded-xl border border-border bg-terracotta/5 p-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
+                                    <p className="text-sm text-foreground">
+                                        Are you sure you want to leave <b>{h.name}</b>?
+                                    </p>
+
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="destructive"
+                                            className="bg-terracotta hover:bg-terracotta/90"
+                                            onClick={() => handleLeave(h.household_id)}
+                                        >
+                                            Confirm Leave
+                                        </Button>
+
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => setLeaveConfirmHouseholdId(null)}
+                                        >
+                                            Cancel
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : null}
+
 
                             {inviteUrl ? (
                                 <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-3 justify-between">
@@ -245,7 +301,7 @@ export default function Household() {
                             ) : null}
 
                             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                {(h.members || []).map((member, idx) => {
+                                {(sortedMembers || []).map((member, idx) => {
                                     const name = getDisplayName(member);
                                     const initials = getInitials(name);
 
@@ -256,118 +312,64 @@ export default function Household() {
 
                                     const isLeavingThisHousehold = leaveConfirmHouseholdId === h.household_id;
                                     const isLeavingLoading = leavingHouseholdId === h.household_id;
+                                    const isDimmed = isConfirming || isLeavingThisHousehold;
+
 
                                     return (
-                                        <div
-                                            key={`${h.household_id}:${member.user_id}`}
-                                            className="relative overflow-hidden p-4 pr-6 rounded-xl border border-border bg-card flex items-start gap-4"
-                                        >
-                                            {/* Top-right actions */}
-                                            {!isConfirming && !isLeavingThisHousehold ? (
-                                                isMe ? (
-                                                    <button
-                                                        type="button"
-                                                        className="
-                                                        absolute top-2 right-2
-                                                        h-8 px-3
-                                                        inline-flex items-center justify-center
-                                                        rounded-md
-                                                        text-xs font-medium
-                                                        text-muted-foreground
-                                                        hover:text-terracotta
-                                                        hover:bg-terracotta/10
-                                                        transition-colors
-                                                        "
-                                                        onClick={() => setLeaveConfirmHouseholdId(h.household_id)}
-                                                        title="Leave household"
-                                                    >
-                                                        Leave
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        type="button"
-                                                        className="
-                                                        absolute top-2 right-2
-                                                        h-8 w-8
-                                                        flex items-center justify-center
-                                                        rounded-md
-                                                        text-muted-foreground
-                                                        hover:text-terracotta
-                                                        hover:bg-terracotta/10
-                                                        transition-colors
-                                                        "
-                                                        onClick={() => {
-                                                            setLeaveConfirmHouseholdId(null);
-                                                            setConfirmKey(key);
-                                                        }}
-                                                        aria-label="Remove member"
-                                                        title="Remove member"
-                                                    >
-                                                        <X className="h-4 w-4" />
-                                                    </button>
-                                                )
+                                        <div className="relative overflow-hidden p-4 pr-6 rounded-xl border border-border bg-card">
+
+                                            {/* Remove button only for others */}
+                                            {!isMe && !isConfirming ? (
+                                                <button
+                                                    type="button"
+                                                    className="absolute top-2 right-2 h-8 w-8 flex items-center justify-center rounded-md
+                                                    text-muted-foreground hover:text-terracotta hover:bg-terracotta/10 transition"
+                                                    onClick={() => setConfirmKey(key)}
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </button>
                                             ) : null}
 
-                                            <Avatar className="h-12 w-12 shrink-0">
-                                                <AvatarFallback
-                                                    className={`${colors[idx % colors.length]} font-semibold`}
-                                                >
-                                                    {initials}
-                                                </AvatarFallback>
-                                            </Avatar>
+                                            {/* Main content dims */}
+                                            <div
+                                                className={`flex items-start gap-4 transition ${isConfirming ? "opacity-50" : ""
+                                                    }`}
+                                            >
+                                                <Avatar className="h-12 w-12 shrink-0">
+                                                    <AvatarFallback className={`${colors[idx % colors.length]} font-semibold`}>
+                                                        {initials}
+                                                    </AvatarFallback>
+                                                </Avatar>
 
-                                            <div className="min-w-0 flex-1 pr-4">
-                                                <p className="font-medium text-foreground truncate">{name}</p>
-                                                {member.email ? (
-                                                    <p className="text-sm text-muted-foreground truncate">{member.email}</p>
-                                                ) : null}
+                                                <div className="min-w-0 flex-1 pr-4">
+                                                    <p className="font-medium text-foreground truncate flex items-center gap-2">
+                                                        {name}
+                                                    </p>
 
-                                                {/* Confirm remove other member */}
-                                                {!isMe && isConfirming ? (
-                                                    <div className="mt-3 flex flex-col sm:flex-row gap-2 w-full">
-                                                        <Button
-                                                            variant="destructive"
-                                                            className="gap-2 w-full sm:w-auto whitespace-normal bg-terracotta text-white hover:bg-terracotta/90"
-                                                            onClick={() => handleRemoveMember(h.household_id, member.user_id)}
-                                                            disabled={isRemoving}
-                                                        >
-                                                            {isRemoving ? "Removing…" : "Confirm remove"}
-                                                        </Button>
-
-                                                        <Button
-                                                            variant="outline"
-                                                            className="w-full sm:w-auto"
-                                                            onClick={() => setConfirmKey(null)}
-                                                            disabled={isRemoving}
-                                                        >
-                                                            Cancel
-                                                        </Button>
-                                                    </div>
-                                                ) : null}
-
-                                                {/* Confirm leave household*/}
-                                                {isMe && isLeavingThisHousehold ? (
-                                                    <div className="mt-3 flex flex-col sm:flex-row gap-2 w-full">
-                                                        <Button
-                                                            variant="destructive"
-                                                            className="gap-2 w-full sm:w-auto whitespace-normal bg-terracotta text-white hover:bg-terracotta/90"
-                                                            onClick={() => handleLeave(h.household_id)}
-                                                            disabled={isLeavingLoading}
-                                                        >
-                                                            {isLeavingLoading ? "Leaving…" : "Confirm leave"}
-                                                        </Button>
-
-                                                        <Button
-                                                            variant="outline"
-                                                            className="w-full sm:w-auto"
-                                                            onClick={() => setLeaveConfirmHouseholdId(null)}
-                                                            disabled={isLeavingLoading}
-                                                        >
-                                                            Cancel
-                                                        </Button>
-                                                    </div>
-                                                ) : null}
+                                                    {member.email && (
+                                                        <p className="text-sm text-muted-foreground truncate">
+                                                            {member.email}
+                                                        </p>
+                                                    )}
+                                                </div>
                                             </div>
+
+                                            {/* Confirm UI stays strong */}
+                                            {!isMe && isConfirming && (
+                                                <div className="mt-3 flex gap-2 opacity-100">
+                                                    <Button
+                                                        variant="destructive"
+                                                        className="bg-terracotta hover:bg-terracotta/90"
+                                                        onClick={() => handleRemoveMember(h.household_id, member.user_id)}
+                                                    >
+                                                        Confirm remove
+                                                    </Button>
+
+                                                    <Button variant="outline" onClick={() => setConfirmKey(null)}>
+                                                        Cancel
+                                                    </Button>
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })}
@@ -392,93 +394,43 @@ export default function Household() {
                             Create Household
                         </Button>
 
-                        <Button variant="outline" className="gap-2" onClick={() => setIsJoiningUI(true)}>
+                        <Button variant="outline" className="
+                            gap-2
+                            bg-white
+                            border-terracotta text-terracotta
+                            hover:bg-terracotta hover:text-white
+                            hover:border-terracotta
+                            transition-colors
+                            "
+                            onClick={() => setIsJoiningUI(true)}>
                             <ArrowRight className="h-4 w-4" />
                             Join Household
                         </Button>
                     </div>
-
-                    {/* Create UI */}
-                    {isCreatingUI ? (
-                        <div className="flex flex-col sm:flex-row gap-3">
-                            <input
-                                type="text"
-                                value={newHouseholdName}
-                                onChange={(e) => setNewHouseholdName(e.target.value)}
-                                placeholder="Household name"
-                                className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                                autoFocus
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter" && newHouseholdName.trim() && !creating) {
-                                        handleCreateHousehold();
-                                    }
-                                    if (e.key === "Escape") {
-                                        setIsCreatingUI(false);
-                                        setNewHouseholdName("");
-                                    }
-                                }}
-                            />
-
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => {
-                                        setIsCreatingUI(false);
-                                        setNewHouseholdName("");
-                                    }}
-                                >
-                                    Cancel
-                                </Button>
-
-                                <Button onClick={handleCreateHousehold} disabled={creating || !newHouseholdName.trim()}>
-                                    {creating ? "Creating…" : "Create"}
-                                </Button>
-                            </div>
-                        </div>
-                    ) : null}
-
-                    {/* Join UI */}
-                    {isJoiningUI ? (
-                        <div className="flex flex-col sm:flex-row gap-3">
-                            <input
-                                type="text"
-                                value={joinCodeOrLink}
-                                onChange={(e) => setJoinCodeOrLink(e.target.value)}
-                                placeholder="Paste invite link or code"
-                                className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                                autoFocus
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter" && joinCodeOrLink.trim() && !joining) {
-                                        handleJoinHousehold();
-                                    }
-                                    if (e.key === "Escape") {
-                                        setIsJoiningUI(false);
-                                        setJoinCodeOrLink("");
-                                    }
-                                }}
-                            />
-
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => {
-                                        setIsJoiningUI(false);
-                                        setJoinCodeOrLink("");
-                                    }}
-                                    disabled={joining}
-                                >
-                                    Cancel
-                                </Button>
-
-                                <Button onClick={handleJoinHousehold} disabled={joining || !joinCodeOrLink.trim()}>
-                                    {joining ? "Joining…" : "Join"}
-                                </Button>
-                            </div>
-                        </div>
-                    ) : null}
                 </div>
-
             </div>
+            <HouseholdModal
+                open={isCreatingUI}
+                onOpenChange={setIsCreatingUI}
+                title="Create Household"
+                value={newHouseholdName}
+                setValue={setNewHouseholdName}
+                onConfirm={handleCreateHousehold}
+                loading={creating}
+                placeholder="Household name"
+                confirmText="Create"
+            />
+            <HouseholdModal
+                open={isJoiningUI}
+                onOpenChange={setIsJoiningUI}
+                title="Join Household"
+                value={joinCodeOrLink}
+                setValue={setJoinCodeOrLink}
+                onConfirm={handleJoinHousehold}
+                loading={joining}
+                placeholder="Paste invite link or code"
+                confirmText="Join"
+            />
         </div>
     );
 
