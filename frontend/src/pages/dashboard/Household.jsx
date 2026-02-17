@@ -127,7 +127,6 @@ export default function Household() {
 
     return (
         <div className="p-4 md:p-6">
-
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -149,7 +148,6 @@ export default function Household() {
                 </div>
             </motion.div>
 
-            {/* Multiple households*/}
             <div className="space-y-8">
                 {(households || []).map((h) => {
                     const inviteState = inviteByHousehold[h.household_id] || {};
@@ -170,12 +168,10 @@ export default function Household() {
                                         {h.name}
                                     </h2>
                                     <p className="text-sm text-muted-foreground">
-                                        {h.members?.length ?? 0} member
-                                        {(h.members?.length ?? 0) === 1 ? "" : "s"}
+                                        {h.members?.length ?? 0} member{(h.members?.length ?? 0) === 1 ? "" : "s"}
                                     </p>
                                 </div>
 
-                                {/* ✅ Invite button per household */}
                                 <Button
                                     className="gap-2 shrink-0"
                                     onClick={() => handleInvite(h.household_id)}
@@ -186,7 +182,6 @@ export default function Household() {
                                 </Button>
                             </div>
 
-                            {/* ✅ Invite url shown per household */}
                             {inviteUrl ? (
                                 <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-3 justify-between">
                                     <div className="min-w-0">
@@ -207,62 +202,88 @@ export default function Household() {
 
                             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                                 {(h.members || []).map((member, idx) => {
-                                    // Use display_name if backend provides it; fallback to formatted username
                                     const name = getDisplayName(member);
-
-                                    // ✅ For initials, use display string (better than raw username)
                                     const initials = getInitials(name);
+
                                     const key = memberKey(h.household_id, member.user_id);
                                     const isConfirming = confirmKey === key;
                                     const isRemoving = removingKey === key;
                                     const isMe = me?.username && member?.username && me.username === member.username;
 
+                                    const isLeavingThisHousehold = leaveConfirmHouseholdId === h.household_id;
+                                    const isLeavingLoading = leavingHouseholdId === h.household_id;
 
                                     return (
                                         <div
                                             key={`${h.household_id}:${member.user_id}`}
-                                            className="relative p-4 pr-6 rounded-xl border border-border bg-card flex items-start gap-4"
+                                            className="relative overflow-hidden p-4 pr-6 rounded-xl border border-border bg-card flex items-start gap-4"
                                         >
-                                            {/* ❌ top-right remove button (not for yourself) */}
-                                            {!isMe && !isConfirming ? (
-                                                <button
-                                                    type="button"
-                                                    className="
-                                                    absolute top-2 right-2
-                                                    h-8 w-8
-                                                    flex items-center justify-center
-                                                    rounded-md
-                                                    text-muted-foreground
-                                                    hover:text-terracotta
-                                                    hover:bg-terracotta/10
-                                                    transition-colors
-                                                    "
-                                                    onClick={() => setConfirmKey(key)}
-                                                    aria-label="Remove member"
-                                                    title="Remove member"
-                                                >
-                                                    <X className="h-4 w-4" />
-                                                </button>
+                                            {/* Top-right actions */}
+                                            {!isConfirming && !isLeavingThisHousehold ? (
+                                                isMe ? (
+                                                    <button
+                                                        type="button"
+                                                        className="
+                                                        absolute top-2 right-2
+                                                        h-8 px-3
+                                                        inline-flex items-center justify-center
+                                                        rounded-md
+                                                        text-xs font-medium
+                                                        text-muted-foreground
+                                                        hover:text-terracotta
+                                                        hover:bg-terracotta/10
+                                                        transition-colors
+                                                        "
+                                                        onClick={() => setLeaveConfirmHouseholdId(h.household_id)}
+                                                        title="Leave household"
+                                                    >
+                                                        Leave
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        className="
+                                                        absolute top-2 right-2
+                                                        h-8 w-8
+                                                        flex items-center justify-center
+                                                        rounded-md
+                                                        text-muted-foreground
+                                                        hover:text-terracotta
+                                                        hover:bg-terracotta/10
+                                                        transition-colors
+                                                        "
+                                                        onClick={() => {
+                                                            setLeaveConfirmHouseholdId(null);
+                                                            setConfirmKey(key);
+                                                        }}
+                                                        aria-label="Remove member"
+                                                        title="Remove member"
+                                                    >
+                                                        <X className="h-4 w-4" />
+                                                    </button>
+                                                )
                                             ) : null}
 
-                                            <Avatar className="h-12 w-12">
-                                                <AvatarFallback className={`${colors[idx % colors.length]} font-semibold`}>
+                                            <Avatar className="h-12 w-12 shrink-0">
+                                                <AvatarFallback
+                                                    className={`${colors[idx % colors.length]} font-semibold`}
+                                                >
                                                     {initials}
                                                 </AvatarFallback>
                                             </Avatar>
 
-                                            <div className="min-w-0 flex-1">
+                                            <div className="min-w-0 flex-1 pr-4">
                                                 <p className="font-medium text-foreground truncate">{name}</p>
                                                 {member.email ? (
                                                     <p className="text-sm text-muted-foreground truncate">{member.email}</p>
                                                 ) : null}
 
-                                                {/* Confirm UI */}
+                                                {/* Confirm remove other member */}
                                                 {!isMe && isConfirming ? (
                                                     <div className="mt-3 flex flex-col sm:flex-row gap-2 w-full">
                                                         <Button
                                                             variant="destructive"
-                                                            className="gap-2 w-full sm:w-auto sm:flex-0 whitespace-normal bg-terracotta text-white hover:bg-terracotta/90"
+                                                            className="gap-2 w-full sm:w-auto whitespace-normal bg-terracotta text-white hover:bg-terracotta/90"
                                                             onClick={() => handleRemoveMember(h.household_id, member.user_id)}
                                                             disabled={isRemoving}
                                                         >
@@ -271,18 +292,39 @@ export default function Household() {
 
                                                         <Button
                                                             variant="outline"
-                                                            className="w-full sm:w-auto hover:bg-sage transition-colors"
+                                                            className="w-full sm:w-auto"
                                                             onClick={() => setConfirmKey(null)}
                                                             disabled={isRemoving}
                                                         >
                                                             Cancel
                                                         </Button>
                                                     </div>
+                                                ) : null}
 
+                                                {/* Confirm leave household*/}
+                                                {isMe && isLeavingThisHousehold ? (
+                                                    <div className="mt-3 flex flex-col sm:flex-row gap-2 w-full">
+                                                        <Button
+                                                            variant="destructive"
+                                                            className="gap-2 w-full sm:w-auto whitespace-normal bg-terracotta text-white hover:bg-terracotta/90"
+                                                            onClick={() => handleLeave(h.household_id)}
+                                                            disabled={isLeavingLoading}
+                                                        >
+                                                            {isLeavingLoading ? "Leaving…" : "Confirm leave"}
+                                                        </Button>
+
+                                                        <Button
+                                                            variant="outline"
+                                                            className="w-full sm:w-auto"
+                                                            onClick={() => setLeaveConfirmHouseholdId(null)}
+                                                            disabled={isLeavingLoading}
+                                                        >
+                                                            Cancel
+                                                        </Button>
+                                                    </div>
                                                 ) : null}
                                             </div>
                                         </div>
-
                                     );
                                 })}
                             </div>
@@ -296,6 +338,7 @@ export default function Household() {
                     </div>
                 ) : null}
 
+                {/* Create household (always available) */}
                 <div className="mb-6 rounded-xl border border-border bg-card p-4 space-y-3">
                     <p className="text-sm text-muted-foreground">Create a new household</p>
 
@@ -345,9 +388,8 @@ export default function Household() {
                         </div>
                     )}
                 </div>
-
-
             </div>
         </div>
     );
+
 }
