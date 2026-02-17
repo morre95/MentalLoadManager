@@ -284,7 +284,7 @@ const Tasks = () => {
     }
   };
 
-  const handleDragEnd = (event) => {
+  const handleDragEnd = async (event) => {
     const { active, over } = event;
     setActiveId(null);
     if (!over) {
@@ -302,13 +302,14 @@ const Tasks = () => {
     const isOverColumn = columns.some((c) => c.id === oId);
     const targetColumn = isOverColumn ? oId : findColumnForTask(oId);
 
-    // Reorder within same column
-    if (!isOverColumn && aId !== oId) {
-      const activeColumn = findColumnForTask(aId);
-      const overColumn = findColumnForTask(oId);
+    const overColumn = isOverColumn ? oId : findColumnForTask(oId);
+    const movedAcrossColumns =
+      Boolean(dragStartColumn) && Boolean(overColumn) && dragStartColumn !== overColumn;
 
-      if (activeColumn && activeColumn === overColumn) {
-        const columnTasks = tasks.filter((t) => t.status === activeColumn);
+    // Reorder only when drag started and ended in the same column.
+    if (!movedAcrossColumns && !isOverColumn && aId !== oId) {
+      if (dragStartColumn) {
+        const columnTasks = tasks.filter((t) => t.status === dragStartColumn);
         const oldIndex = columnTasks.findIndex((t) => t.id === aId);
         const newIndex = columnTasks.findIndex((t) => t.id === oId);
         if (oldIndex !== -1 && newIndex !== -1) {
@@ -317,20 +318,20 @@ const Tasks = () => {
 
           let reorderCursor = 0;
           const nextTasks = tasks.map((task) => {
-            if (task.status !== activeColumn) return task;
+            if (task.status !== dragStartColumn) return task;
             const reorderedTask = reorderedColumnTasks[reorderCursor];
             reorderCursor += 1;
             return reorderedTask;
           });
 
           setTasks(nextTasks);
-          persistTaskOrder(activeColumn, orderedTaskIds, dragSnapshot);
+          await persistTaskOrder(dragStartColumn, orderedTaskIds, dragSnapshot);
         }
       }
     }
 
-    if (dragStartColumn && targetColumn && dragStartColumn !== targetColumn) {
-      persistTaskStatus(aId, targetColumn, dragSnapshot);
+    if (movedAcrossColumns && targetColumn) {
+      await persistTaskStatus(aId, targetColumn, dragSnapshot);
     }
 
     setDragStartColumn(null);
