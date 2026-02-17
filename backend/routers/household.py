@@ -7,10 +7,12 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, delete
 from sqlalchemy.exc import IntegrityError
+
 
 from helpers import get_current_user, get_session_local
 from models import Households, Invitations, UserDB, UsersHouseholds, UserEmail
@@ -78,11 +80,15 @@ class AcceptInviteRequest(BaseModel):
 class AcceptInviteResponse(BaseModel):
     household_id: str
 
+
 class RemoveHouseholdMemberRequest(BaseModel):
     household_id: UUID
     user_id: UUID
+
+
 class LeaveHouseholdRequest(BaseModel):
     household_id: UUID
+
 
 # =========================
 # Helpers
@@ -473,6 +479,7 @@ def accept_invite(
 
         return AcceptInviteResponse(household_id=str(inv.household_id))
 
+
 @router.delete("/members", status_code=status.HTTP_204_NO_CONTENT)
 def remove_household_member(
     payload: RemoveHouseholdMemberRequest,
@@ -497,7 +504,9 @@ def remove_household_member(
             )
         )
         if not my_membership:
-            raise HTTPException(status_code=403, detail="Not a member of that household")
+            raise HTTPException(
+                status_code=403, detail="Not a member of that household"
+            )
 
         # cannot remove yourself
         if payload.user_id == me.user_id:
@@ -513,9 +522,12 @@ def remove_household_member(
             raise HTTPException(status_code=404, detail="User is not in that household")
 
         db.delete(membership)
+        db.flush()
+        _delete_household_if_empty(db, payload.household_id)
         db.commit()
 
     return
+
 
 @router.post("/leave", status_code=status.HTTP_204_NO_CONTENT)
 def leave_household(
@@ -537,8 +549,19 @@ def leave_household(
             raise HTTPException(status_code=404, detail="You are not in that household")
 
         db.delete(membership)
+        db.flush()
+        _delete_household_if_empty(db, payload.household_id)
         db.commit()
 
     return
 
 
+def _delete_household_if_empty(db, household_id: UUID) -> None:
+    remaining = db.scalar(
+        select(func.count())
+        .select_from(UsersHouseholds)
+        .where(UsersHouseholds.household_id == household_id)
+    )
+
+    if (remaining or 0) == 0:
+        db.execute(delete(Households).where(Households.household_id == household_id))
