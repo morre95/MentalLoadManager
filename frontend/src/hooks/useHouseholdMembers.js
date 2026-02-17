@@ -1,52 +1,52 @@
 import { useEffect, useMemo, useState } from "react";
-import { apiFetch } from "@/lib/utils";
+import {
+  createApiClient,
+  fetchHouseholds,
+  flattenHouseholdMembers,
+} from "../../../shared/index.js";
+import { clearAuth, getAccessToken } from "@/lib/utils";
+
+const apiClient = createApiClient({
+  getAccessToken,
+  onUnauthorized: clearAuth,
+  envOptions: {
+    locationHref: typeof window !== "undefined" ? window.location?.href : "",
+  },
+});
 
 export function useHouseholdMembers() {
-    const [members, setMembers] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-    useEffect(() => {
-        let alive = true;
+  useEffect(() => {
+    let alive = true;
 
-        async function load() {
-            setLoading(true);
-            setError(null);
-            try {
-                const data = await apiFetch("/api/household", { method: "GET" });
-                if (!alive) return;
+    async function load() {
+      setLoading(true);
+      setError(null);
 
-                const households = Array.isArray(data?.households)
-                    ? data.households
-                    : [];
-                const flat = households.flatMap((h) =>
-                    (h.members || []).map((m) => ({
-                        user_id: m.user_id ?? m.id,
-                        username: m.username ?? "",
-                        email: m.email ?? null,
-                        household_id: h.household_id,
-                        household_name: h.name ?? "Household",
-                        display_name: m.display_name ?? null,
-                    })),
-                );
+      try {
+        const data = await fetchHouseholds(apiClient);
+        if (!alive) return;
+        setMembers(flattenHouseholdMembers(data?.households || []));
+      } catch (err) {
+        if (!alive) return;
+        setError(err);
+      } finally {
+        if (!alive) return;
+        setLoading(false);
+      }
+    }
 
-                setMembers(flat);
-            } catch (e) {
-                if (!alive) return;
-                setError(e);
-            } finally {
-                if (!alive) return;
-                setLoading(false);
-            }
-        }
+    load();
 
-        load();
-        return () => {
-            alive = false;
-        };
-    }, []);
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-    const normalized = useMemo(() => members ?? [], [members]);
+  const normalized = useMemo(() => members ?? [], [members]);
 
-    return { members: normalized, loading, error };
+  return { members: normalized, loading, error };
 }

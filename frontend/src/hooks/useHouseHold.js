@@ -1,103 +1,87 @@
 import { useEffect, useMemo, useState } from "react";
-import { apiFetch } from "@/lib/utils";
+import {
+  createHousehold as sharedCreateHousehold,
+  createHouseholdInvite as sharedCreateHouseholdInvite,
+  createApiClient,
+  fetchHouseholds,
+  flattenHouseholdMembers,
+  leaveHousehold as sharedLeaveHousehold,
+  removeHouseholdMember as sharedRemoveHouseholdMember,
+} from "../../../shared/index.js";
+import { clearAuth, getAccessToken } from "@/lib/utils";
 
 const LS_HOUSEHOLDS_KEY = "households";
 
+const apiClient = createApiClient({
+  getAccessToken,
+  onUnauthorized: clearAuth,
+  envOptions: {
+    locationHref: typeof window !== "undefined" ? window.location?.href : "",
+  },
+});
+
 export function useHousehold() {
-    const [households, setHouseholds] = useState(() => {
-        try {
-            const raw = localStorage.getItem(LS_HOUSEHOLDS_KEY);
-            return raw ? JSON.parse(raw) : [];
-        } catch {
-            return [];
-        }
-    });
+  const [households, setHouseholds] = useState(() => {
+    try {
+      const raw = localStorage.getItem(LS_HOUSEHOLDS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
 
-    const [loading, setLoading] = useState(households.length === 0);
-    const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(households.length === 0);
+  const [error, setError] = useState(null);
 
-    const load = async () => {
-        setLoading(true);
-        setError(null);
+  const load = async () => {
+    setLoading(true);
+    setError(null);
 
-        try {
-            const data = await apiFetch("/api/household", { method: "GET" });
-            const arr = Array.isArray(data?.households) ? data.households : [];
-            setHouseholds(arr);
-            localStorage.setItem(LS_HOUSEHOLDS_KEY, JSON.stringify(arr));
-        } catch (e) {
-            setError(e);
-        } finally {
-            setLoading(false);
-        }
-    };
+    try {
+      const data = await fetchHouseholds(apiClient);
+      const list = Array.isArray(data?.households) ? data.households : [];
+      setHouseholds(list);
+      localStorage.setItem(LS_HOUSEHOLDS_KEY, JSON.stringify(list));
+    } catch (err) {
+      setError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    useEffect(() => {
-        load();
-    }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
-    const normalizedHouseholds = useMemo(() => {
-        return (households || []).map((h) => ({
-            household_id: h.household_id,
-            name: h.name ?? h.household_name ?? "Household",
-            members: (h.members || []).map((m) => ({
-                user_id: m.user_id ?? m.id,
-                username: m.username ?? "",
-                email: m.email ?? null,
-                display_name: m.display_name ?? m.displayName ?? null,
-            })),
-        }));
-    }, [households]);
+  const normalizedHouseholds = useMemo(() => households || [], [households]);
 
-    const membersFlat = useMemo(() => {
-        return normalizedHouseholds.flatMap((h) =>
-            h.members.map((m) => ({
-                ...m,
-                household_id: h.household_id,
-                household_name: h.name,
-            }))
-        );
-    }, [normalizedHouseholds]);
+  const membersFlat = useMemo(
+    () => flattenHouseholdMembers(normalizedHouseholds),
+    [normalizedHouseholds]
+  );
 
-    return {
-        households: normalizedHouseholds,
-        membersFlat,
-        loading,
-        error,
-        setHouseholds,
-        refetch: load,
-    };
+  return {
+    households: normalizedHouseholds,
+    membersFlat,
+    loading,
+    error,
+    setHouseholds,
+    refetch: load,
+  };
 }
 
-
-export async function createHouseholdInvite(household_id) {
-    return apiFetch("/api/household/invite", {
-        method: "POST",
-        body: JSON.stringify({ household_id }),
-        headers: { "Content-Type": "application/json" },
-    });
+export async function createHouseholdInvite(householdId) {
+  return sharedCreateHouseholdInvite(apiClient, householdId);
 }
 
 export async function createHousehold(name) {
-    return apiFetch("/api/household", {
-        method: "POST",
-        body: JSON.stringify({ name }),
-        headers: { "Content-Type": "application/json" },
-    });
+  return sharedCreateHousehold(apiClient, name);
 }
 
-export async function removeHouseholdMember(household_id, user_id) {
-    return apiFetch("/api/household/members", {
-        method: "DELETE",
-        body: JSON.stringify({ household_id, user_id }),
-        headers: { "Content-Type": "application/json" },
-    });
+export async function removeHouseholdMember(householdId, userId) {
+  return sharedRemoveHouseholdMember(apiClient, householdId, userId);
 }
 
-export async function leaveHousehold(household_id) {
-    return apiFetch("/api/household/leave", {
-        method: "POST",
-        body: JSON.stringify({ household_id }),
-        headers: { "Content-Type": "application/json" },
-    });
+export async function leaveHousehold(householdId) {
+  return sharedLeaveHousehold(apiClient, householdId);
 }
