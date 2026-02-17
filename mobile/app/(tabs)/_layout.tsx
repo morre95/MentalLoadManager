@@ -5,7 +5,6 @@ import { Alert, Pressable } from 'react-native';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { clearAccessToken, useAuthToken } from '@/lib/auth';
-import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 
 export default function TabLayout() {
   const token = useAuthToken();
@@ -55,7 +54,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Tasks',
-          tabBarIcon: ({ color }) => <FontAwesome5 name="tasks" size={26} color={color} />,
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="list.bullet" color={color} />,
         }}
       />
       <Tabs.Screen

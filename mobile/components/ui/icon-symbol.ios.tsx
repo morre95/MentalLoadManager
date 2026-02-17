@@ -1,5 +1,13 @@
-import { SymbolView, SymbolViewProps, SymbolWeight } from 'expo-symbols';
+import { SymbolView, SymbolWeight } from 'expo-symbols';
 import { StyleProp, ViewStyle } from 'react-native';
+
+type IconSymbolName =
+  | 'list.bullet'
+  | 'house.fill'
+  | 'paperplane.fill'
+  | 'line.3.horizontal'
+  | 'chevron.left.forwardslash.chevron.right'
+  | 'chevron.right';
 
 export function IconSymbol({
   name,
@@ -8,7 +16,7 @@ export function IconSymbol({
   style,
   weight = 'regular',
 }: {
-  name: SymbolViewProps['name'];
+  name: IconSymbolName;
   size?: number;
   color: string;
   style?: StyleProp<ViewStyle>;
