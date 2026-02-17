@@ -28,13 +28,16 @@ export function useHouseholdMembers() {
 
       try {
         const data = await fetchHouseholds(apiClient);
-        if (!alive) return;
-        setMembers(flattenHouseholdMembers(data?.households || []));
+        if (alive) {
+          setMembers(flattenHouseholdMembers(data?.households || []));
+        }
       } catch (err) {
-        if (!alive) return;
-        setError(err);
-      } finally {
-        if (!alive) return;
+        if (alive) {
+          setError(err);
+        }
+      }
+
+      if (alive) {
         setLoading(false);
       }
     }

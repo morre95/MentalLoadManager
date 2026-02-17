@@ -17,28 +17,31 @@ export function useTaskboardTasks() {
       setError(null);
 
       if (!isUserLoggedIn()) {
-        if (!alive) return;
-        setTasks([]);
-        setLoading(false);
+        if (alive) {
+          setTasks([]);
+          setLoading(false);
+        }
         return;
       }
 
       try {
         const data = await fetchKanbanTasks();
         const uiTasks = Array.isArray(data?.tasks) ? data.tasks : [];
-        if (!alive) return;
-        setTasks(uiTasks);
-      } catch (err) {
-        if (!alive) return;
-
-        if (err?.status === 401) {
-          navigate("/login", { replace: true });
-          return;
+        if (alive) {
+          setTasks(uiTasks);
         }
+      } catch (err) {
+        if (alive) {
+          if (err?.status === 401) {
+            navigate("/login", { replace: true });
+            return;
+          }
 
-        setError(err);
-      } finally {
-        if (!alive) return;
+          setError(err);
+        }
+      }
+
+      if (alive) {
         setLoading(false);
       }
     }
