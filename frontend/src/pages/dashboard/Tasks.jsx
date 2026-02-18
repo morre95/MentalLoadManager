@@ -38,7 +38,7 @@ import AddTaskDialog from "@/components/tasks/AddTaskDialog";
 import TaskDetailDialog from "@/components/tasks/TaskDetailDialog";
 
 import { useTaskboardTasks } from "@/hooks/useTaskboardTasks";
-import { updateKanbanTaskOrder, updateKanbanTaskStatus } from "@/lib/utils";
+import { updateKanbanTaskOrder, updateKanbanTaskPriority, updateKanbanTaskStatus } from "@/lib/utils";
 
 const priorityColors = {
   low: "bg-sage-light text-sage border-sage/30",
@@ -259,6 +259,22 @@ const Tasks = () => {
     setSelectedTask((prev) => (prev && prev.id === taskId ? { ...prev, ...updates } : prev));
   };
 
+  const handleUpdateTaskPriority = async (taskId, nextPriority) => {
+    const rollbackTasks = tasks;
+    const rollbackSelectedTask = selectedTask;
+    setSyncError(null);
+
+    handleUpdateTaskDetails(taskId, { priority: nextPriority });
+
+    try {
+      await updateKanbanTaskPriority(taskId, nextPriority);
+    } catch (e) {
+      setTasks(rollbackTasks);
+      setSelectedTask(rollbackSelectedTask);
+      setSyncError(e);
+    }
+  };
+
   const findColumnForTask = (taskId) => {
     const t = tasks.find((x) => x.id === taskId);
     return t ? t.status : undefined;
@@ -428,6 +444,7 @@ const Tasks = () => {
         onOpenChange={(open) => !open && setSelectedTask(null)}
         onToggleStatus={handleToggleStatus}
         onUpdateTask={handleUpdateTaskDetails}
+        onUpdateTaskPriority={handleUpdateTaskPriority}
       />
     </div>
   );

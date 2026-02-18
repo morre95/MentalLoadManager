@@ -7,6 +7,7 @@ export {
   mapApiTaskToUi,
   toApiTaskStatus,
   updateKanbanTaskOrder,
+  updateKanbanTaskPriority,
   updateKanbanTaskStatus,
 } from "./tasks.js";
 

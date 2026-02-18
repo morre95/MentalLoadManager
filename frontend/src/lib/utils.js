@@ -8,6 +8,7 @@ import {
   fetchMe as sharedFetchMe,
   getApiBaseUrl,
   updateKanbanTaskOrder as sharedUpdateKanbanTaskOrder,
+  updateKanbanTaskPriority as sharedUpdateKanbanTaskPriority,
   updateKanbanTaskStatus as sharedUpdateKanbanTaskStatus,
 } from "../../../shared/index.js";
 
@@ -119,6 +120,10 @@ export async function updateKanbanTaskStatus(taskId, status) {
 
 export async function updateKanbanTaskOrder(status, orderedTaskIds) {
   return sharedUpdateKanbanTaskOrder(apiClient, status, orderedTaskIds);
+}
+
+export async function updateKanbanTaskPriority(taskId, priority) {
+  return sharedUpdateKanbanTaskPriority(apiClient, taskId, priority);
 }
 
 export function capitalizeWords(str) {

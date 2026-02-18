@@ -77,6 +77,15 @@ export async function updateKanbanTaskOrder(apiClient, status, orderedTaskIds) {
   });
 }
 
+export async function updateKanbanTaskPriority(apiClient, taskId, priority) {
+  return apiClient.request(`/api/kanban/tasks/${taskId}/priority`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      priority: String(priority || "").trim().toLowerCase(),
+    }),
+  });
+}
+
 export async function createKanbanTask(apiClient, payload) {
   return apiClient.request("/api/kanban", {
     method: "POST",

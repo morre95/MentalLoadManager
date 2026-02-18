@@ -46,7 +46,7 @@ function toDateInputValue(value) {
     return parsed.toISOString().slice(0, 10);
 }
 
-const TaskDetailDialog = ({ task, open, onOpenChange, onToggleStatus, onUpdateTask }) => {
+const TaskDetailDialog = ({ task, open, onOpenChange, onToggleStatus, onUpdateTask, onUpdateTaskPriority }) => {
     const status = statusConfig[task?.status] || statusConfig.todo;
     const StatusIcon = status.icon;
     const [editingField, setEditingField] = useState(null);
@@ -123,7 +123,7 @@ const TaskDetailDialog = ({ task, open, onOpenChange, onToggleStatus, onUpdateTa
                                     <Select
                                         value={normalizedPriority}
                                         onValueChange={(nextPriority) => {
-                                            onUpdateTask?.(task.id, { priority: nextPriority });
+                                            onUpdateTaskPriority?.(task.id, nextPriority);
                                             setEditingField(null);
                                         }}
                                     >
