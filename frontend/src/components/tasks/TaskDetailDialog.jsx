@@ -46,7 +46,15 @@ function toDateInputValue(value) {
     return parsed.toISOString().slice(0, 10);
 }
 
-const TaskDetailDialog = ({ task, open, onOpenChange, onToggleStatus, onUpdateTask, onUpdateTaskPriority }) => {
+const TaskDetailDialog = ({
+    task,
+    open,
+    onOpenChange,
+    onToggleStatus,
+    onUpdateTask,
+    onUpdateTaskPriority,
+    onUpdateTaskDueDate,
+}) => {
     const status = statusConfig[task?.status] || statusConfig.todo;
     const StatusIcon = status.icon;
     const [editingField, setEditingField] = useState(null);
@@ -75,10 +83,14 @@ const TaskDetailDialog = ({ task, open, onOpenChange, onToggleStatus, onUpdateTa
     };
 
     const saveDueDate = () => {
-        const dueDate = dueDateDraft
-            ? new Date(`${dueDateDraft}T00:00:00`).toLocaleDateString()
-            : undefined;
-        onUpdateTask?.(task.id, { dueDate });
+        if (onUpdateTaskDueDate) {
+            onUpdateTaskDueDate(task.id, dueDateDraft || null);
+        } else {
+            const dueDate = dueDateDraft
+                ? new Date(`${dueDateDraft}T00:00:00`).toLocaleDateString()
+                : undefined;
+            onUpdateTask?.(task.id, { dueDate });
+        }
         setEditingField(null);
     };
 

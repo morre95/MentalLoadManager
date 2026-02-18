@@ -58,6 +58,11 @@ export function updateKanbanTaskPriority(
   taskId: string,
   priority: string
 ): Promise<any>;
+export function updateKanbanTaskDueDate(
+  apiClient: ApiClient,
+  taskId: string,
+  dueDate: string | null
+): Promise<any>;
 
 export type HouseholdMember = {
   user_id: string | number;

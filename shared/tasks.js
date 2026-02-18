@@ -86,6 +86,15 @@ export async function updateKanbanTaskPriority(apiClient, taskId, priority) {
   });
 }
 
+export async function updateKanbanTaskDueDate(apiClient, taskId, dueDate) {
+  return apiClient.request(`/api/kanban/tasks/${taskId}/due-date`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      due_date: dueDate || null,
+    }),
+  });
+}
+
 export async function createKanbanTask(apiClient, payload) {
   return apiClient.request("/api/kanban", {
     method: "POST",

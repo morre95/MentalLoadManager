@@ -6,6 +6,7 @@ export {
   fetchKanbanTasks,
   mapApiTaskToUi,
   toApiTaskStatus,
+  updateKanbanTaskDueDate,
   updateKanbanTaskOrder,
   updateKanbanTaskPriority,
   updateKanbanTaskStatus,

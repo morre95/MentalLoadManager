@@ -38,7 +38,12 @@ import AddTaskDialog from "@/components/tasks/AddTaskDialog";
 import TaskDetailDialog from "@/components/tasks/TaskDetailDialog";
 
 import { useTaskboardTasks } from "@/hooks/useTaskboardTasks";
-import { updateKanbanTaskOrder, updateKanbanTaskPriority, updateKanbanTaskStatus } from "@/lib/utils";
+import {
+  updateKanbanTaskDueDate,
+  updateKanbanTaskOrder,
+  updateKanbanTaskPriority,
+  updateKanbanTaskStatus,
+} from "@/lib/utils";
 
 const priorityColors = {
   low: "bg-sage-light text-sage border-sage/30",
@@ -275,6 +280,29 @@ const Tasks = () => {
     }
   };
 
+  const handleUpdateTaskDueDate = async (taskId, dueDateInputValue) => {
+    const rollbackTasks = tasks;
+    const rollbackSelectedTask = selectedTask;
+    setSyncError(null);
+
+    const nextDueDate = dueDateInputValue
+      ? new Date(`${dueDateInputValue}T00:00:00`).toLocaleDateString()
+      : undefined;
+
+    handleUpdateTaskDetails(taskId, { dueDate: nextDueDate });
+
+    try {
+      const dueDateIso = dueDateInputValue
+        ? new Date(`${dueDateInputValue}T00:00:00`).toISOString()
+        : null;
+      await updateKanbanTaskDueDate(taskId, dueDateIso);
+    } catch (e) {
+      setTasks(rollbackTasks);
+      setSelectedTask(rollbackSelectedTask);
+      setSyncError(e);
+    }
+  };
+
   const findColumnForTask = (taskId) => {
     const t = tasks.find((x) => x.id === taskId);
     return t ? t.status : undefined;
@@ -445,6 +473,7 @@ const Tasks = () => {
         onToggleStatus={handleToggleStatus}
         onUpdateTask={handleUpdateTaskDetails}
         onUpdateTaskPriority={handleUpdateTaskPriority}
+        onUpdateTaskDueDate={handleUpdateTaskDueDate}
       />
     </div>
   );
