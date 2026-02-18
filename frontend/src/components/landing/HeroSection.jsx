@@ -109,12 +109,27 @@ const HeroSection = () => {
                     transition={{ duration: 0.5, delay: 0.3 }}
                     className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
                 >
-                    <Link to="/login">
-                        <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 gap-2 group">
-                            Get Started Free
-                            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                        </Button>
-                    </Link>
+                    {me?.username ? (
+                        <Link to="/dashboard">
+                            <Button
+                                size="lg"
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 gap-2 group"
+                            >
+                                My Dashboard
+                                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                            </Button>
+                        </Link>
+                    ) : (
+                        <Link to="/login">
+                            <Button
+                                size="lg"
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 gap-2 group"
+                            >
+                                Get Started Free
+                                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                            </Button>
+                        </Link>
+                    )}
                     <Link to="/how-it-works">
                         <Button size="lg" variant="outline" className="border-border hover:bg-muted">
                             See How It Works
