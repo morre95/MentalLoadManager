@@ -6,6 +6,8 @@ COPY frontend/package*.json ./
 RUN npm ci
 
 COPY frontend/ ./
+COPY shared/ ../shared/
+
 RUN npm run build
 
 # Runtime stage
