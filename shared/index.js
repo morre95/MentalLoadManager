@@ -2,10 +2,14 @@ export { getApiBaseUrl } from "./env.js";
 export { createApiClient } from "./apiClient.js";
 
 export {
+  createKanbanTask,
   fetchKanbanTasks,
   mapApiTaskToUi,
   toApiTaskStatus,
+  updateKanbanTaskDescription,
+  updateKanbanTaskDueDate,
   updateKanbanTaskOrder,
+  updateKanbanTaskPriority,
   updateKanbanTaskStatus,
 } from "./tasks.js";
 

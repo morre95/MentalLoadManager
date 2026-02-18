@@ -2,11 +2,15 @@ import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import {
   acceptHouseholdInvite as sharedAcceptHouseholdInvite,
+  createKanbanTask as sharedCreateKanbanTask,
   createApiClient,
   fetchKanbanTasks as sharedFetchKanbanTasks,
   fetchMe as sharedFetchMe,
   getApiBaseUrl,
+  updateKanbanTaskDescription as sharedUpdateKanbanTaskDescription,
+  updateKanbanTaskDueDate as sharedUpdateKanbanTaskDueDate,
   updateKanbanTaskOrder as sharedUpdateKanbanTaskOrder,
+  updateKanbanTaskPriority as sharedUpdateKanbanTaskPriority,
   updateKanbanTaskStatus as sharedUpdateKanbanTaskStatus,
 } from "../../../shared/index.js";
 
@@ -104,6 +108,10 @@ export async function fetchKanbanTasks() {
   return sharedFetchKanbanTasks(apiClient);
 }
 
+export async function createKanbanTask(payload) {
+  return sharedCreateKanbanTask(apiClient, payload);
+}
+
 export async function acceptHouseholdInvite(code) {
   return sharedAcceptHouseholdInvite(apiClient, code);
 }
@@ -114,6 +122,18 @@ export async function updateKanbanTaskStatus(taskId, status) {
 
 export async function updateKanbanTaskOrder(status, orderedTaskIds) {
   return sharedUpdateKanbanTaskOrder(apiClient, status, orderedTaskIds);
+}
+
+export async function updateKanbanTaskPriority(taskId, priority) {
+  return sharedUpdateKanbanTaskPriority(apiClient, taskId, priority);
+}
+
+export async function updateKanbanTaskDueDate(taskId, dueDate) {
+  return sharedUpdateKanbanTaskDueDate(apiClient, taskId, dueDate);
+}
+
+export async function updateKanbanTaskDescription(taskId, description) {
+  return sharedUpdateKanbanTaskDescription(apiClient, taskId, description);
 }
 
 export function capitalizeWords(str) {

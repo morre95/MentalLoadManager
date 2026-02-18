@@ -41,7 +41,7 @@ export function mapApiTaskToUi(task) {
   return {
     id: String(task.task_id),
     title: task.name || "",
-    description: undefined,
+    description: task.description || "",
     status: normalizeStatus(task.status),
     priority: normalizePriority(task),
     assignee: task.assignee_name || "Unassigned",
@@ -74,5 +74,39 @@ export async function updateKanbanTaskOrder(apiClient, status, orderedTaskIds) {
       status: toApiTaskStatus(status),
       ordered_task_ids: orderedTaskIds,
     }),
+  });
+}
+
+export async function updateKanbanTaskPriority(apiClient, taskId, priority) {
+  return apiClient.request(`/api/kanban/tasks/${taskId}/priority`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      priority: String(priority || "").trim().toLowerCase(),
+    }),
+  });
+}
+
+export async function updateKanbanTaskDueDate(apiClient, taskId, dueDate) {
+  return apiClient.request(`/api/kanban/tasks/${taskId}/due-date`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      due_date: dueDate || null,
+    }),
+  });
+}
+
+export async function updateKanbanTaskDescription(apiClient, taskId, description) {
+  return apiClient.request(`/api/kanban/tasks/${taskId}/description`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      description: description ?? null,
+    }),
+  });
+}
+
+export async function createKanbanTask(apiClient, payload) {
+  return apiClient.request("/api/kanban", {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }

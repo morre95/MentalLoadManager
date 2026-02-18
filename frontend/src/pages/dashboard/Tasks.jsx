@@ -38,7 +38,13 @@ import AddTaskDialog from "@/components/tasks/AddTaskDialog";
 import TaskDetailDialog from "@/components/tasks/TaskDetailDialog";
 
 import { useTaskboardTasks } from "@/hooks/useTaskboardTasks";
-import { updateKanbanTaskOrder, updateKanbanTaskStatus } from "@/lib/utils";
+import {
+  updateKanbanTaskDescription,
+  updateKanbanTaskDueDate,
+  updateKanbanTaskOrder,
+  updateKanbanTaskPriority,
+  updateKanbanTaskStatus,
+} from "@/lib/utils";
 
 const priorityColors = {
   low: "bg-sage-light text-sage border-sage/30",
@@ -252,6 +258,68 @@ const Tasks = () => {
     setTasks((prev) => [newTask, ...prev]);
   };
 
+  const handleUpdateTaskDetails = (taskId, updates) => {
+    setTasks((prev) =>
+      prev.map((task) => (task.id === taskId ? { ...task, ...updates } : task))
+    );
+    setSelectedTask((prev) => (prev && prev.id === taskId ? { ...prev, ...updates } : prev));
+  };
+
+  const handleUpdateTaskPriority = async (taskId, nextPriority) => {
+    const rollbackTasks = tasks;
+    const rollbackSelectedTask = selectedTask;
+    setSyncError(null);
+
+    handleUpdateTaskDetails(taskId, { priority: nextPriority });
+
+    try {
+      await updateKanbanTaskPriority(taskId, nextPriority);
+    } catch (e) {
+      setTasks(rollbackTasks);
+      setSelectedTask(rollbackSelectedTask);
+      setSyncError(e);
+    }
+  };
+
+  const handleUpdateTaskDueDate = async (taskId, dueDateInputValue) => {
+    const rollbackTasks = tasks;
+    const rollbackSelectedTask = selectedTask;
+    setSyncError(null);
+
+    const nextDueDate = dueDateInputValue
+      ? new Date(`${dueDateInputValue}T00:00:00`).toLocaleDateString()
+      : undefined;
+
+    handleUpdateTaskDetails(taskId, { dueDate: nextDueDate });
+
+    try {
+      const dueDateIso = dueDateInputValue
+        ? new Date(`${dueDateInputValue}T00:00:00`).toISOString()
+        : null;
+      await updateKanbanTaskDueDate(taskId, dueDateIso);
+    } catch (e) {
+      setTasks(rollbackTasks);
+      setSelectedTask(rollbackSelectedTask);
+      setSyncError(e);
+    }
+  };
+
+  const handleUpdateTaskDescription = async (taskId, nextDescription) => {
+    const rollbackTasks = tasks;
+    const rollbackSelectedTask = selectedTask;
+    setSyncError(null);
+
+    handleUpdateTaskDetails(taskId, { description: nextDescription || "" });
+
+    try {
+      await updateKanbanTaskDescription(taskId, nextDescription || null);
+    } catch (e) {
+      setTasks(rollbackTasks);
+      setSelectedTask(rollbackSelectedTask);
+      setSyncError(e);
+    }
+  };
+
   const findColumnForTask = (taskId) => {
     const t = tasks.find((x) => x.id === taskId);
     return t ? t.status : undefined;
@@ -420,6 +488,10 @@ const Tasks = () => {
         open={!!selectedTask}
         onOpenChange={(open) => !open && setSelectedTask(null)}
         onToggleStatus={handleToggleStatus}
+        onUpdateTask={handleUpdateTaskDetails}
+        onUpdateTaskPriority={handleUpdateTaskPriority}
+        onUpdateTaskDueDate={handleUpdateTaskDueDate}
+        onUpdateTaskDescription={handleUpdateTaskDescription}
       />
     </div>
   );
