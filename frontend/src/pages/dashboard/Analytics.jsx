@@ -40,7 +40,7 @@ import {
 } from "recharts";
 
 /* -----------------------------
-   Component
+Component
 ----------------------------- */
 
 const Analytics = () => {
@@ -66,6 +66,23 @@ const Analytics = () => {
     ]);
 
     const [isManageOpen, setIsManageOpen] = useState(false);
+
+    const SERIES_COLORS = [
+        "hsl(var(--sage))",
+        "hsl(var(--terracotta))",
+        "hsl(var(--sky))",
+        "hsl(var(--lavender))",
+        "hsl(var(--sand))",
+        "hsl(var(--primary))",
+        "hsl(var(--accent))",
+    ];
+
+    // Stable color assignment per person (so person1 is always the same color everywhere)
+    const sortedPeople = [...people].sort((a, b) => a.localeCompare(b));
+    const personColorMap = sortedPeople.reduce((acc, person, idx) => {
+        acc[person] = SERIES_COLORS[idx % SERIES_COLORS.length];
+        return acc;
+    }, {});
 
     // -----------------------------
     // API Client (shared)
@@ -214,11 +231,12 @@ const Analytics = () => {
                                             <YAxis />
                                             <Tooltip contentStyle={tooltipStyle} />
                                             <Legend />
-                                            {(people || []).map((person, index) => (
+                                            {sortedPeople.map((person) => (
                                                 <Bar
-                                                    key={`${person}-${index}`}
+                                                    key={person}
                                                     dataKey={person}
-                                                    fill={seriesColor(index)}
+                                                    fill={personColorMap[person] || "hsl(var(--muted-foreground))"}
+                                                    radius={[4, 4, 0, 0]}
                                                 />
                                             ))}
                                         </BarChart>
@@ -245,10 +263,10 @@ const Analytics = () => {
                                                 nameKey="name"
                                                 paddingAngle={2}
                                             >
-                                                {(categoryData || []).map((entry, index) => (
+                                                {categoryData.map((entry, index) => (
                                                     <Cell
-                                                        key={`${entry?.name || "cat"}-${index}`}
-                                                        fill={seriesColor(index)}
+                                                        key={entry.name || index}
+                                                        fill={entry.color || SERIES_COLORS[index % SERIES_COLORS.length]}
                                                     />
                                                 ))}
                                             </Pie>
@@ -316,16 +334,17 @@ const Analytics = () => {
                                         <RadarChart data={radarData}>
                                             <PolarGrid />
                                             <PolarAngleAxis dataKey="category" />
-                                            {(people || []).map((person, index) => (
+                                            {sortedPeople.map((person) => (
                                                 <Radar
-                                                    key={`${person}-${index}`}
+                                                    key={person}
                                                     name={person}
                                                     dataKey={person}
-                                                    stroke={seriesColor(index)}
-                                                    fill={seriesColor(index)}
-                                                    fillOpacity={0.3}
+                                                    stroke={personColorMap[person] || "hsl(var(--muted-foreground))"}
+                                                    fill={personColorMap[person] || "hsl(var(--muted-foreground))"}
+                                                    fillOpacity={0.25}
                                                 />
                                             ))}
+
                                             <Legend />
                                             <Tooltip contentStyle={tooltipStyle} />
                                         </RadarChart>
