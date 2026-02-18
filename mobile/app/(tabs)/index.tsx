@@ -6,10 +6,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
 import {
+  createKanbanTask,
+  fetchHouseholds,
   fetchKanbanTasks,
   updateKanbanTaskStatus,
   type UiTask,
@@ -57,6 +60,10 @@ export default function TasksScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [addTaskSaving, setAddTaskSaving] = useState(false);
+  const [addTaskError, setAddTaskError] = useState<string | null>(null);
 
   const loadTasks = useCallback(async () => {
     setError(null);
@@ -128,6 +135,59 @@ export default function TasksScreen() {
     [tasks]
   );
 
+  const resolveHouseholdId = useCallback(async () => {
+    const data = await fetchHouseholds(mobileApiClient);
+    const firstHousehold = Array.isArray(data?.households) ? data.households[0] : null;
+    const householdId = firstHousehold?.household_id;
+    return householdId ? String(householdId) : null;
+  }, []);
+
+  const onCreateTask = useCallback(async () => {
+    const title = newTaskTitle.trim();
+    if (!title || addTaskSaving) return;
+
+    setAddTaskError(null);
+    setError(null);
+    setAddTaskSaving(true);
+
+    try {
+      const householdId = await resolveHouseholdId();
+      if (!householdId) {
+        setAddTaskError('No household found. Create or join a household first.');
+        return;
+      }
+
+      const createdTask = await createKanbanTask(mobileApiClient, {
+        household_id: householdId,
+        name: title,
+        status: 'todo',
+        description: null,
+        priority: 'medium',
+        due_date: null,
+      });
+
+      setTasks((previous) => [
+        {
+          id: String(createdTask?.task_id || `tmp-${Date.now()}`),
+          title,
+          description: '',
+          status: 'todo',
+          priority: 'medium',
+          assignee: 'Unassigned',
+          category: 'Other',
+        },
+        ...previous,
+      ]);
+
+      setNewTaskTitle('');
+      setIsAddTaskOpen(false);
+    } catch (err: any) {
+      setAddTaskError(err?.message || 'Could not create task');
+    } finally {
+      setAddTaskSaving(false);
+    }
+  }, [addTaskSaving, newTaskTitle, resolveHouseholdId]);
+
   return (
     <ScrollView
       style={styles.page}
@@ -183,6 +243,52 @@ export default function TasksScreen() {
               </Pressable>
             </View>
           ))}
+
+          {column.id === 'todo' ? (
+            <View style={styles.addTaskWrap}>
+              {isAddTaskOpen ? (
+                <View style={styles.addTaskForm}>
+                  <TextInput
+                    value={newTaskTitle}
+                    onChangeText={setNewTaskTitle}
+                    placeholder="What needs to be done?"
+                    style={styles.addTaskInput}
+                    editable={!addTaskSaving}
+                  />
+                  <View style={styles.addTaskActions}>
+                    <Pressable
+                      style={styles.ghostButton}
+                      onPress={() => {
+                        if (addTaskSaving) return;
+                        setIsAddTaskOpen(false);
+                        setNewTaskTitle('');
+                        setAddTaskError(null);
+                      }}
+                    >
+                      <Text style={styles.ghostButtonText}>Cancel</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.primaryButtonSmall,
+                        (!newTaskTitle.trim() || addTaskSaving) && styles.primaryButtonSmallDisabled,
+                      ]}
+                      onPress={onCreateTask}
+                      disabled={!newTaskTitle.trim() || addTaskSaving}
+                    >
+                      <Text style={styles.primaryButtonSmallText}>
+                        {addTaskSaving ? 'Saving...' : 'Add Task'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                  {addTaskError ? <Text style={styles.errorText}>{addTaskError}</Text> : null}
+                </View>
+              ) : (
+                <Pressable style={styles.addTaskButton} onPress={() => setIsAddTaskOpen(true)}>
+                  <Text style={styles.addTaskButtonText}>+ Add Task</Text>
+                </Pressable>
+              )}
+            </View>
+          ) : null}
         </View>
       ))}
     </ScrollView>
@@ -311,5 +417,63 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: COLORS.text,
     fontWeight: '600',
+  },
+  addTaskWrap: {
+    marginTop: 4,
+  },
+  addTaskButton: {
+    borderRadius: 10,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: COLORS.border,
+    paddingVertical: 10,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  addTaskButtonText: {
+    color: COLORS.muted,
+    fontWeight: '600',
+  },
+  addTaskForm: {
+    gap: 8,
+  },
+  addTaskInput: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    color: COLORS.text,
+  },
+  addTaskActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  ghostButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    backgroundColor: '#fff',
+  },
+  ghostButtonText: {
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+  primaryButtonSmall: {
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    backgroundColor: COLORS.primary,
+  },
+  primaryButtonSmallDisabled: {
+    opacity: 0.6,
+  },
+  primaryButtonSmallText: {
+    color: '#fff',
+    fontWeight: '700',
   },
 });
