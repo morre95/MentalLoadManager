@@ -42,6 +42,10 @@ export function createKanbanTask(
     assigns_to?: string | null;
   }
 ): Promise<any>;
+export function deleteKanbanTask(
+  apiClient: ApiClient,
+  taskId: string
+): Promise<any>;
 export function fetchKanbanTasks(apiClient: ApiClient): Promise<{ tasks: UiTask[] }>;
 export function updateKanbanTaskStatus(
   apiClient: ApiClient,

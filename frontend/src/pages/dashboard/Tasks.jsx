@@ -39,6 +39,7 @@ import TaskDetailDialog from "@/components/tasks/TaskDetailDialog";
 
 import { useTaskboardTasks } from "@/hooks/useTaskboardTasks";
 import {
+  deleteKanbanTask,
   updateKanbanTaskDescription,
   updateKanbanTaskDueDate,
   updateKanbanTaskName,
@@ -337,6 +338,23 @@ const Tasks = () => {
     }
   };
 
+  const handleDeleteTask = async (taskId) => {
+    const rollbackTasks = tasks;
+    const rollbackSelectedTask = selectedTask;
+    setSyncError(null);
+
+    setTasks((prev) => prev.filter((task) => task.id !== taskId));
+    setSelectedTask(null);
+
+    try {
+      await deleteKanbanTask(taskId);
+    } catch (e) {
+      setTasks(rollbackTasks);
+      setSelectedTask(rollbackSelectedTask);
+      setSyncError(e);
+    }
+  };
+
   const findColumnForTask = (taskId) => {
     const t = tasks.find((x) => x.id === taskId);
     return t ? t.status : undefined;
@@ -510,6 +528,7 @@ const Tasks = () => {
         onUpdateTaskDueDate={handleUpdateTaskDueDate}
         onUpdateTaskDescription={handleUpdateTaskDescription}
         onUpdateTaskTitle={handleUpdateTaskTitle}
+        onDeleteTask={handleDeleteTask}
       />
     </div>
   );

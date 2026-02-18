@@ -57,6 +57,7 @@ const TaskDetailDialog = ({
   onUpdateTaskDueDate,
   onUpdateTaskDescription,
   onUpdateTaskTitle,
+  onDeleteTask,
 }) => {
   const status = statusConfig[task?.status] || statusConfig.todo;
   const StatusIcon = status.icon;
@@ -370,6 +371,20 @@ const TaskDetailDialog = ({
             >
               {task.status === "done" ? "Reopen Task" : "Mark as Done"}
             </Button>
+            <Button
+              variant="destructive"
+              className="bg-terracotta hover:bg-terracotta/90"
+              onClick={() => {
+                const confirmed = window.confirm(
+                  `Delete "${task.title}"? This cannot be undone.`
+                );
+                if (!confirmed) return;
+                onDeleteTask(task.id);
+              }}
+            >
+              Delete
+            </Button>
+
           </div>
         </motion.div>
       </DialogContent>

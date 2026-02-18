@@ -4,6 +4,7 @@ import {
   acceptHouseholdInvite as sharedAcceptHouseholdInvite,
   createKanbanTask as sharedCreateKanbanTask,
   createApiClient,
+  deleteKanbanTask as sharedDeleteKanbanTask,
   fetchKanbanTasks as sharedFetchKanbanTasks,
   fetchMe as sharedFetchMe,
   getApiBaseUrl,
@@ -111,6 +112,10 @@ export async function fetchKanbanTasks() {
 
 export async function createKanbanTask(payload) {
   return sharedCreateKanbanTask(apiClient, payload);
+}
+
+export async function deleteKanbanTask(taskId) {
+  return sharedDeleteKanbanTask(apiClient, taskId);
 }
 
 export async function acceptHouseholdInvite(code) {

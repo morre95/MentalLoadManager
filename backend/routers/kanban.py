@@ -116,6 +116,11 @@ class UpdateTaskNameResponse(BaseModel):
     updated_at: datetime | None = None
 
 
+class DeleteTaskResponse(BaseModel):
+    task_id: str
+    deleted: bool
+
+
 class ReorderTasksRequest(BaseModel):
     status: str
     ordered_task_ids: list[str]
@@ -720,6 +725,66 @@ def update_task_name(
             name=task.name,
             updated_at=task.updated_at,
         )
+
+
+@router.delete(
+    "/tasks/{task_id}",
+    response_model=DeleteTaskResponse,
+)
+def delete_task(
+    task_id: UUID,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        me = db.scalar(select(UserDB).where(UserDB.username == current_user.username))
+        if not me:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        task = db.scalar(select(Tasks).where(Tasks.task_id == task_id))
+        if task is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Task was not found",
+            )
+
+        requester_membership = db.scalar(
+            select(UsersHouseholds).where(
+                and_(
+                    UsersHouseholds.user_id == me.user_id,
+                    UsersHouseholds.household_id == task.household_id,
+                )
+            )
+        )
+        if requester_membership is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a member of the task household",
+            )
+
+        db.delete(task)
+
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Unable to delete task",
+            ) from exc
+
+        return DeleteTaskResponse(task_id=str(task_id), deleted=True)
 
 
 @router.patch(

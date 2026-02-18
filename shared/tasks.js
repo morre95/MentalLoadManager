@@ -113,6 +113,12 @@ export async function updateKanbanTaskName(apiClient, taskId, name) {
   });
 }
 
+export async function deleteKanbanTask(apiClient, taskId) {
+  return apiClient.request(`/api/kanban/tasks/${taskId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function createKanbanTask(apiClient, payload) {
   return apiClient.request("/api/kanban", {
     method: "POST",
