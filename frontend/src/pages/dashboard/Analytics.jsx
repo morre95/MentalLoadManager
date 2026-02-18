@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     BarChart3,
@@ -11,15 +11,11 @@ import {
     EyeOff,
 } from "lucide-react";
 
+import { createApiClient, fetchAnalyticsSummary } from "../../../../shared";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import {
     BarChart,
@@ -44,162 +40,87 @@ import {
 } from "recharts";
 
 /* -----------------------------
-    Data
------------------------------ */
-
-const weeklyData = [
-    { week: "Week 1", maria: 24, erik: 18 },
-    { week: "Week 2", maria: 22, erik: 21 },
-    { week: "Week 3", maria: 28, erik: 19 },
-    { week: "Week 4", maria: 20, erik: 25 },
-    { week: "Week 5", maria: 23, erik: 22 },
-    { week: "Week 6", maria: 19, erik: 24 },
-];
-
-const categoryData = [
-    { name: "Shopping", value: 28, color: "hsl(var(--terracotta))" },
-    { name: "Health", value: 15, color: "hsl(var(--lavender))" },
-    { name: "Bills", value: 20, color: "hsl(var(--sky))" },
-    { name: "Family", value: 22, color: "hsl(var(--sage))" },
-    { name: "Admin", value: 15, color: "hsl(var(--sand))" },
-];
-
-const loadTrendData = [
-    { month: "Jan", load: 65 },
-    { month: "Feb", load: 72 },
-    { month: "Mar", load: 58 },
-    { month: "Apr", load: 55 },
-    { month: "May", load: 48 },
-    { month: "Jun", load: 52 },
-];
-
-const completionData = [
-    { day: "Mon", completed: 8, pending: 3 },
-    { day: "Tue", completed: 6, pending: 4 },
-    { day: "Wed", completed: 9, pending: 2 },
-    { day: "Thu", completed: 7, pending: 5 },
-    { day: "Fri", completed: 10, pending: 1 },
-    { day: "Sat", completed: 5, pending: 2 },
-    { day: "Sun", completed: 4, pending: 1 },
-];
-
-const streakData = [
-    { month: "Jan", streak: 5 },
-    { month: "Feb", streak: 12 },
-    { month: "Mar", streak: 8 },
-    { month: "Apr", streak: 18 },
-    { month: "May", streak: 22 },
-    { month: "Jun", streak: 15 },
-];
-
-const radarData = [
-    { category: "Shopping", maria: 85, erik: 60 },
-    { category: "Cleaning", maria: 70, erik: 75 },
-    { category: "Admin", maria: 50, erik: 90 },
-    { category: "Health", maria: 80, erik: 65 },
-    { category: "Cooking", maria: 90, erik: 40 },
-    { category: "Maintenance", maria: 30, erik: 95 },
-];
-
-const goalProgressData = [
-    { name: "Savings", progress: 72 },
-    { name: "Reading", progress: 45 },
-    { name: "Training", progress: 88 },
-    { name: "Hydration", progress: 60 },
-];
-
-const stats = [
-    {
-        title: "Total Tasks Completed",
-        value: "156",
-        change: "+12%",
-        trend: "up",
-        icon: CheckCircle2,
-    },
-    {
-        title: "Average Load Balance",
-        value: "52/48",
-        change: "+8%",
-        trend: "up",
-        icon: Users,
-    },
-    {
-        title: "Mental Load Score",
-        value: "32",
-        change: "-15%",
-        trend: "down",
-        icon: TrendingDown,
-    },
-    {
-        title: "Weekly Efficiency",
-        value: "89%",
-        change: "+5%",
-        trend: "up",
-        icon: TrendingUp,
-    },
-];
-
-/* -----------------------------
-    Widgets
------------------------------ */
-
-const allChartWidgets = [
-    {
-        id: "distribution",
-        title: "Task Distribution by Person",
-        description: "Bar chart comparing tasks per person",
-    },
-    {
-        id: "category",
-        title: "Tasks by Category",
-        description: "Pie chart of task categories",
-    },
-    {
-        id: "load-trend",
-        title: "Mental Load Trend",
-        description: "Area chart of load over time",
-    },
-    {
-        id: "completion",
-        title: "Daily Completion Rate",
-        description: "Line chart of daily completions",
-    },
-    {
-        id: "streak",
-        title: "Best Streaks",
-        description: "Longest consecutive task streaks",
-    },
-    {
-        id: "radar",
-        title: "Category Expertise",
-        description: "Radar chart of who handles what",
-    },
-    {
-        id: "goal-progress",
-        title: "Goal Progress Overview",
-        description: "Bar chart of active goal completion",
-    },
-];
-
-const tooltipStyle = {
-    backgroundColor: "hsl(var(--card))",
-    border: "1px solid hsl(var(--border))",
-    borderRadius: "8px",
-};
-
-/* -----------------------------
-    Component
+   Component
 ----------------------------- */
 
 const Analytics = () => {
+    // -----------------------------
+    // State
+    // -----------------------------
+    const [weeklyData, setWeeklyData] = useState([]);
+    const [categoryData, setCategoryData] = useState([]);
+    const [loadTrendData, setLoadTrendData] = useState([]);
+    const [completionData, setCompletionData] = useState([]);
+    const [radarData, setRadarData] = useState([]);
+    const [stats, setStats] = useState([]);
+    const [people, setPeople] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
     const [activeChartIds, setActiveChartIds] = useState([
         "distribution",
         "category",
         "load-trend",
         "completion",
+        "radar",
     ]);
 
     const [isManageOpen, setIsManageOpen] = useState(false);
+
+    // -----------------------------
+    // API Client (shared)
+    // -----------------------------
+    const apiClient = useMemo(() => {
+        // IMPORTANT: adjust token retrieval to match your auth approach.
+        // If you store access token elsewhere (cookies, Zustand, etc), update getAccessToken.
+        return createApiClient({
+            getAccessToken: () => localStorage.getItem("access_token"),
+            onUnauthorized: () => {
+                // Optional: redirect to login, clear token, show toast, etc.
+                // localStorage.removeItem("token");
+            },
+        });
+    }, []);
+
+    // -----------------------------
+    // Fetch Analytics (shared)
+    // -----------------------------
+    useEffect(() => {
+        let alive = true;
+
+        const load = async () => {
+            setLoading(true);
+            setError(null);
+
+            try {
+                // This uses your shared analytics.js -> apiClient.request -> env baseUrl
+                const summary = await fetchAnalyticsSummary(apiClient);
+
+                if (!alive) return;
+
+                setPeople(summary.people || []);
+                setWeeklyData(summary.weeklyData || []);
+                setCategoryData(summary.categoryData || []);
+                setLoadTrendData(summary.loadTrendData || []);
+                setCompletionData(summary.completionData || []);
+                setRadarData(summary.radarData || []);
+                setStats(summary.stats || []);
+            } catch (err) {
+                if (!alive) return;
+                console.error(err);
+                setError(err);
+            } finally {
+                if (!alive) return;
+                setLoading(false);
+            }
+        };
+
+        load();
+
+        return () => {
+            alive = false;
+        };
+    }, [apiClient]);
 
     const handleToggleChart = (id) => {
         setActiveChartIds((prev) =>
@@ -207,84 +128,33 @@ const Analytics = () => {
         );
     };
 
-    const renderChart = (id) => {
-        switch (id) {
-            case "distribution":
-                return (
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={weeklyData}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="week" />
-                                <YAxis />
-                                <Tooltip contentStyle={tooltipStyle} />
-                                <Legend />
-                                <Bar dataKey="maria" fill="hsl(var(--sage))" />
-                                <Bar dataKey="erik" fill="hsl(var(--terracotta))" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                );
-
-            case "category":
-                return (
-                    <div className="h-64 flex items-center">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={categoryData}
-                                    innerRadius={60}
-                                    outerRadius={90}
-                                    paddingAngle={2}
-                                    dataKey="value"
-                                >
-                                    {categoryData.map((entry, index) => (
-                                        <Cell key={index} fill={entry.color} />
-                                    ))}
-                                </Pie>
-                                <Tooltip contentStyle={tooltipStyle} />
-                                <Legend />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-                );
-
-            case "load-trend":
-                return (
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={loadTrendData}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="month" />
-                                <YAxis />
-                                <Tooltip contentStyle={tooltipStyle} />
-                                <Area dataKey="load" fill="hsl(var(--primary) / 0.2)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                );
-
-            case "completion":
-                return (
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={completionData}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="day" />
-                                <YAxis />
-                                <Tooltip contentStyle={tooltipStyle} />
-                                <Legend />
-                                <Line dataKey="completed" stroke="hsl(var(--sage))" />
-                                <Line dataKey="pending" stroke="hsl(var(--terracotta))" />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-                );
-
-            default:
-                return null;
-        }
+    const tooltipStyle = {
+        backgroundColor: "hsl(var(--card))",
+        border: "1px solid hsl(var(--border))",
+        borderRadius: "8px",
     };
+
+    // Basic palette: cycles between your theme vars
+    const seriesColor = (index) =>
+        index % 2 === 0 ? "hsl(var(--sage))" : "hsl(var(--terracotta))";
+
+    if (loading) {
+        return <div className="p-6 text-muted-foreground">Loading analytics…</div>;
+    }
+
+    if (error) {
+        return (
+            <div className="p-6 space-y-3">
+                <p className="text-destructive font-medium">Failed to load analytics</p>
+                <p className="text-sm text-muted-foreground">
+                    {error?.message || "Unknown error"}
+                </p>
+                <Button variant="outline" onClick={() => window.location.reload()}>
+                    Retry
+                </Button>
+            </div>
+        );
+    }
 
     return (
         <div className="p-4 md:p-6 space-y-6">
@@ -301,24 +171,169 @@ const Analytics = () => {
                 </Button>
             </motion.div>
 
+            {/* Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {(stats || []).map((stat, index) => {
+                    const Icon =
+                        stat.icon === "Users"
+                            ? Users
+                            : stat.icon === "TrendingDown"
+                                ? TrendingDown
+                                : stat.icon === "TrendingUp"
+                                    ? TrendingUp
+                                    : CheckCircle2;
+
+                    return (
+                        <Card key={`${stat.title}-${index}`}>
+                            <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                    <Icon className="h-5 w-5 text-muted-foreground" />
+                                </div>
+                                <p className="text-2xl font-bold mt-2">{stat.value}</p>
+                                <p className="text-sm text-muted-foreground">{stat.title}</p>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
+            </div>
+
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <AnimatePresence>
-                    {activeChartIds.map((id) => {
-                        const widget = allChartWidgets.find((w) => w.id === id);
-                        if (!widget) return null;
+                    {activeChartIds.includes("distribution") && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Task Distribution by Person</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="h-64">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={weeklyData}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="week" />
+                                            <YAxis />
+                                            <Tooltip contentStyle={tooltipStyle} />
+                                            <Legend />
+                                            {(people || []).map((person, index) => (
+                                                <Bar
+                                                    key={`${person}-${index}`}
+                                                    dataKey={person}
+                                                    fill={seriesColor(index)}
+                                                />
+                                            ))}
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
 
-                        return (
-                            <motion.div key={id}>
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>{widget.title}</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>{renderChart(id)}</CardContent>
-                                </Card>
-                            </motion.div>
-                        );
-                    })}
+                    {activeChartIds.includes("category") && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Tasks by Category</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="h-64">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={categoryData}
+                                                innerRadius={60}
+                                                outerRadius={90}
+                                                dataKey="value"
+                                                nameKey="name"
+                                                paddingAngle={2}
+                                            >
+                                                {(categoryData || []).map((entry, index) => (
+                                                    <Cell
+                                                        key={`${entry?.name || "cat"}-${index}`}
+                                                        fill={seriesColor(index)}
+                                                    />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip contentStyle={tooltipStyle} />
+                                            <Legend />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {activeChartIds.includes("load-trend") && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Mental Load Trend</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="h-64">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={loadTrendData}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="month" />
+                                            <YAxis />
+                                            <Tooltip contentStyle={tooltipStyle} />
+                                            <Area dataKey="load" fill="hsl(var(--primary) / 0.2)" />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {activeChartIds.includes("completion") && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Daily Completion Rate</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="h-64">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={completionData}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="day" />
+                                            <YAxis />
+                                            <Tooltip contentStyle={tooltipStyle} />
+                                            <Legend />
+                                            <Line dataKey="completed" stroke="hsl(var(--sage))" />
+                                            <Line dataKey="pending" stroke="hsl(var(--terracotta))" />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {activeChartIds.includes("radar") && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Category Expertise</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="h-64">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <RadarChart data={radarData}>
+                                            <PolarGrid />
+                                            <PolarAngleAxis dataKey="category" />
+                                            {(people || []).map((person, index) => (
+                                                <Radar
+                                                    key={`${person}-${index}`}
+                                                    name={person}
+                                                    dataKey={person}
+                                                    stroke={seriesColor(index)}
+                                                    fill={seriesColor(index)}
+                                                    fillOpacity={0.3}
+                                                />
+                                            ))}
+                                            <Legend />
+                                            <Tooltip contentStyle={tooltipStyle} />
+                                        </RadarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
                 </AnimatePresence>
             </div>
 
@@ -330,34 +345,36 @@ const Analytics = () => {
                     </DialogHeader>
 
                     <div className="space-y-3 mt-4">
-                        {allChartWidgets.map((widget) => {
-                            const isActive = activeChartIds.includes(widget.id);
+                        {["distribution", "category", "load-trend", "completion", "radar"].map(
+                            (id) => {
+                                const isActive = activeChartIds.includes(id);
 
-                            return (
-                                <div
-                                    key={widget.id}
-                                    className="flex items-center justify-between p-3 border rounded-lg"
-                                >
-                                    <p>{widget.title}</p>
-
-                                    <Button
-                                        size="sm"
-                                        variant={isActive ? "outline" : "default"}
-                                        onClick={() => handleToggleChart(widget.id)}
+                                return (
+                                    <div
+                                        key={id}
+                                        className="flex items-center justify-between p-3 border rounded-lg"
                                     >
-                                        {isActive ? (
-                                            <>
-                                                <EyeOff className="w-4 h-4 mr-1" /> Hide
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Eye className="w-4 h-4 mr-1" /> Show
-                                            </>
-                                        )}
-                                    </Button>
-                                </div>
-                            );
-                        })}
+                                        <p className="text-sm font-medium">{id}</p>
+
+                                        <Button
+                                            size="sm"
+                                            variant={isActive ? "outline" : "default"}
+                                            onClick={() => handleToggleChart(id)}
+                                        >
+                                            {isActive ? (
+                                                <>
+                                                    <EyeOff className="w-4 h-4 mr-1" /> Hide
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Eye className="w-4 h-4 mr-1" /> Show
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                );
+                            }
+                        )}
                     </div>
                 </DialogContent>
             </Dialog>

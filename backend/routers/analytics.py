@@ -10,6 +10,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select, func, and_
+from sqlalchemy import case
 
 from helpers import get_current_user, get_session_local
 from models import (
@@ -228,7 +229,7 @@ def get_analytics_summary(
         load_rows = db.execute(
             select(
                 month_bucket.label("mo"),
-                func.sum(func.case((Tasks.status != "done", 1), else_=0)).label(
+                func.sum(case((Tasks.status != "done", 1), else_=0)).label(
                     "open_tasks"
                 ),
             )
@@ -260,10 +261,10 @@ def get_analytics_summary(
         completion_rows = db.execute(
             select(
                 day_bucket.label("dy"),
-                func.sum(func.case((Tasks.status == "done", 1), else_=0)).label(
+                func.sum(case((Tasks.status == "done", 1), else_=0)).label(
                     "completed"
                 ),
-                func.sum(func.case((Tasks.status != "done", 1), else_=0)).label(
+                func.sum(case((Tasks.status != "done", 1), else_=0)).label(
                     "pending"
                 ),
             )
