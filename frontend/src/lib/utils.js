@@ -2,6 +2,7 @@ import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import {
   acceptHouseholdInvite as sharedAcceptHouseholdInvite,
+  createKanbanTask as sharedCreateKanbanTask,
   createApiClient,
   fetchKanbanTasks as sharedFetchKanbanTasks,
   fetchMe as sharedFetchMe,
@@ -102,6 +103,10 @@ export async function apiFetch(path, options = {}) {
 
 export async function fetchKanbanTasks() {
   return sharedFetchKanbanTasks(apiClient);
+}
+
+export async function createKanbanTask(payload) {
+  return sharedCreateKanbanTask(apiClient, payload);
 }
 
 export async function acceptHouseholdInvite(code) {

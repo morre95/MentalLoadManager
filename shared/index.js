@@ -2,6 +2,7 @@ export { getApiBaseUrl } from "./env.js";
 export { createApiClient } from "./apiClient.js";
 
 export {
+  createKanbanTask,
   fetchKanbanTasks,
   mapApiTaskToUi,
   toApiTaskStatus,

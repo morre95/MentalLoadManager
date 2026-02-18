@@ -76,3 +76,10 @@ export async function updateKanbanTaskOrder(apiClient, status, orderedTaskIds) {
     }),
   });
 }
+
+export async function createKanbanTask(apiClient, payload) {
+  return apiClient.request("/api/kanban", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

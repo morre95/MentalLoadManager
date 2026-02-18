@@ -29,6 +29,19 @@ export type UiTask = {
 
 export function mapApiTaskToUi(task: any): UiTask;
 export function toApiTaskStatus(status: string): string;
+export function createKanbanTask(
+  apiClient: ApiClient,
+  payload: {
+    household_id: string;
+    name: string;
+    status?: string;
+    description?: string | null;
+    priority?: string | null;
+    due_date?: string | null;
+    category_id?: string | null;
+    assigns_to?: string | null;
+  }
+): Promise<any>;
 export function fetchKanbanTasks(apiClient: ApiClient): Promise<{ tasks: UiTask[] }>;
 export function updateKanbanTaskStatus(
   apiClient: ApiClient,
