@@ -41,7 +41,7 @@ export function mapApiTaskToUi(task) {
   return {
     id: String(task.task_id),
     title: task.name || "",
-    description: undefined,
+    description: task.description || "",
     status: normalizeStatus(task.status),
     priority: normalizePriority(task),
     assignee: task.assignee_name || "Unassigned",
@@ -91,6 +91,15 @@ export async function updateKanbanTaskDueDate(apiClient, taskId, dueDate) {
     method: "PATCH",
     body: JSON.stringify({
       due_date: dueDate || null,
+    }),
+  });
+}
+
+export async function updateKanbanTaskDescription(apiClient, taskId, description) {
+  return apiClient.request(`/api/kanban/tasks/${taskId}/description`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      description: description ?? null,
     }),
   });
 }

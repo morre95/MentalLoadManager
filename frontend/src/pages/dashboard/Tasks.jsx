@@ -39,6 +39,7 @@ import TaskDetailDialog from "@/components/tasks/TaskDetailDialog";
 
 import { useTaskboardTasks } from "@/hooks/useTaskboardTasks";
 import {
+  updateKanbanTaskDescription,
   updateKanbanTaskDueDate,
   updateKanbanTaskOrder,
   updateKanbanTaskPriority,
@@ -303,6 +304,22 @@ const Tasks = () => {
     }
   };
 
+  const handleUpdateTaskDescription = async (taskId, nextDescription) => {
+    const rollbackTasks = tasks;
+    const rollbackSelectedTask = selectedTask;
+    setSyncError(null);
+
+    handleUpdateTaskDetails(taskId, { description: nextDescription || "" });
+
+    try {
+      await updateKanbanTaskDescription(taskId, nextDescription || null);
+    } catch (e) {
+      setTasks(rollbackTasks);
+      setSelectedTask(rollbackSelectedTask);
+      setSyncError(e);
+    }
+  };
+
   const findColumnForTask = (taskId) => {
     const t = tasks.find((x) => x.id === taskId);
     return t ? t.status : undefined;
@@ -474,6 +491,7 @@ const Tasks = () => {
         onUpdateTask={handleUpdateTaskDetails}
         onUpdateTaskPriority={handleUpdateTaskPriority}
         onUpdateTaskDueDate={handleUpdateTaskDueDate}
+        onUpdateTaskDescription={handleUpdateTaskDescription}
       />
     </div>
   );

@@ -7,6 +7,7 @@ import {
   fetchKanbanTasks as sharedFetchKanbanTasks,
   fetchMe as sharedFetchMe,
   getApiBaseUrl,
+  updateKanbanTaskDescription as sharedUpdateKanbanTaskDescription,
   updateKanbanTaskDueDate as sharedUpdateKanbanTaskDueDate,
   updateKanbanTaskOrder as sharedUpdateKanbanTaskOrder,
   updateKanbanTaskPriority as sharedUpdateKanbanTaskPriority,
@@ -129,6 +130,10 @@ export async function updateKanbanTaskPriority(taskId, priority) {
 
 export async function updateKanbanTaskDueDate(taskId, dueDate) {
   return sharedUpdateKanbanTaskDueDate(apiClient, taskId, dueDate);
+}
+
+export async function updateKanbanTaskDescription(taskId, description) {
+  return sharedUpdateKanbanTaskDescription(apiClient, taskId, description);
 }
 
 export function capitalizeWords(str) {

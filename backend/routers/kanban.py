@@ -52,6 +52,7 @@ class TaskResponse(BaseModel):
 class KanbanTask(BaseModel):
     task_id: str
     name: str
+    description: str | None = None
     status: str
     priority: str
     due_date: datetime | None = None
@@ -92,6 +93,16 @@ class UpdateTaskDueDateRequest(BaseModel):
 class UpdateTaskDueDateResponse(BaseModel):
     task_id: str
     due_date: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class UpdateTaskDescriptionRequest(BaseModel):
+    description: str | None = None
+
+
+class UpdateTaskDescriptionResponse(BaseModel):
+    task_id: str
+    description: str | None = None
     updated_at: datetime | None = None
 
 
@@ -136,6 +147,7 @@ def list_kamban_tasks(current_user: UserEmail = Depends(get_current_user)):
             select(
                 Tasks.task_id,
                 Tasks.name,
+                Tasks.description,
                 Tasks.status,
                 Tasks.priority,
                 Tasks.due_date,
@@ -165,6 +177,7 @@ def list_kamban_tasks(current_user: UserEmail = Depends(get_current_user)):
             KanbanTask(
                 task_id=str(row.task_id),
                 name=row.name,
+                description=row.description,
                 status=row.status,
                 priority=row.priority,
                 due_date=row.due_date,
@@ -551,6 +564,76 @@ def update_task_due_date(
         return UpdateTaskDueDateResponse(
             task_id=str(task.task_id),
             due_date=task.due_date,
+            updated_at=task.updated_at,
+        )
+
+
+@router.patch(
+    "/tasks/{task_id}/description",
+    response_model=UpdateTaskDescriptionResponse,
+)
+def update_task_description(
+    task_id: UUID,
+    payload: UpdateTaskDescriptionRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        me = db.scalar(select(UserDB).where(UserDB.username == current_user.username))
+        if not me:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        task = db.scalar(select(Tasks).where(Tasks.task_id == task_id))
+        if task is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Task was not found",
+            )
+
+        requester_membership = db.scalar(
+            select(UsersHouseholds).where(
+                and_(
+                    UsersHouseholds.user_id == me.user_id,
+                    UsersHouseholds.household_id == task.household_id,
+                )
+            )
+        )
+        if requester_membership is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a member of the task household",
+            )
+
+        next_description = (
+            payload.description.strip() if isinstance(payload.description, str) else None
+        )
+        task.description = next_description or None
+        task.updated_at = datetime.now(timezone.utc)
+
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Unable to update task description",
+            ) from exc
+
+        db.refresh(task)
+        return UpdateTaskDescriptionResponse(
+            task_id=str(task.task_id),
+            description=task.description,
             updated_at=task.updated_at,
         )
 

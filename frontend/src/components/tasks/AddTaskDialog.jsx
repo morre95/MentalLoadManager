@@ -31,6 +31,7 @@ const categories = [
 ];
 
 const assignees = ["Maria", "Erik"];
+const CUSTOM_CATEGORY_VALUE = "__custom__";
 
 function resolveHouseholdId() {
     if (typeof window === "undefined") return null;
@@ -64,6 +65,7 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
     const [description, setDescription] = useState("");
     const [priority, setPriority] = useState("medium");
     const [category, setCategory] = useState("Other");
+    const [customCategory, setCustomCategory] = useState("");
     const [assignee, setAssignee] = useState("Maria");
     const [dueDate, setDueDate] = useState("");
     const [saving, setSaving] = useState(false);
@@ -80,6 +82,10 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
         }
 
         const dueDateIso = dueDate ? new Date(`${dueDate}T00:00:00`).toISOString() : null;
+        const finalCategory =
+            category === CUSTOM_CATEGORY_VALUE
+                ? customCategory.trim() || "Other"
+                : category;
 
         setSaving(true);
         try {
@@ -99,7 +105,7 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
                 status: "todo",
                 priority,
                 assignee,
-                category,
+                category: finalCategory,
                 dueDate: dueDate ? new Date(dueDateIso).toLocaleDateString() : "",
             };
 
@@ -118,6 +124,7 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
         setDescription("");
         setPriority("medium");
         setCategory("Other");
+        setCustomCategory("");
         setAssignee("Maria");
         setDueDate("");
         setSubmitError("");
@@ -186,8 +193,16 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
                                             {cat}
                                         </SelectItem>
                                     ))}
+                                    <SelectItem value={CUSTOM_CATEGORY_VALUE}>Custom...</SelectItem>
                                 </SelectContent>
                             </Select>
+                            {category === CUSTOM_CATEGORY_VALUE ? (
+                                <Input
+                                    value={customCategory}
+                                    onChange={(e) => setCustomCategory(e.target.value)}
+                                    placeholder="Write category"
+                                />
+                            ) : null}
                         </div>
                     </div>
 

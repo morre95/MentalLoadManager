@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
     Select,
     SelectContent,
@@ -54,6 +55,7 @@ const TaskDetailDialog = ({
     onUpdateTask,
     onUpdateTaskPriority,
     onUpdateTaskDueDate,
+    onUpdateTaskDescription,
 }) => {
     const status = statusConfig[task?.status] || statusConfig.todo;
     const StatusIcon = status.icon;
@@ -61,6 +63,7 @@ const TaskDetailDialog = ({
     const [assigneeDraft, setAssigneeDraft] = useState("");
     const [categoryDraft, setCategoryDraft] = useState("");
     const [dueDateDraft, setDueDateDraft] = useState("");
+    const [descriptionDraft, setDescriptionDraft] = useState("");
 
     const normalizedPriority = useMemo(() => {
         const value = String(task?.priority || "medium").toLowerCase();
@@ -94,6 +97,16 @@ const TaskDetailDialog = ({
         setEditingField(null);
     };
 
+    const saveDescription = () => {
+        const nextDescription = descriptionDraft.trim();
+        if (onUpdateTaskDescription) {
+            onUpdateTaskDescription(task.id, nextDescription || null);
+        } else {
+            onUpdateTask?.(task.id, { description: nextDescription });
+        }
+        setEditingField(null);
+    };
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg" key={task.id}>
@@ -109,14 +122,47 @@ const TaskDetailDialog = ({
                     animate={{ opacity: 1, y: 0 }}
                     className="space-y-5 mt-2"
                 >
-                    {task.description ? (
-                        <div>
-                            <p className="text-sm font-medium text-muted-foreground mb-1">
-                                Description
-                            </p>
-                            <p className="text-foreground">{task.description}</p>
-                        </div>
-                    ) : null}
+                    <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">
+                            Description
+                        </p>
+                        {editingField === "description" ? (
+                            <div className="space-y-2">
+                                <Textarea
+                                    value={descriptionDraft}
+                                    onChange={(e) => setDescriptionDraft(e.target.value)}
+                                    rows={4}
+                                    autoFocus
+                                />
+                                <div className="flex justify-end gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            setEditingField(null);
+                                            setDescriptionDraft(task.description || "");
+                                        }}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button size="sm" onClick={saveDescription}>
+                                        Save
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                className="text-foreground text-left w-full rounded-md hover:bg-muted/40 p-2 -ml-2"
+                                onClick={() => {
+                                    setDescriptionDraft(task.description || "");
+                                    setEditingField("description");
+                                }}
+                            >
+                                {task.description || "Click to add description"}
+                            </button>
+                        )}
+                    </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
