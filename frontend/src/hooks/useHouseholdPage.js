@@ -93,8 +93,6 @@ export function useHouseholdPage() {
             const message = err?.message || "An error occurred while trying to join the household.";
 
             // TODO - improve error handling (e.g. show in UI instead of alert, handle specific cases like invalid code, expired code, etc.)
-            // TODO: log errors to an external service for monitoring and debugging
-            //FIXME: this is a temporary solution to surface errors during development, should be replaced with proper error handling in the UI
             alert(message);
         }
         finally {
