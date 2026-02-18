@@ -104,6 +104,15 @@ export async function updateKanbanTaskDescription(apiClient, taskId, description
   });
 }
 
+export async function updateKanbanTaskName(apiClient, taskId, name) {
+  return apiClient.request(`/api/kanban/tasks/${taskId}/name`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      name: String(name || "").trim(),
+    }),
+  });
+}
+
 export async function createKanbanTask(apiClient, payload) {
   return apiClient.request("/api/kanban", {
     method: "POST",

@@ -41,6 +41,7 @@ import { useTaskboardTasks } from "@/hooks/useTaskboardTasks";
 import {
   updateKanbanTaskDescription,
   updateKanbanTaskDueDate,
+  updateKanbanTaskName,
   updateKanbanTaskOrder,
   updateKanbanTaskPriority,
   updateKanbanTaskStatus,
@@ -320,6 +321,22 @@ const Tasks = () => {
     }
   };
 
+  const handleUpdateTaskTitle = async (taskId, nextTitle) => {
+    const rollbackTasks = tasks;
+    const rollbackSelectedTask = selectedTask;
+    setSyncError(null);
+
+    handleUpdateTaskDetails(taskId, { title: nextTitle });
+
+    try {
+      await updateKanbanTaskName(taskId, nextTitle);
+    } catch (e) {
+      setTasks(rollbackTasks);
+      setSelectedTask(rollbackSelectedTask);
+      setSyncError(e);
+    }
+  };
+
   const findColumnForTask = (taskId) => {
     const t = tasks.find((x) => x.id === taskId);
     return t ? t.status : undefined;
@@ -492,6 +509,7 @@ const Tasks = () => {
         onUpdateTaskPriority={handleUpdateTaskPriority}
         onUpdateTaskDueDate={handleUpdateTaskDueDate}
         onUpdateTaskDescription={handleUpdateTaskDescription}
+        onUpdateTaskTitle={handleUpdateTaskTitle}
       />
     </div>
   );

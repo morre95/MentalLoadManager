@@ -9,6 +9,7 @@ import {
   getApiBaseUrl,
   updateKanbanTaskDescription as sharedUpdateKanbanTaskDescription,
   updateKanbanTaskDueDate as sharedUpdateKanbanTaskDueDate,
+  updateKanbanTaskName as sharedUpdateKanbanTaskName,
   updateKanbanTaskOrder as sharedUpdateKanbanTaskOrder,
   updateKanbanTaskPriority as sharedUpdateKanbanTaskPriority,
   updateKanbanTaskStatus as sharedUpdateKanbanTaskStatus,
@@ -134,6 +135,10 @@ export async function updateKanbanTaskDueDate(taskId, dueDate) {
 
 export async function updateKanbanTaskDescription(taskId, description) {
   return sharedUpdateKanbanTaskDescription(apiClient, taskId, description);
+}
+
+export async function updateKanbanTaskName(taskId, name) {
+  return sharedUpdateKanbanTaskName(apiClient, taskId, name);
 }
 
 export function capitalizeWords(str) {

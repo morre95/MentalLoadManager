@@ -106,6 +106,16 @@ class UpdateTaskDescriptionResponse(BaseModel):
     updated_at: datetime | None = None
 
 
+class UpdateTaskNameRequest(BaseModel):
+    name: str
+
+
+class UpdateTaskNameResponse(BaseModel):
+    task_id: str
+    name: str
+    updated_at: datetime | None = None
+
+
 class ReorderTasksRequest(BaseModel):
     status: str
     ordered_task_ids: list[str]
@@ -634,6 +644,80 @@ def update_task_description(
         return UpdateTaskDescriptionResponse(
             task_id=str(task.task_id),
             description=task.description,
+            updated_at=task.updated_at,
+        )
+
+
+@router.patch(
+    "/tasks/{task_id}/name",
+    response_model=UpdateTaskNameResponse,
+)
+def update_task_name(
+    task_id: UUID,
+    payload: UpdateTaskNameRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    next_name = payload.name.strip()
+    if not next_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Task name is required",
+        )
+
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        me = db.scalar(select(UserDB).where(UserDB.username == current_user.username))
+        if not me:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        task = db.scalar(select(Tasks).where(Tasks.task_id == task_id))
+        if task is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Task was not found",
+            )
+
+        requester_membership = db.scalar(
+            select(UsersHouseholds).where(
+                and_(
+                    UsersHouseholds.user_id == me.user_id,
+                    UsersHouseholds.household_id == task.household_id,
+                )
+            )
+        )
+        if requester_membership is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a member of the task household",
+            )
+
+        task.name = next_name
+        task.updated_at = datetime.now(timezone.utc)
+
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Unable to update task name",
+            ) from exc
+
+        db.refresh(task)
+        return UpdateTaskNameResponse(
+            task_id=str(task.task_id),
+            name=task.name,
             updated_at=task.updated_at,
         )
 

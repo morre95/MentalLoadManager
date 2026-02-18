@@ -8,6 +8,7 @@ export {
   toApiTaskStatus,
   updateKanbanTaskDescription,
   updateKanbanTaskDueDate,
+  updateKanbanTaskName,
   updateKanbanTaskOrder,
   updateKanbanTaskPriority,
   updateKanbanTaskStatus,
