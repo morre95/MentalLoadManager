@@ -222,28 +222,6 @@ export default function TasksScreen() {
             <Text style={styles.emptyText}>No tasks in this column.</Text>
           ) : null}
 
-          {column.tasks.map((task) => (
-            <View key={task.id} style={styles.taskCard}>
-              <View style={styles.taskHeader}>
-                <Text style={styles.taskTitle}>{task.title}</Text>
-                <View style={styles.priorityPill}>
-                  <Text style={styles.priorityText}>{task.priority}</Text>
-                </View>
-              </View>
-
-              <Text style={styles.taskMeta}>
-                {task.category} • {task.assignee}
-              </Text>
-              {task.dueDate ? <Text style={styles.taskMeta}>Due {task.dueDate}</Text> : null}
-
-              <Pressable style={styles.secondaryButton} onPress={() => onCycleStatus(task)}>
-                <Text style={styles.secondaryButtonText}>
-                  Move to {COLUMN_LABELS[nextStatus(task.status)]}
-                </Text>
-              </Pressable>
-            </View>
-          ))}
-
           {column.id === 'todo' ? (
             <View style={styles.addTaskWrap}>
               {isAddTaskOpen ? (
@@ -289,6 +267,30 @@ export default function TasksScreen() {
               )}
             </View>
           ) : null}
+
+          {column.tasks.map((task) => (
+            <View key={task.id} style={styles.taskCard}>
+              <View style={styles.taskHeader}>
+                <Text style={styles.taskTitle}>{task.title}</Text>
+                <View style={styles.priorityPill}>
+                  <Text style={styles.priorityText}>{task.priority}</Text>
+                </View>
+              </View>
+
+              <Text style={styles.taskMeta}>
+                {task.category} • {task.assignee}
+              </Text>
+              {task.dueDate ? <Text style={styles.taskMeta}>Due {task.dueDate}</Text> : null}
+
+              <Pressable style={styles.secondaryButton} onPress={() => onCycleStatus(task)}>
+                <Text style={styles.secondaryButtonText}>
+                  Move to {COLUMN_LABELS[nextStatus(task.status)]}
+                </Text>
+              </Pressable>
+            </View>
+          ))}
+
+
         </View>
       ))}
     </ScrollView>

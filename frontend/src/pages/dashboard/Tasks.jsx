@@ -252,6 +252,13 @@ const Tasks = () => {
     setTasks((prev) => [newTask, ...prev]);
   };
 
+  const handleUpdateTaskDetails = (taskId, updates) => {
+    setTasks((prev) =>
+      prev.map((task) => (task.id === taskId ? { ...task, ...updates } : task))
+    );
+    setSelectedTask((prev) => (prev && prev.id === taskId ? { ...prev, ...updates } : prev));
+  };
+
   const findColumnForTask = (taskId) => {
     const t = tasks.find((x) => x.id === taskId);
     return t ? t.status : undefined;
@@ -420,6 +427,7 @@ const Tasks = () => {
         open={!!selectedTask}
         onOpenChange={(open) => !open && setSelectedTask(null)}
         onToggleStatus={handleToggleStatus}
+        onUpdateTask={handleUpdateTaskDetails}
       />
     </div>
   );
