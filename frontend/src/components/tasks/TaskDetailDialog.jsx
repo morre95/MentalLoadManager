@@ -38,6 +38,16 @@ const statusConfig = {
   done: { icon: Check, label: "Done", color: "bg-status-done" },
 };
 
+const categories = [
+  "Shopping",
+  "Cleaning",
+  "Admin",
+  "Health",
+  "Maintenance",
+  "Planning",
+  "Other",
+];
+
 function toDateInputValue(value) {
   if (!value) return "";
   if (value === "Today") {
@@ -49,6 +59,7 @@ function toDateInputValue(value) {
 }
 
 const UNASSIGNED_ASSIGNEE_VALUE = "__unassigned__";
+const CUSTOM_CATEGORY_VALUE = "__custom__";
 
 const TaskDetailDialog = ({
   task,
@@ -69,7 +80,8 @@ const TaskDetailDialog = ({
   const [assignees, setAssignees] = useState([]);
   const [assigneeIdDraft, setAssigneeIdDraft] = useState(UNASSIGNED_ASSIGNEE_VALUE);
   const [assigneesError, setAssigneesError] = useState("");
-  const [categoryDraft, setCategoryDraft] = useState("");
+  const [categoryDraft, setCategoryDraft] = useState("Other");
+  const [customCategoryDraft, setCustomCategoryDraft] = useState("");
   const [dueDateDraft, setDueDateDraft] = useState("");
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [titleDraft, setTitleDraft] = useState("");
@@ -108,7 +120,10 @@ const TaskDetailDialog = ({
   if (!task) return null;
 
   const saveCategory = () => {
-    const nextCategory = categoryDraft.trim() || "Other";
+    const nextCategory =
+      categoryDraft === CUSTOM_CATEGORY_VALUE
+        ? customCategoryDraft.trim() || "Other"
+        : categoryDraft;
     onUpdateTask?.(task.id, { category: nextCategory });
     setEditingField(null);
   };
@@ -343,26 +358,60 @@ const TaskDetailDialog = ({
               <div>
                 <p className="text-xs text-muted-foreground">Category</p>
                 {editingField === "category" ? (
-                  <Input
-                    value={categoryDraft}
-                    onChange={(e) => setCategoryDraft(e.target.value)}
-                    onBlur={saveCategory}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") saveCategory();
-                      if (e.key === "Escape") {
-                        setCategoryDraft(task.category || "");
-                        setEditingField(null);
-                      }
-                    }}
-                    autoFocus
-                    className="h-8 mt-1 w-40"
-                  />
+                  <div className="mt-1 space-y-2">
+                    <Select value={categoryDraft} onValueChange={setCategoryDraft}>
+                      <SelectTrigger className="h-8 w-44">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {cat}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value={CUSTOM_CATEGORY_VALUE}>Custom...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {categoryDraft === CUSTOM_CATEGORY_VALUE ? (
+                      <Input
+                        value={customCategoryDraft}
+                        onChange={(e) => setCustomCategoryDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveCategory();
+                        }}
+                        placeholder="Write category"
+                        autoFocus
+                        className="h-8 w-44"
+                      />
+                    ) : null}
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingField(null);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button size="sm" onClick={saveCategory}>
+                        Save
+                      </Button>
+                    </div>
+                  </div>
                 ) : (
                   <button
                     type="button"
                     className="text-sm font-medium text-foreground text-left"
                     onClick={() => {
-                      setCategoryDraft(task.category || "");
+                      const currentCategory = task.category || "Other";
+                      if (categories.includes(currentCategory)) {
+                        setCategoryDraft(currentCategory);
+                        setCustomCategoryDraft("");
+                      } else {
+                        setCategoryDraft(CUSTOM_CATEGORY_VALUE);
+                        setCustomCategoryDraft(currentCategory);
+                      }
                       setEditingField("category");
                     }}
                   >
