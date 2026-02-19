@@ -122,7 +122,7 @@ const Analytics = () => {
                 const summary = await fetchAnalyticsSummary(apiClient);
                 if (!alive) return;
                 console.log("Radar categories:", radarData.map(r => r.category));
-console.log("Radar keys on first row:", radarData[0] ? Object.keys(radarData[0]) : []);
+                console.log("Radar keys on first row:", radarData[0] ? Object.keys(radarData[0]) : []);
 
                 setPeople(summary.people || []);
                 setWeeklyData(summary.weeklyData || []);
@@ -253,13 +253,13 @@ console.log("Radar keys on first row:", radarData[0] ? Object.keys(radarData[0])
                                 <ResponsiveContainer width="100%" height={256}>
                                     <BarChart data={weeklyData}>
                                         <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis 
-                                        dataKey="week" 
-                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                                        tickFormatter={(value) => "Week " + value.split("-W")[1]}
-                                            />
-                                        <YAxis 
-                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}/>
+                                        <XAxis
+                                            dataKey="week"
+                                            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                                            tickFormatter={(value) => "Week " + value.split("-W")[1]}
+                                        />
+                                        <YAxis
+                                            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                                         <Tooltip contentStyle={tooltipStyle} />
                                         <Legend
                                             verticalAlign="bottom"
@@ -349,8 +349,8 @@ console.log("Radar keys on first row:", radarData[0] ? Object.keys(radarData[0])
                                             content={({ payload }) => (
                                                 <div
                                                     style={{
-                                                        display: "grid",
-                                                        gridTemplateColumns: "repeat(2, auto)", // ✅ 2 per row
+                                                        display: "flex",
+                                                        flexWrap: "wrap",
                                                         gap: "8px 18px",
                                                         justifyContent: "center",
                                                         paddingTop: 10,
@@ -439,11 +439,11 @@ console.log("Radar keys on first row:", radarData[0] ? Object.keys(radarData[0])
                                 <ResponsiveContainer width="100%" height={256}>
                                     <LineChart data={completionData}>
                                         <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis 
-                                        dataKey="day" 
-                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                                        <YAxis 
-                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}/>
+                                        <XAxis
+                                            dataKey="day"
+                                            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                                        <YAxis
+                                            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                                         <Tooltip contentStyle={tooltipStyle} />
                                         <Legend
                                             verticalAlign="bottom"
@@ -489,7 +489,7 @@ console.log("Radar keys on first row:", radarData[0] ? Object.keys(radarData[0])
                                                 </div>
                                             )}
                                         />
-                                        <Line dataKey="completed" stroke="hsl(var(--sage))" type="monotone" strokeWidth={2}/>
+                                        <Line dataKey="completed" stroke="hsl(var(--sage))" type="monotone" strokeWidth={2} />
                                         <Line dataKey="pending" stroke="hsl(var(--terracotta))" type="monotone" strokeWidth={2} />
                                     </LineChart>
                                 </ResponsiveContainer>
