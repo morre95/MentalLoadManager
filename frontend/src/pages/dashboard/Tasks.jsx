@@ -60,8 +60,9 @@ const columns = [
   { id: "todo", title: "To Do", colorClass: "bg-status-todo", icon: Circle },
   { id: "in-progress", title: "In Progress", colorClass: "bg-status-doing", icon: Clock },
   { id: "done", title: "Done", colorClass: "bg-status-done", icon: CheckCircle2 },
-  { id: "on-hold", title: "On Hold", colorClass: "bg-[hsl(var(--lavender))]", icon: PauseCircle },
+  { id: "on-hold", title: "Archive", colorClass: "bg-[hsl(var(--lavender))]", icon: PauseCircle },
 ];
+const ARCHIVE_COLUMN_ID = "on-hold";
 
 function toApiStatus(status) {
   if (status === "in-progress") return "in_progress";
@@ -173,6 +174,9 @@ const DroppableColumn = ({
   onToggleStatus,
   onClickTask,
   onAddTask,
+  showArchiveButton,
+  isArchiveVisible,
+  onToggleArchive,
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -209,6 +213,16 @@ const DroppableColumn = ({
             <Plus className="h-4 w-4 mr-2" /> Add Task
           </Button>
         ) : null}
+
+        {showArchiveButton ? (
+          <Button
+            variant="ghost"
+            className="w-full border border-border text-muted-foreground hover:text-foreground"
+            onClick={onToggleArchive}
+          >
+            {isArchiveVisible ? "Hide Archive" : "Show Archive"}
+          </Button>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -223,6 +237,10 @@ const Tasks = () => {
   const [dragStartColumn, setDragStartColumn] = useState(null);
   const [dragSnapshot, setDragSnapshot] = useState(null);
   const [syncError, setSyncError] = useState(null);
+  const [showArchive, setShowArchive] = useState(false);
+  const visibleColumns = showArchive
+    ? columns
+    : columns.filter((column) => column.id !== ARCHIVE_COLUMN_ID);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -266,6 +284,25 @@ const Tasks = () => {
       )
     );
     await persistTaskStatus(id, nextStatus, rollbackTasks);
+  };
+
+  const handleUpdateTaskStatus = async (taskId, nextStatus) => {
+    const currentTask = tasks.find((task) => task.id === taskId);
+    if (!currentTask || !nextStatus || currentTask.status === nextStatus) return;
+
+    const rollbackTasks = tasks;
+    const rollbackSelectedTask = selectedTask;
+    setSyncError(null);
+
+    handleUpdateTaskDetails(taskId, { status: nextStatus });
+
+    try {
+      await updateKanbanTaskStatus(taskId, toApiStatus(nextStatus));
+    } catch (e) {
+      setTasks(rollbackTasks);
+      setSelectedTask(rollbackSelectedTask);
+      setSyncError(e);
+    }
   };
 
   const handleAddTask = (newTask) => {
@@ -432,7 +469,7 @@ const Tasks = () => {
     const activeTaskId = String(active.id);
     const overId = String(over.id);
 
-    const isOverColumn = columns.some((c) => c.id === overId);
+    const isOverColumn = visibleColumns.some((c) => c.id === overId);
     const targetColumn = isOverColumn ? overId : findColumnForTask(overId);
     if (!targetColumn) return;
 
@@ -459,7 +496,7 @@ const Tasks = () => {
     const aId = String(active.id);
     const oId = String(over.id);
 
-    const isOverColumn = columns.some((c) => c.id === oId);
+    const isOverColumn = visibleColumns.some((c) => c.id === oId);
     const targetColumn = isOverColumn ? oId : findColumnForTask(oId);
 
     const overColumn = isOverColumn ? oId : findColumnForTask(oId);
@@ -548,9 +585,10 @@ const Tasks = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+          className={`grid grid-cols-1 sm:grid-cols-2 ${showArchive ? "lg:grid-cols-4" : "lg:grid-cols-3"
+            } gap-4`}
         >
-          {columns.map((col) => (
+          {visibleColumns.map((col) => (
             <DroppableColumn
               key={col.id}
               id={col.id}
@@ -560,6 +598,9 @@ const Tasks = () => {
               onToggleStatus={handleToggleStatus}
               onClickTask={setSelectedTask}
               onAddTask={col.id === "todo" ? () => setIsAddDialogOpen(true) : undefined}
+              showArchiveButton={col.id === "done"}
+              isArchiveVisible={showArchive}
+              onToggleArchive={() => setShowArchive((prev) => !prev)}
             />
           ))}
         </Motion.div>
@@ -579,8 +620,8 @@ const Tasks = () => {
         task={selectedTask}
         open={!!selectedTask}
         onOpenChange={(open) => !open && setSelectedTask(null)}
-        onToggleStatus={handleToggleStatus}
         onUpdateTask={handleUpdateTaskDetails}
+        onUpdateTaskStatus={handleUpdateTaskStatus}
         onUpdateTaskPriority={handleUpdateTaskPriority}
         onUpdateTaskDueDate={handleUpdateTaskDueDate}
         onUpdateTaskDescription={handleUpdateTaskDescription}

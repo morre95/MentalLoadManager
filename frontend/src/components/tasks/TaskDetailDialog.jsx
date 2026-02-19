@@ -34,7 +34,7 @@ const priorityColors = {
 const statusConfig = {
   todo: { icon: Clock, label: "To Do", color: "bg-status-todo" },
   "in-progress": { icon: AlertCircle, label: "In Progress", color: "bg-status-doing" },
-  "on-hold": { icon: PauseCircle, label: "On Hold", color: "bg-[hsl(var(--lavender))]" },
+  "on-hold": { icon: PauseCircle, label: "Archive", color: "bg-[hsl(var(--lavender))]" },
   done: { icon: Check, label: "Done", color: "bg-status-done" },
 };
 
@@ -48,6 +48,10 @@ const categories = [
   "Other",
 ];
 
+const UNASSIGNED_ASSIGNEE_VALUE = "__unassigned__";
+const CUSTOM_CATEGORY_VALUE = "__custom__";
+const ARCHIVE_STATUS = "on-hold";
+
 function toDateInputValue(value) {
   if (!value) return "";
   if (value === "Today") {
@@ -57,9 +61,6 @@ function toDateInputValue(value) {
   if (Number.isNaN(parsed.getTime())) return "";
   return parsed.toISOString().slice(0, 10);
 }
-
-const UNASSIGNED_ASSIGNEE_VALUE = "__unassigned__";
-const CUSTOM_CATEGORY_VALUE = "__custom__";
 
 function getTaskAssigneeLabel(task) {
   return (
@@ -76,8 +77,8 @@ const TaskDetailDialog = ({
   task,
   open,
   onOpenChange,
-  onToggleStatus,
   onUpdateTask,
+  onUpdateTaskStatus,
   onUpdateTaskPriority,
   onUpdateTaskDueDate,
   onUpdateTaskDescription,
@@ -88,21 +89,44 @@ const TaskDetailDialog = ({
 }) => {
   const status = statusConfig[task?.status] || statusConfig.todo;
   const StatusIcon = status.icon;
-  const [editingField, setEditingField] = useState(null);
   const [assignees, setAssignees] = useState([]);
-  const [assigneeIdDraft, setAssigneeIdDraft] = useState(UNASSIGNED_ASSIGNEE_VALUE);
   const [assigneesError, setAssigneesError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [titleDraft, setTitleDraft] = useState("");
+  const [descriptionDraft, setDescriptionDraft] = useState("");
+  const [statusDraft, setStatusDraft] = useState("todo");
+  const [priorityDraft, setPriorityDraft] = useState("medium");
+  const [assigneeIdDraft, setAssigneeIdDraft] = useState(UNASSIGNED_ASSIGNEE_VALUE);
   const [categoryDraft, setCategoryDraft] = useState("Other");
   const [customCategoryDraft, setCustomCategoryDraft] = useState("");
   const [dueDateDraft, setDueDateDraft] = useState("");
-  const [descriptionDraft, setDescriptionDraft] = useState("");
-  const [titleDraft, setTitleDraft] = useState("");
 
   const normalizedPriority = useMemo(() => {
     const value = String(task?.priority || "medium").toLowerCase();
     if (value === "low" || value === "high") return value;
     return "medium";
   }, [task?.priority]);
+
+  useEffect(() => {
+    if (!open || !task) return;
+
+    setTitleDraft(task.title || "");
+    setDescriptionDraft(task.description || "");
+    setStatusDraft(task.status || "todo");
+    setPriorityDraft(normalizedPriority);
+    setAssigneeIdDraft(task.assigneeId || UNASSIGNED_ASSIGNEE_VALUE);
+    setDueDateDraft(toDateInputValue(task.dueDate));
+
+    const currentCategory = task.category || "Other";
+    if (categories.includes(currentCategory)) {
+      setCategoryDraft(currentCategory);
+      setCustomCategoryDraft("");
+    } else {
+      setCategoryDraft(CUSTOM_CATEGORY_VALUE);
+      setCustomCategoryDraft(currentCategory);
+    }
+  }, [open, task, normalizedPriority]);
 
   useEffect(() => {
     if (!open) return;
@@ -131,54 +155,74 @@ const TaskDetailDialog = ({
 
   if (!task) return null;
 
-  const saveCategory = () => {
+  const handleSave = async () => {
+    if (isSaving) return;
+
+    const nextTitle = titleDraft.trim() || task.title || "";
+    const nextDescription = descriptionDraft.trim();
     const nextCategory =
       categoryDraft === CUSTOM_CATEGORY_VALUE
         ? customCategoryDraft.trim() || "Other"
         : categoryDraft;
-    if (onUpdateTaskCategory) {
-      onUpdateTaskCategory(task.id, nextCategory);
-    } else {
-      onUpdateTask?.(task.id, { category: nextCategory });
-    }
-    setEditingField(null);
-  };
+    const nextAssigneeId =
+      assigneeIdDraft === UNASSIGNED_ASSIGNEE_VALUE ? null : assigneeIdDraft;
+    const selectedAssignee = assignees.find(
+      (member) => member.user_id === nextAssigneeId
+    );
+    const nextAssigneeLabel =
+      selectedAssignee?.display_name || selectedAssignee?.username || "Unassigned";
 
-  const saveDueDate = () => {
-    if (onUpdateTaskDueDate) {
-      onUpdateTaskDueDate(task.id, dueDateDraft || null);
-    } else {
-      const dueDate = dueDateDraft
-        ? new Date(`${dueDateDraft}T00:00:00`).toLocaleDateString()
-        : undefined;
-      onUpdateTask?.(task.id, { dueDate });
-    }
-    setEditingField(null);
-  };
+    setIsSaving(true);
+    try {
+      if (nextTitle !== (task.title || "")) {
+        if (onUpdateTaskTitle) await onUpdateTaskTitle(task.id, nextTitle);
+        else onUpdateTask?.(task.id, { title: nextTitle });
+      }
 
-  const saveDescription = () => {
-    const nextDescription = descriptionDraft.trim();
-    if (onUpdateTaskDescription) {
-      onUpdateTaskDescription(task.id, nextDescription || null);
-    } else {
-      onUpdateTask?.(task.id, { description: nextDescription });
-    }
-    setEditingField(null);
-  };
+      if (statusDraft !== (task.status || "todo")) {
+        await onUpdateTaskStatus?.(task.id, statusDraft);
+      }
 
-  const saveTitle = () => {
-    const nextTitle = titleDraft.trim();
-    if (!nextTitle) {
-      setTitleDraft(task.title || "");
-      setEditingField(null);
-      return;
+      if (priorityDraft !== normalizedPriority) {
+        await onUpdateTaskPriority?.(task.id, priorityDraft);
+      }
+
+      if (nextDescription !== (task.description || "")) {
+        if (onUpdateTaskDescription) {
+          await onUpdateTaskDescription(task.id, nextDescription || null);
+        } else {
+          onUpdateTask?.(task.id, { description: nextDescription });
+        }
+      }
+
+      if ((nextAssigneeId || undefined) !== task.assigneeId) {
+        await onUpdateTaskAssignee?.(
+          task.id,
+          nextAssigneeId,
+          nextAssigneeLabel,
+          selectedAssignee || null
+        );
+      }
+
+      if (nextCategory !== (task.category || "Other")) {
+        if (onUpdateTaskCategory) await onUpdateTaskCategory(task.id, nextCategory);
+        else onUpdateTask?.(task.id, { category: nextCategory });
+      }
+
+      if (dueDateDraft !== toDateInputValue(task.dueDate)) {
+        if (onUpdateTaskDueDate) await onUpdateTaskDueDate(task.id, dueDateDraft || null);
+        else {
+          const dueDate = dueDateDraft
+            ? new Date(`${dueDateDraft}T00:00:00`).toLocaleDateString()
+            : undefined;
+          onUpdateTask?.(task.id, { dueDate });
+        }
+      }
+
+      onOpenChange(false);
+    } finally {
+      setIsSaving(false);
     }
-    if (onUpdateTaskTitle) {
-      onUpdateTaskTitle(task.id, nextTitle);
-    } else {
-      onUpdateTask?.(task.id, { title: nextTitle });
-    }
-    setEditingField(null);
   };
 
   return (
@@ -187,33 +231,11 @@ const TaskDetailDialog = ({
         <DialogHeader>
           <DialogTitle className="font-display text-xl flex items-center gap-3">
             <div className={`w-3 h-3 rounded-full ${status.color}`} />
-            {editingField === "title" ? (
-              <Input
-                value={titleDraft}
-                onChange={(e) => setTitleDraft(e.target.value)}
-                onBlur={saveTitle}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") saveTitle();
-                  if (e.key === "Escape") {
-                    setTitleDraft(task.title || "");
-                    setEditingField(null);
-                  }
-                }}
-                autoFocus
-                className="h-9"
-              />
-            ) : (
-              <button
-                type="button"
-                className="text-left"
-                onClick={() => {
-                  setTitleDraft(task.title || "");
-                  setEditingField("title");
-                }}
-              >
-                {task.title}
-              </button>
-            )}
+            <Input
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              className="h-9"
+            />
           </DialogTitle>
         </DialogHeader>
 
@@ -223,221 +245,107 @@ const TaskDetailDialog = ({
           className="space-y-5 mt-2"
         >
           <div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">
-              Description
-            </p>
-            {editingField === "description" ? (
-              <div className="space-y-2">
-                <Textarea
-                  value={descriptionDraft}
-                  onChange={(e) => setDescriptionDraft(e.target.value)}
-                  rows={4}
-                  autoFocus
-                />
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setEditingField(null);
-                      setDescriptionDraft(task.description || "");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button size="sm" onClick={saveDescription}>
-                    Save
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="text-foreground text-left w-full rounded-md hover:bg-muted/40 p-2 -ml-2"
-                onClick={() => {
-                  setDescriptionDraft(task.description || "");
-                  setEditingField("description");
-                }}
-              >
-                {task.description || "Click to add description"}
-              </button>
-            )}
+            <p className="text-sm font-medium text-muted-foreground mb-1">Description</p>
+            <Textarea
+              value={descriptionDraft}
+              onChange={(e) => setDescriptionDraft(e.target.value)}
+              rows={4}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
               <StatusIcon className="h-4 w-4 text-muted-foreground" />
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">Status</p>
-                <p className="text-sm font-medium text-foreground">{status.label}</p>
+                <Select value={statusDraft} onValueChange={setStatusDraft}>
+                  <SelectTrigger className="h-8 mt-1 w-44">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todo">To Do</SelectItem>
+                    <SelectItem value="in-progress">In Progress</SelectItem>
+                    <SelectItem value="on-hold">Archive</SelectItem>
+                    <SelectItem value="done">Done</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer"                     
-            onClick={() => setEditingField("priority")}>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
               <Flag className="h-4 w-4 text-muted-foreground" />
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">Priority</p>
-                {editingField === "priority" ? (
-                  <Select
-                    value={normalizedPriority}
-                    onValueChange={(nextPriority) => {
-                      onUpdateTaskPriority?.(task.id, nextPriority);
-                      setEditingField(null);
-                    }}
-                  >
-                    <SelectTrigger className="h-8 w-36 mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div
-                    className="text-left cursor-pointer"
-                  >
-                    <Badge
-                      variant="outline"
-                      className={`text-xs ${priorityColors[task.priority] || priorityColors.medium}`}
-                    >
-                      {task.priority || "medium"}
-                    </Badge>
-                  </div>
-                )}
+                <Select value={priorityDraft} onValueChange={setPriorityDraft}>
+                  <SelectTrigger className="h-8 mt-1 w-36">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Badge
+                  variant="outline"
+                  className={`text-xs mt-2 ${priorityColors[priorityDraft] || priorityColors.medium}`}
+                >
+                  {priorityDraft}
+                </Badge>
               </div>
             </div>
 
             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
               <User className="h-4 w-4 text-muted-foreground" />
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">Assigned to</p>
-                {editingField === "assignee" ? (
-                  <div className="mt-1 space-y-1">
-                    <Select
-                      value={assigneeIdDraft}
-                      onValueChange={(value) => {
-                        setAssigneeIdDraft(value);
-                        const selectedAssignee = assignees.find(
-                          (member) => member.user_id === value
-                        );
-                        const nextAssigneeId =
-                          value === UNASSIGNED_ASSIGNEE_VALUE ? null : value;
-                        const nextAssigneeLabel =
-                          selectedAssignee?.display_name ||
-                          selectedAssignee?.username ||
-                          "Unassigned";
-                        onUpdateTaskAssignee?.(
-                          task.id,
-                          nextAssigneeId,
-                          nextAssigneeLabel,
-                          selectedAssignee || null
-                        );
-                        setEditingField(null);
-                      }}
-                    >
-                      <SelectTrigger className="h-8 w-44">
-                        <SelectValue placeholder="Select assignee" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={UNASSIGNED_ASSIGNEE_VALUE}>
-                          Unassigned
-                        </SelectItem>
-                        {assignees.map((member) => (
-                          <SelectItem key={member.user_id} value={member.user_id}>
-                            {member.display_name || member.username}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {assigneesError ? (
-                      <p className="text-xs text-destructive">{assigneesError}</p>
-                    ) : null}
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="text-sm font-medium text-foreground text-left"
-                    onClick={() => {
-                      setAssigneeIdDraft(
-                        task.assigneeId || UNASSIGNED_ASSIGNEE_VALUE
-                      );
-                      setEditingField("assignee");
-                    }}
-                  >
-                    {getTaskAssigneeLabel(task)}
-                  </button>
-                )}
+                <Select value={assigneeIdDraft} onValueChange={setAssigneeIdDraft}>
+                  <SelectTrigger className="h-8 mt-1 w-44">
+                    <SelectValue placeholder="Select assignee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={UNASSIGNED_ASSIGNEE_VALUE}>Unassigned</SelectItem>
+                    {assignees.map((member) => (
+                      <SelectItem key={member.user_id} value={member.user_id}>
+                        {member.display_name || member.username}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs mt-2 text-muted-foreground">
+                  Current: {getTaskAssigneeLabel(task)}
+                </p>
+                {assigneesError ? (
+                  <p className="text-xs text-destructive mt-1">{assigneesError}</p>
+                ) : null}
               </div>
             </div>
 
             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
               <Tag className="h-4 w-4 text-muted-foreground" />
-              <div>
+              <div className="min-w-0 w-full">
                 <p className="text-xs text-muted-foreground">Category</p>
-                {editingField === "category" ? (
-                  <div className="mt-1 space-y-2">
-                    <Select value={categoryDraft} onValueChange={setCategoryDraft}>
-                      <SelectTrigger className="h-8 w-44">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {cat}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value={CUSTOM_CATEGORY_VALUE}>Custom...</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {categoryDraft === CUSTOM_CATEGORY_VALUE ? (
-                      <Input
-                        value={customCategoryDraft}
-                        onChange={(e) => setCustomCategoryDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") saveCategory();
-                        }}
-                        placeholder="Write category"
-                        autoFocus
-                        className="h-8 w-44"
-                      />
-                    ) : null}
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setEditingField(null);
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button size="sm" onClick={saveCategory}>
-                        Save
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="text-sm font-medium text-foreground text-left"
-                    onClick={() => {
-                      const currentCategory = task.category || "Other";
-                      if (categories.includes(currentCategory)) {
-                        setCategoryDraft(currentCategory);
-                        setCustomCategoryDraft("");
-                      } else {
-                        setCategoryDraft(CUSTOM_CATEGORY_VALUE);
-                        setCustomCategoryDraft(currentCategory);
-                      }
-                      setEditingField("category");
-                    }}
-                  >
-                    {task.category}
-                  </button>
-                )}
+                <Select value={categoryDraft} onValueChange={setCategoryDraft}>
+                  <SelectTrigger className="h-8 mt-1 w-44">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={CUSTOM_CATEGORY_VALUE}>Custom...</SelectItem>
+                  </SelectContent>
+                </Select>
+                {categoryDraft === CUSTOM_CATEGORY_VALUE ? (
+                  <Input
+                    value={customCategoryDraft}
+                    onChange={(e) => setCustomCategoryDraft(e.target.value)}
+                    placeholder="Write category"
+                    className="h-8 mt-2 w-44"
+                  />
+                ) : null}
               </div>
             </div>
           </div>
@@ -446,63 +354,48 @@ const TaskDetailDialog = ({
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <div>
               <p className="text-xs text-muted-foreground">Due Date</p>
-              {editingField === "dueDate" ? (
-                <Input
-                  type="date"
-                  value={dueDateDraft}
-                  onChange={(e) => setDueDateDraft(e.target.value)}
-                  onBlur={saveDueDate}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") saveDueDate();
-                    if (e.key === "Escape") {
-                      setDueDateDraft(toDateInputValue(task.dueDate));
-                      setEditingField(null);
-                    }
-                  }}
-                  autoFocus
-                  className="h-8 mt-1 w-44"
-                />
-              ) : (
-                <button
-                  type="button"
-                  className={`text-sm font-medium text-left ${task.dueDate === "Today" ? "text-terracotta" : "text-foreground"}`}
-                  onClick={() => {
-                    setDueDateDraft(toDateInputValue(task.dueDate));
-                    setEditingField("dueDate");
-                  }}
-                >
-                  {task.dueDate || "No due date"}
-                </button>
-              )}
+              <Input
+                type="date"
+                value={dueDateDraft}
+                onChange={(e) => setDueDateDraft(e.target.value)}
+                className="h-8 mt-1 w-44"
+              />
             </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
               Close
             </Button>
-            <Button
-              onClick={() => {
-                onToggleStatus(task.id);
-                onOpenChange(false);
-              }}
-            >
-              {task.status === "done" ? "Reopen Task" : "Mark as Done"}
-            </Button>
-            <Button
-              variant="destructive"
-              className="bg-terracotta hover:bg-terracotta/90"
-              onClick={() => {
-                const confirmed = window.confirm(
-                  `Delete "${task.title}"? This cannot be undone.`
-                );
-                if (!confirmed) return;
-                onDeleteTask(task.id);
-              }}
-            >
-              Delete
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save"}
             </Button>
 
+            {task.status === "done" ? (
+              <Button
+                variant="destructive"
+                className="bg-terracotta hover:bg-terracotta/90"
+                onClick={() => onUpdateTaskStatus?.(task.id, ARCHIVE_STATUS)}
+                disabled={isSaving}
+              >
+                Archive
+              </Button>
+            ) : (
+              <Button
+                variant="destructive"
+                className="bg-terracotta hover:bg-terracotta/90"
+                onClick={() => {
+                  const confirmed = window.confirm(
+                    `Delete "${task.title}"? This cannot be undone.`
+                  );
+                  if (!confirmed) return;
+                  onDeleteTask(task.id);
+                }}
+                disabled={isSaving}
+              >
+                Delete
+              </Button>
+            )}
           </div>
         </Motion.div>
       </DialogContent>
