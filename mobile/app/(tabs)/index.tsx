@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -47,6 +49,8 @@ const STATUS_COLORS: Record<string, string> = {
   'on-hold': COLORS.hold,
   done: COLORS.done,
 };
+const BOTTOM_REFRESH_THRESHOLD = 80;
+const SCROLL_REFRESH_COOLDOWN_MS = 15000;
 
 function nextStatus(status: string) {
   if (status === 'todo') return 'in-progress';
@@ -71,6 +75,7 @@ export default function TasksScreen() {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [addTaskSaving, setAddTaskSaving] = useState(false);
   const [addTaskError, setAddTaskError] = useState<string | null>(null);
+  const lastScrollRefreshAtRef = useRef(0);
 
   const loadTasks = useCallback(async () => {
     setError(null);
@@ -106,6 +111,25 @@ export default function TasksScreen() {
     await loadTasks();
     setRefreshing(false);
   }, [loadTasks]);
+
+  const onScrollRefresh = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (loading || refreshing || addTaskSaving) return;
+
+      const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+      const isNearBottom =
+        layoutMeasurement.height + contentOffset.y >=
+        contentSize.height - BOTTOM_REFRESH_THRESHOLD;
+
+      if (!isNearBottom) return;
+
+      const now = Date.now();
+      if (now - lastScrollRefreshAtRef.current < SCROLL_REFRESH_COOLDOWN_MS) return;
+      lastScrollRefreshAtRef.current = now;
+      void onRefresh();
+    },
+    [addTaskSaving, loading, onRefresh, refreshing]
+  );
 
   const grouped = useMemo(() => {
     return COLUMN_ORDER.map((column) => ({
@@ -201,6 +225,8 @@ export default function TasksScreen() {
       style={styles.page}
       contentContainerStyle={styles.pageContent}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      onScroll={onScrollRefresh}
+      scrollEventThrottle={250}
     >
       <View style={styles.headerWrap}>
         <Text style={styles.eyebrow}>Mental Load Manager</Text>
