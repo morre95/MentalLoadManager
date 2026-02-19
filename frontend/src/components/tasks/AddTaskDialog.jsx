@@ -117,6 +117,7 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
                 description: description.trim() || null,
                 priority,
                 due_date: dueDateIso,
+                category_name: finalCategory,
                 assigns_to: assigneeId || null,
             });
 

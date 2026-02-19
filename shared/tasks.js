@@ -128,6 +128,15 @@ export async function updateKanbanTaskAssignee(apiClient, taskId, assigneeId) {
   });
 }
 
+export async function updateKanbanTaskCategory(apiClient, taskId, categoryName) {
+  return apiClient.request(`/api/kanban/tasks/${taskId}/category`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      category_name: categoryName || null,
+    }),
+  });
+}
+
 export async function updateKanbanTaskName(apiClient, taskId, name) {
   return apiClient.request(`/api/kanban/tasks/${taskId}/name`, {
     method: "PATCH",

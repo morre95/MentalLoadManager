@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import select, and_, case
+from sqlalchemy import select, and_, case, func
 from sqlalchemy.exc import IntegrityError
 
 from helpers import get_current_user, get_session_local
@@ -27,6 +27,7 @@ class CreateTaskRequest(BaseModel):
     priority: str | None = None
     due_date: datetime | None = None
     category_id: UUID | None = None
+    category_name: str | None = None
     assigns_to: UUID | None = None
     started_at: datetime | None = None
     complete_date: datetime | None = None
@@ -115,6 +116,17 @@ class UpdateTaskAssigneeResponse(BaseModel):
     task_id: str
     assigns_to: str | None = None
     assignee_name: str | None = None
+    updated_at: datetime | None = None
+
+
+class UpdateTaskCategoryRequest(BaseModel):
+    category_name: str | None = None
+
+
+class UpdateTaskCategoryResponse(BaseModel):
+    task_id: str
+    category_id: str | None = None
+    category_name: str | None = None
     updated_at: datetime | None = None
 
 
@@ -345,6 +357,7 @@ def create_task(
                 detail="User is not a member of the specified household",
             )
 
+        resolved_category_id = None
         if payload.category_id:
             category = db.scalar(
                 select(Categories).where(Categories.category_id == payload.category_id)
@@ -359,6 +372,26 @@ def create_task(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Category does not belong to the specified household",
                 )
+            resolved_category_id = category.category_id
+        elif payload.category_name and payload.category_name.strip():
+            normalized_category_name = payload.category_name.strip()
+            category = db.scalar(
+                select(Categories).where(
+                    and_(
+                        Categories.household_id == payload.household_id,
+                        func.lower(Categories.name) == normalized_category_name.lower(),
+                    )
+                )
+            )
+            if not category:
+                category = Categories(
+                    household_id=payload.household_id,
+                    name=normalized_category_name,
+                )
+                db.add(category)
+                db.flush()
+
+            resolved_category_id = category.category_id
 
         if payload.assigns_to:
             assignee = db.scalar(
@@ -399,7 +432,7 @@ def create_task(
             status=task_status,
             priority=payload.priority,
             due_date=payload.due_date,
-            category_id=payload.category_id,
+            category_id=resolved_category_id,
             assigns_to=payload.assigns_to,
             created_by=me.user_id,
             started_at=started_at,
@@ -831,6 +864,97 @@ def update_task_description(
         return UpdateTaskDescriptionResponse(
             task_id=str(task.task_id),
             description=task.description,
+            updated_at=task.updated_at,
+        )
+
+
+@router.patch(
+    "/tasks/{task_id}/category",
+    response_model=UpdateTaskCategoryResponse,
+)
+def update_task_category(
+    task_id: UUID,
+    payload: UpdateTaskCategoryRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        me = db.scalar(select(UserDB).where(UserDB.username == current_user.username))
+        if not me:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        task = db.scalar(select(Tasks).where(Tasks.task_id == task_id))
+        if task is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Task was not found",
+            )
+
+        requester_membership = db.scalar(
+            select(UsersHouseholds).where(
+                and_(
+                    UsersHouseholds.user_id == me.user_id,
+                    UsersHouseholds.household_id == task.household_id,
+                )
+            )
+        )
+        if requester_membership is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a member of the task household",
+            )
+
+        category_name = payload.category_name.strip() if payload.category_name else ""
+        if not category_name:
+            task.category_id = None
+            task.updated_at = datetime.now(timezone.utc)
+            resolved_category_name = None
+        else:
+            category = db.scalar(
+                select(Categories).where(
+                    and_(
+                        Categories.household_id == task.household_id,
+                        func.lower(Categories.name) == category_name.lower(),
+                    )
+                )
+            )
+            if not category:
+                category = Categories(
+                    household_id=task.household_id,
+                    name=category_name,
+                )
+                db.add(category)
+                db.flush()
+
+            task.category_id = category.category_id
+            task.updated_at = datetime.now(timezone.utc)
+            resolved_category_name = category.name
+
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Unable to update task category",
+            ) from exc
+
+        db.refresh(task)
+        return UpdateTaskCategoryResponse(
+            task_id=str(task.task_id),
+            category_id=str(task.category_id) if task.category_id else None,
+            category_name=resolved_category_name,
             updated_at=task.updated_at,
         )
 

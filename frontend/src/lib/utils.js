@@ -12,6 +12,7 @@ import {
   getApiBaseUrl,
   updateKanbanTaskDescription as sharedUpdateKanbanTaskDescription,
   updateKanbanTaskAssignee as sharedUpdateKanbanTaskAssignee,
+  updateKanbanTaskCategory as sharedUpdateKanbanTaskCategory,
   updateKanbanTaskDueDate as sharedUpdateKanbanTaskDueDate,
   updateKanbanTaskName as sharedUpdateKanbanTaskName,
   updateKanbanTaskOrder as sharedUpdateKanbanTaskOrder,
@@ -194,6 +195,10 @@ export async function updateKanbanTaskDescription(taskId, description) {
 
 export async function updateKanbanTaskAssignee(taskId, assigneeId) {
   return sharedUpdateKanbanTaskAssignee(apiClient, taskId, assigneeId);
+}
+
+export async function updateKanbanTaskCategory(taskId, categoryName) {
+  return sharedUpdateKanbanTaskCategory(apiClient, taskId, categoryName);
 }
 
 export async function updateKanbanTaskName(taskId, name) {

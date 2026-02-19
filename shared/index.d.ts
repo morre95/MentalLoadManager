@@ -88,6 +88,11 @@ export function updateKanbanTaskAssignee(
   taskId: string,
   assigneeId: string | null
 ): Promise<any>;
+export function updateKanbanTaskCategory(
+  apiClient: ApiClient,
+  taskId: string,
+  categoryName: string | null
+): Promise<any>;
 export function updateKanbanTaskName(
   apiClient: ApiClient,
   taskId: string,

@@ -10,6 +10,7 @@ export {
   toApiTaskStatus,
   updateKanbanTaskDescription,
   updateKanbanTaskAssignee,
+  updateKanbanTaskCategory,
   updateKanbanTaskDueDate,
   updateKanbanTaskName,
   updateKanbanTaskOrder,

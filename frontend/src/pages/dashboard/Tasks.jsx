@@ -42,6 +42,7 @@ import {
   deleteKanbanTask,
   updateKanbanTaskDescription,
   updateKanbanTaskAssignee,
+  updateKanbanTaskCategory,
   updateKanbanTaskDueDate,
   updateKanbanTaskName,
   updateKanbanTaskOrder,
@@ -358,6 +359,22 @@ const Tasks = () => {
     }
   };
 
+  const handleUpdateTaskCategory = async (taskId, nextCategory) => {
+    const rollbackTasks = tasks;
+    const rollbackSelectedTask = selectedTask;
+    setSyncError(null);
+
+    handleUpdateTaskDetails(taskId, { category: nextCategory || "Other" });
+
+    try {
+      await updateKanbanTaskCategory(taskId, nextCategory || null);
+    } catch (e) {
+      setTasks(rollbackTasks);
+      setSelectedTask(rollbackSelectedTask);
+      setSyncError(e);
+    }
+  };
+
   const handleDeleteTask = async (taskId) => {
     const rollbackTasks = tasks;
     const rollbackSelectedTask = selectedTask;
@@ -549,6 +566,7 @@ const Tasks = () => {
         onUpdateTaskDescription={handleUpdateTaskDescription}
         onUpdateTaskTitle={handleUpdateTaskTitle}
         onUpdateTaskAssignee={handleUpdateTaskAssignee}
+        onUpdateTaskCategory={handleUpdateTaskCategory}
         onDeleteTask={handleDeleteTask}
       />
     </div>

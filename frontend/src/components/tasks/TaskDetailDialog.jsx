@@ -72,6 +72,7 @@ const TaskDetailDialog = ({
   onUpdateTaskDescription,
   onUpdateTaskTitle,
   onUpdateTaskAssignee,
+  onUpdateTaskCategory,
   onDeleteTask,
 }) => {
   const status = statusConfig[task?.status] || statusConfig.todo;
@@ -124,7 +125,11 @@ const TaskDetailDialog = ({
       categoryDraft === CUSTOM_CATEGORY_VALUE
         ? customCategoryDraft.trim() || "Other"
         : categoryDraft;
-    onUpdateTask?.(task.id, { category: nextCategory });
+    if (onUpdateTaskCategory) {
+      onUpdateTaskCategory(task.id, nextCategory);
+    } else {
+      onUpdateTask?.(task.id, { category: nextCategory });
+    }
     setEditingField(null);
   };
 
