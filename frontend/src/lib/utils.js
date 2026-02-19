@@ -5,6 +5,7 @@ import {
   createKanbanTask as sharedCreateKanbanTask,
   createApiClient,
   deleteKanbanTask as sharedDeleteKanbanTask,
+  fetchHouseholds as sharedFetchHouseholds,
   fetchKanbanAssignees as sharedFetchKanbanAssignees,
   fetchKanbanTasks as sharedFetchKanbanTasks,
   fetchMe as sharedFetchMe,
@@ -29,6 +30,11 @@ export function cn(...inputs) {
 export function getAccessToken() {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("access_token");
+}
+
+function getHouseholdIdFromStoredValue(value) {
+  const householdId = value?.household_id ?? value?.id ?? value;
+  return householdId ? String(householdId) : null;
 }
 
 export function setAuthToken(token) {
@@ -114,6 +120,44 @@ export async function fetchKanbanTasks() {
 
 export async function fetchKanbanAssignees(householdId) {
   return sharedFetchKanbanAssignees(apiClient, householdId);
+}
+
+export async function resolveCurrentHouseholdId() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const selectedHouseholdRaw = localStorage.getItem("household");
+    if (selectedHouseholdRaw) {
+      const selectedHousehold = JSON.parse(selectedHouseholdRaw);
+      const selectedHouseholdId = getHouseholdIdFromStoredValue(selectedHousehold);
+      if (selectedHouseholdId) return selectedHouseholdId;
+    }
+  } catch {
+    // Ignore malformed local storage and fallback to households list.
+  }
+
+  try {
+    const householdsRaw = localStorage.getItem("households");
+    const households = householdsRaw ? JSON.parse(householdsRaw) : [];
+    const firstHouseholdId = getHouseholdIdFromStoredValue(households?.[0]);
+    if (firstHouseholdId) return firstHouseholdId;
+  } catch {
+    // Ignore malformed local storage and fallback to API.
+  }
+
+  try {
+    const data = await sharedFetchHouseholds(apiClient);
+    const households = Array.isArray(data?.households) ? data.households : [];
+    const firstHousehold = households[0] ?? null;
+    const firstHouseholdId = getHouseholdIdFromStoredValue(firstHousehold);
+    if (!firstHouseholdId) return null;
+
+    localStorage.setItem("households", JSON.stringify(households));
+    localStorage.setItem("household", JSON.stringify(firstHousehold));
+    return firstHouseholdId;
+  } catch {
+    return null;
+  }
 }
 
 export async function createKanbanTask(payload) {

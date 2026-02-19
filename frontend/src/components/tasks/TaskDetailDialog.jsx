@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchKanbanAssignees } from "@/lib/utils";
+import { fetchKanbanAssignees, resolveCurrentHouseholdId } from "@/lib/utils";
 
 const priorityColors = {
   low: "bg-sage-light text-sage border-sage/30",
@@ -49,33 +49,6 @@ function toDateInputValue(value) {
 }
 
 const UNASSIGNED_ASSIGNEE_VALUE = "__unassigned__";
-
-function resolveHouseholdId() {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const selectedHouseholdRaw = localStorage.getItem("household");
-    if (selectedHouseholdRaw) {
-      const selectedHousehold = JSON.parse(selectedHouseholdRaw);
-      const selectedHouseholdId =
-        selectedHousehold?.household_id ??
-        selectedHousehold?.id ??
-        selectedHousehold;
-      if (selectedHouseholdId) return String(selectedHouseholdId);
-    }
-  } catch {
-    // Ignore malformed local storage and fallback to households list.
-  }
-
-  try {
-    const householdsRaw = localStorage.getItem("households");
-    const households = householdsRaw ? JSON.parse(householdsRaw) : [];
-    const firstHouseholdId = households?.[0]?.household_id ?? households?.[0]?.id;
-    return firstHouseholdId ? String(firstHouseholdId) : null;
-  } catch {
-    return null;
-  }
-}
 
 const TaskDetailDialog = ({
   task,
@@ -111,7 +84,7 @@ const TaskDetailDialog = ({
     if (!open) return;
 
     const loadAssignees = async () => {
-      const householdId = resolveHouseholdId();
+      const householdId = await resolveCurrentHouseholdId();
       if (!householdId) {
         setAssignees([]);
         setAssigneesError("No household found. Create or join a household first.");

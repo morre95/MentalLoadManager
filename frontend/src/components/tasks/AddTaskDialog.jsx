@@ -18,7 +18,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { createKanbanTask, fetchKanbanAssignees } from "@/lib/utils";
+import {
+    createKanbanTask,
+    fetchKanbanAssignees,
+    resolveCurrentHouseholdId,
+} from "@/lib/utils";
 
 const categories = [
     "Shopping",
@@ -32,33 +36,6 @@ const categories = [
 
 const CUSTOM_CATEGORY_VALUE = "__custom__";
 const UNASSIGNED_ASSIGNEE_VALUE = "__unassigned__";
-
-function resolveHouseholdId() {
-    if (typeof window === "undefined") return null;
-
-    try {
-        const selectedHouseholdRaw = localStorage.getItem("household");
-        if (selectedHouseholdRaw) {
-            const selectedHousehold = JSON.parse(selectedHouseholdRaw);
-            const selectedHouseholdId =
-                selectedHousehold?.household_id ??
-                selectedHousehold?.id ??
-                selectedHousehold;
-            if (selectedHouseholdId) return String(selectedHouseholdId);
-        }
-    } catch {
-        // Ignore malformed local storage and fallback to households list.
-    }
-
-    try {
-        const householdsRaw = localStorage.getItem("households");
-        const households = householdsRaw ? JSON.parse(householdsRaw) : [];
-        const firstHouseholdId = households?.[0]?.household_id ?? households?.[0]?.id;
-        return firstHouseholdId ? String(firstHouseholdId) : null;
-    } catch {
-        return null;
-    }
-}
 
 const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
     const [title, setTitle] = useState("");
@@ -77,15 +54,15 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
     useEffect(() => {
         if (!open) return;
 
-        const householdId = resolveHouseholdId();
-        if (!householdId) {
-            setAssignees([]);
-            setAssigneeId("");
-            setAssigneesError("No household found. Create or join a household first.");
-            return;
-        }
-
         const loadAssignees = async () => {
+            const householdId = await resolveCurrentHouseholdId();
+            if (!householdId) {
+                setAssignees([]);
+                setAssigneeId("");
+                setAssigneesError("No household found. Create or join a household first.");
+                return;
+            }
+
             setLoadingAssignees(true);
             setAssigneesError("");
 
@@ -119,7 +96,7 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
         if (!title.trim()) return;
         setSubmitError("");
 
-        const householdId = resolveHouseholdId();
+        const householdId = await resolveCurrentHouseholdId();
         if (!householdId) {
             setSubmitError("No household found. Create or join a household first.");
             return;
