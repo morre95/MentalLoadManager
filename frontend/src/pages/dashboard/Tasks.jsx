@@ -59,8 +59,8 @@ const priorityColors = {
 const columns = [
   { id: "todo", title: "To Do", colorClass: "bg-status-todo", icon: Circle },
   { id: "in-progress", title: "In Progress", colorClass: "bg-status-doing", icon: Clock },
-  { id: "on-hold", title: "On Hold", colorClass: "bg-[hsl(var(--lavender))]", icon: PauseCircle },
   { id: "done", title: "Done", colorClass: "bg-status-done", icon: CheckCircle2 },
+  { id: "on-hold", title: "On Hold", colorClass: "bg-[hsl(var(--lavender))]", icon: PauseCircle },
 ];
 
 function toApiStatus(status) {

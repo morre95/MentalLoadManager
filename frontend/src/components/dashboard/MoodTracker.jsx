@@ -22,7 +22,7 @@ const weekHistory = [
 const moodColors = ["", "bg-terracotta", "bg-[hsl(var(--status-todo))]", "bg-[hsl(var(--sand))]", "bg-sage", "bg-primary"];
 
 const MoodTracker = () => {
-    const [todayMood, setTodayMood] = useState < number | null > (null);
+    const [todayMood, setTodayMood] = useState | null > (null);
 
     return (
         <div className="h-full flex flex-col">

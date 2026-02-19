@@ -262,7 +262,8 @@ const TaskDetailDialog = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer"                     
+            onClick={() => setEditingField("priority")}>
               <Flag className="h-4 w-4 text-muted-foreground" />
               <div>
                 <p className="text-xs text-muted-foreground">Priority</p>
@@ -284,10 +285,8 @@ const TaskDetailDialog = ({
                     </SelectContent>
                   </Select>
                 ) : (
-                  <button
-                    type="button"
-                    className="text-left"
-                    onClick={() => setEditingField("priority")}
+                  <div
+                    className="text-left cursor-pointer"
                   >
                     <Badge
                       variant="outline"
@@ -295,7 +294,7 @@ const TaskDetailDialog = ({
                     >
                       {task.priority || "medium"}
                     </Badge>
-                  </button>
+                  </div>
                 )}
               </div>
             </div>

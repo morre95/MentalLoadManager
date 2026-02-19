@@ -12,6 +12,8 @@ import {
     RefreshCcw
 } from "lucide-react";
 
+import StackedBarChart from "./stackedbarchart_remove_later";
+
 import { createApiClient, fetchAnalyticsSummary } from "../../../../shared";
 
 import { Button } from "@/components/ui/button";
@@ -726,6 +728,7 @@ const Analytics = () => {
                     </div>
                 </DialogContent>
             </Dialog>
+            <StackedBarChart></StackedBarChart>
         </div>
     );
 };
