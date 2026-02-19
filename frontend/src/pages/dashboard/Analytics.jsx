@@ -95,6 +95,38 @@ const Analytics = () => {
         return acc;
     }, [sortedPeople]);
 
+    const ChartEmptyState = ({
+        title = "No data yet",
+        hint = "Add a task with category + assignee to unlock this chart",
+    }) => {
+        return (
+            <div className="h-full w-full flex items-center justify-center">
+                <div className="text-center px-6">
+                    <div className="mx-auto mb-2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-muted">
+                        <BarChart3 className="h-5 w-5 text-muted-foreground" />
+                    </div>
+
+                    <p className="text-sm font-medium text-foreground">{title}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+                </div>
+            </div>
+        );
+    };
+
+    const ChartFrame = ({ isEmpty, children }) => {
+        return (
+            <div className="h-72">
+                {isEmpty ? (
+                    <ChartEmptyState />
+                ) : (
+                    <ResponsiveContainer width="100%" height={256}>
+                        {children}
+                    </ResponsiveContainer>
+                )}
+            </div>
+        );
+    };
+
     // -----------------------------
     // API Client (shared)
     // -----------------------------
@@ -192,8 +224,6 @@ const Analytics = () => {
                     Manage Charts
                 </Button>
             </motion.div>
-
-            {/* Stats Grid (ONLY change compared to your old file) */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -249,71 +279,73 @@ const Analytics = () => {
                             <CardTitle>Task Distribution by Person</CardTitle>
                         </CardHeader>
                         <CardContent className="min-w-0">
-                            <div className="h-64">
-                                <ResponsiveContainer width="100%" height={256}>
-                                    <BarChart data={weeklyData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis
-                                            dataKey="week"
-                                            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                                            tickFormatter={(value) => "Week " + value.split("-W")[1]}
-                                        />
-                                        <YAxis
-                                            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                                        <Tooltip contentStyle={tooltipStyle} />
-                                        <Legend
-                                            verticalAlign="bottom"
-                                            align="center"
-                                            content={({ payload }) => (
-                                                <div
-                                                    style={{
-                                                        display: "grid",
-                                                        gridTemplateColumns: "repeat(2, auto)",
-                                                        gap: "8px 18px",
-                                                        justifyContent: "center",
-                                                        paddingTop: 10,
-                                                        fontSize: 14,
-                                                        lineHeight: "18px",
-                                                    }}
-                                                >
-                                                    {payload.map((entry, i) => (
-                                                        <div
-                                                            key={`legend-${i}`}
+                            <ChartFrame isEmpty={!weeklyData?.length}>
+
+                                <BarChart
+                                    data={weeklyData}
+                                    margin={{ top: 20, right: 30, left: -10, bottom: 0 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis
+                                        dataKey="week"
+                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                                        tickFormatter={(value) => "Week " + value.split("-W")[1]}
+                                    />
+                                    <YAxis
+                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                                    <Tooltip contentStyle={tooltipStyle} />
+                                    <Legend
+                                        verticalAlign="bottom"
+                                        align="center"
+                                        content={({ payload }) => (
+                                            <div
+                                                style={{
+                                                    display: "grid",
+                                                    gridTemplateColumns: "repeat(2, auto)",
+                                                    gap: "8px 18px",
+                                                    justifyContent: "center",
+                                                    paddingTop: 10,
+                                                    fontSize: 14,
+                                                    lineHeight: "18px",
+                                                }}
+                                            >
+                                                {payload.map((entry, i) => (
+                                                    <div
+                                                        key={`legend-${i}`}
+                                                        style={{
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            gap: 8,
+                                                            color: entry.color,
+                                                            fontWeight: 500,
+                                                        }}
+                                                    >
+                                                        <span
                                                             style={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                gap: 8,
-                                                                color: entry.color,
-                                                                fontWeight: 500,
+                                                                width: 10,
+                                                                height: 10,
+                                                                backgroundColor: entry.color,
+                                                                display: "inline-block",
+                                                                borderRadius: 2,
                                                             }}
-                                                        >
-                                                            <span
-                                                                style={{
-                                                                    width: 10,
-                                                                    height: 10,
-                                                                    backgroundColor: entry.color,
-                                                                    display: "inline-block",
-                                                                    borderRadius: 2,
-                                                                }}
-                                                            />
-                                                            {entry.value}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
+                                                        />
+                                                        {entry.value}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    />
+                                    {sortedPeople.map((person, index) => (
+                                        <Bar
+                                            key={`bar-${index}-${person || "unknown"}`}
+                                            dataKey={person}
+                                            name={getDisplayNameFromUsername(person, labels)}
+                                            fill={personColorMap[person] || "hsl(var(--muted-foreground))"}
+                                            radius={[4, 4, 0, 0]}
                                         />
-                                        {sortedPeople.map((person, index) => (
-                                            <Bar
-                                                key={`bar-${index}-${person || "unknown"}`}
-                                                dataKey={person}
-                                                name={getDisplayNameFromUsername(person, labels)}
-                                                fill={personColorMap[person] || "hsl(var(--muted-foreground))"}
-                                                radius={[4, 4, 0, 0]}
-                                            />
-                                        ))}
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
+                                    ))}
+                                </BarChart>
+                            </ChartFrame>
                         </CardContent>
                     </Card>
                 )}
@@ -324,69 +356,68 @@ const Analytics = () => {
                             <CardTitle>Tasks by Category</CardTitle>
                         </CardHeader>
                         <CardContent className="min-w-0">
-                            <div className="h-64">
-                                <ResponsiveContainer width="100%" height={256}>
-                                    <PieChart>
-                                        <Pie
-                                            data={categoryData}
-                                            innerRadius={60}
-                                            outerRadius={90}
-                                            dataKey="value"
-                                            nameKey="name"
-                                            paddingAngle={2}
-                                        >
-                                            {(categoryData || []).map((entry, index) => (
-                                                <Cell
-                                                    key={`cat-${index}-${entry?.name || "unknown"}`}
-                                                    fill={entry.color || SERIES_COLORS[index % SERIES_COLORS.length]}
-                                                />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip contentStyle={tooltipStyle} />
-                                        <Legend
-                                            verticalAlign="bottom"
-                                            align="center"
-                                            content={({ payload }) => (
-                                                <div
-                                                    style={{
-                                                        display: "flex",
-                                                        flexWrap: "wrap",
-                                                        gap: "8px 18px",
-                                                        justifyContent: "center",
-                                                        paddingTop: 10,
-                                                        fontSize: 14,
-                                                        lineHeight: "18px",
-                                                    }}
-                                                >
-                                                    {payload.map((entry, i) => (
-                                                        <div
-                                                            key={`legend-${i}`}
+                            <ChartFrame isEmpty={!categoryData?.length}>
+
+                                <PieChart>
+                                    <Pie
+                                        data={categoryData}
+                                        innerRadius={60}
+                                        outerRadius={90}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        paddingAngle={2}
+                                    >
+                                        {(categoryData || []).map((entry, index) => (
+                                            <Cell
+                                                key={`cat-${index}-${entry?.name || "unknown"}`}
+                                                fill={entry.color || SERIES_COLORS[index % SERIES_COLORS.length]}
+                                            />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip contentStyle={tooltipStyle} />
+                                    <Legend
+                                        verticalAlign="bottom"
+                                        align="center"
+                                        content={({ payload }) => (
+                                            <div
+                                                style={{
+                                                    display: "flex",
+                                                    flexWrap: "wrap",
+                                                    gap: "8px 18px",
+                                                    justifyContent: "center",
+                                                    paddingTop: 10,
+                                                    fontSize: 14,
+                                                    lineHeight: "18px",
+                                                }}
+                                            >
+                                                {payload.map((entry, i) => (
+                                                    <div
+                                                        key={`legend-${i}`}
+                                                        style={{
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            gap: 8,
+                                                            color: entry.color, // ✅ same as Recharts legend coloring
+                                                            fontWeight: 500,
+                                                        }}
+                                                    >
+                                                        <span
                                                             style={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                gap: 8,
-                                                                color: entry.color, // ✅ same as Recharts legend coloring
-                                                                fontWeight: 500,
+                                                                width: 10,
+                                                                height: 10,
+                                                                backgroundColor: entry.color,
+                                                                display: "inline-block",
+                                                                borderRadius: 2,
                                                             }}
-                                                        >
-                                                            <span
-                                                                style={{
-                                                                    width: 10,
-                                                                    height: 10,
-                                                                    backgroundColor: entry.color,
-                                                                    display: "inline-block",
-                                                                    borderRadius: 2,
-                                                                }}
-                                                            />
-                                                            {entry.value}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            </div>
+                                                        />
+                                                        {entry.value}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    />
+                                </PieChart>
+                            </ChartFrame>
                         </CardContent>
                     </Card>
                 )}
@@ -398,33 +429,35 @@ const Analytics = () => {
                         </CardHeader>
 
                         <CardContent className="min-w-0">
-                            <div className="h-64">
-                                <ResponsiveContainer width="100%" height={256}>
-                                    <AreaChart data={loadTrendData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
+                            <ChartFrame isEmpty={!loadTrendData?.length}>
 
-                                        {/* ✅ Match font + theme */}
-                                        <XAxis
-                                            dataKey="month"
-                                            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                                        />
-                                        <YAxis
-                                            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                                        />
+                                <AreaChart
+                                    data={loadTrendData}
+                                    margin={{ top: 20, right: 30, left: -10, bottom: 0 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" />
 
-                                        <Tooltip contentStyle={tooltipStyle} />
+                                    {/* ✅ Match font + theme */}
+                                    <XAxis
+                                        dataKey="month"
+                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                                    />
+                                    <YAxis
+                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                                    />
 
-                                        {/* ✅ Add stroke so it matches style */}
-                                        <Area
-                                            type="monotone"
-                                            dataKey="load"
-                                            stroke="hsl(var(--primary))"
-                                            fill="hsl(var(--primary) / 0.2)"
-                                            strokeWidth={2}
-                                        />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            </div>
+                                    <Tooltip contentStyle={tooltipStyle} />
+
+                                    {/* ✅ Add stroke so it matches style */}
+                                    <Area
+                                        type="monotone"
+                                        dataKey="load"
+                                        stroke="hsl(var(--primary))"
+                                        fill="hsl(var(--primary) / 0.2)"
+                                        strokeWidth={2}
+                                    />
+                                </AreaChart>
+                            </ChartFrame>
                         </CardContent>
                     </Card>
                 )}
@@ -435,65 +468,67 @@ const Analytics = () => {
                             <CardTitle>Daily Completion Rate</CardTitle>
                         </CardHeader>
                         <CardContent className="min-w-0">
-                            <div className="h-64">
-                                <ResponsiveContainer width="100%" height={256}>
-                                    <LineChart data={completionData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis
-                                            dataKey="day"
-                                            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                                        <YAxis
-                                            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                                        <Tooltip contentStyle={tooltipStyle} />
-                                        <Legend
-                                            verticalAlign="bottom"
-                                            align="center"
-                                            content={({ payload }) => (
-                                                <div
-                                                    style={{
-                                                        display: "grid",
-                                                        gridTemplateColumns: "repeat(2, auto)", // 2 per row
-                                                        gap: "8px 18px",
-                                                        justifyContent: "center",
-                                                        paddingTop: 10,
-                                                        fontSize: 14,
-                                                    }}
-                                                >
-                                                    {payload.map((entry, i) => (
-                                                        <div
-                                                            key={`legend-${i}`}
-                                                            style={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                gap: 8,
-                                                                fontWeight: 500,
-                                                                color: entry.color,
-                                                            }}
-                                                        >
-                                                            {/* ✅ Real SVG line indicator */}
-                                                            <svg width="24" height="10">
-                                                                <line
-                                                                    x1="0"
-                                                                    y1="5"
-                                                                    x2="24"
-                                                                    y2="5"
-                                                                    stroke={entry.color}
-                                                                    strokeWidth="2"
-                                                                    strokeDasharray={entry.payload?.strokeDasharray}
-                                                                />
-                                                            </svg>
+                            <ChartFrame isEmpty={!completionData?.length}>
 
-                                                            {entry.value}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        />
-                                        <Line dataKey="completed" stroke="hsl(var(--sage))" type="monotone" strokeWidth={2} />
-                                        <Line dataKey="pending" stroke="hsl(var(--terracotta))" type="monotone" strokeWidth={2} />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
+                                <LineChart
+                                    data={completionData}
+                                    margin={{ top: 20, right: 30, left: -10, bottom: 0 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis
+                                        dataKey="day"
+                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                                    <YAxis
+                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                                    <Tooltip contentStyle={tooltipStyle} />
+                                    <Legend
+                                        verticalAlign="bottom"
+                                        align="center"
+                                        content={({ payload }) => (
+                                            <div
+                                                style={{
+                                                    display: "grid",
+                                                    gridTemplateColumns: "repeat(2, auto)", // 2 per row
+                                                    gap: "8px 18px",
+                                                    justifyContent: "center",
+                                                    paddingTop: 10,
+                                                    fontSize: 14,
+                                                }}
+                                            >
+                                                {payload.map((entry, i) => (
+                                                    <div
+                                                        key={`legend-${i}`}
+                                                        style={{
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            gap: 8,
+                                                            fontWeight: 500,
+                                                            color: entry.color,
+                                                        }}
+                                                    >
+                                                        {/* ✅ Real SVG line indicator */}
+                                                        <svg width="24" height="10">
+                                                            <line
+                                                                x1="0"
+                                                                y1="5"
+                                                                x2="24"
+                                                                y2="5"
+                                                                stroke={entry.color}
+                                                                strokeWidth="2"
+                                                                strokeDasharray={entry.payload?.strokeDasharray}
+                                                            />
+                                                        </svg>
+
+                                                        {entry.value}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    />
+                                    <Line dataKey="completed" stroke="hsl(var(--sage))" type="monotone" strokeWidth={2} />
+                                    <Line dataKey="pending" stroke="hsl(var(--terracotta))" type="monotone" strokeWidth={2} />
+                                </LineChart>
+                            </ChartFrame>
                         </CardContent>
                     </Card>
                 )}
@@ -504,80 +539,79 @@ const Analytics = () => {
                             <CardTitle>Category Expertise</CardTitle>
                         </CardHeader>
                         <CardContent className="min-w-0">
-                            <div className="h-72 min-w-0">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <RadarChart
-                                        data={radarData}
-                                        outerRadius="68%"
-                                        cy="44%"
-                                        margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-                                    >
-                                        <PolarGrid />
+                            <ChartFrame isEmpty={!radarData?.length}>
 
-                                        <PolarAngleAxis
-                                            dataKey="category"
-                                            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-                                            tickLine={false}
-                                            axisLine={false}
-                                            tickMargin={10}
+                                <RadarChart
+                                    data={radarData}
+                                    outerRadius="68%"
+                                    cy="44%"
+                                    margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+                                >
+                                    <PolarGrid />
+
+                                    <PolarAngleAxis
+                                        dataKey="category"
+                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tickMargin={10}
+                                    />
+
+                                    {sortedPeople.map((person, index) => (
+                                        <Radar
+                                            key={`radar-${index}-${person}`}
+                                            name={getDisplayNameFromUsername(person, labels)}
+                                            dataKey={person}
+                                            stroke={personColorMap[person]}
+                                            fill={personColorMap[person]}
+                                            fillOpacity={0.25}
                                         />
+                                    ))}
 
-                                        {sortedPeople.map((person, index) => (
-                                            <Radar
-                                                key={`radar-${index}-${person}`}
-                                                name={getDisplayNameFromUsername(person, labels)}
-                                                dataKey={person}
-                                                stroke={personColorMap[person]}
-                                                fill={personColorMap[person]}
-                                                fillOpacity={0.25}
-                                            />
-                                        ))}
-
-                                        <Tooltip contentStyle={tooltipStyle} />
-                                        <Legend
-                                            verticalAlign="bottom"
-                                            align="center"
-                                            content={({ payload }) => (
-                                                <div
-                                                    style={{
-                                                        display: "grid",
-                                                        gridTemplateColumns: "repeat(2, auto)", // ✅ 2 per row
-                                                        gap: "8px 18px",
-                                                        justifyContent: "center",
-                                                        paddingTop: 10,
-                                                        fontSize: 14,
-                                                        lineHeight: "18px",
-                                                    }}
-                                                >
-                                                    {payload.map((entry, i) => (
-                                                        <div
-                                                            key={`legend-${i}`}
+                                    <Tooltip contentStyle={tooltipStyle} />
+                                    <Legend
+                                        verticalAlign="bottom"
+                                        align="center"
+                                        content={({ payload }) => (
+                                            <div
+                                                style={{
+                                                    display: "grid",
+                                                    gridTemplateColumns: "repeat(2, auto)", // ✅ 2 per row
+                                                    gap: "8px 18px",
+                                                    justifyContent: "center",
+                                                    paddingTop: 10,
+                                                    fontSize: 14,
+                                                    lineHeight: "18px",
+                                                }}
+                                            >
+                                                {payload.map((entry, i) => (
+                                                    <div
+                                                        key={`legend-${i}`}
+                                                        style={{
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            gap: 8,
+                                                            color: entry.color, // ✅ same as Recharts legend coloring
+                                                            fontWeight: 500,
+                                                        }}
+                                                    >
+                                                        <span
                                                             style={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                gap: 8,
-                                                                color: entry.color, // ✅ same as Recharts legend coloring
-                                                                fontWeight: 500,
+                                                                width: 10,
+                                                                height: 10,
+                                                                backgroundColor: entry.color,
+                                                                display: "inline-block",
+                                                                borderRadius: 2,
                                                             }}
-                                                        >
-                                                            <span
-                                                                style={{
-                                                                    width: 10,
-                                                                    height: 10,
-                                                                    backgroundColor: entry.color,
-                                                                    display: "inline-block",
-                                                                    borderRadius: 2,
-                                                                }}
-                                                            />
-                                                            {entry.value}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        />
-                                    </RadarChart>
-                                </ResponsiveContainer>
-                            </div>
+                                                        />
+                                                        {entry.value}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    />
+                                </RadarChart>
+                            </ChartFrame>
                         </CardContent>
                     </Card>
                 )}
