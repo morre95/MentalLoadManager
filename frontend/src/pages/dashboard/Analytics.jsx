@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
     BarChart3,
@@ -67,7 +67,7 @@ const Analytics = () => {
 
     const [isManageOpen, setIsManageOpen] = useState(false);
     const [labels, setLabels] = useState({});
-
+    const [noHousehold, setNoHousehold] = useState(false);
 
     // -----------------------------
     // Colors (spread out, stable per person)
@@ -95,8 +95,11 @@ const Analytics = () => {
         return acc;
     }, [sortedPeople]);
 
+    // -----------------------------
+    // Reusable empty + wrappers
+    // -----------------------------
     const ChartEmptyState = ({
-        title = "No data yet",
+        title = "No data yet for the last 6 weeks",
         hint = "Add a task with category + assignee to unlock this chart",
     }) => {
         return (
@@ -127,6 +130,26 @@ const Analytics = () => {
         );
     };
 
+    const NoHouseholdState = ({ onRetry }) => {
+        return (
+            <div className="p-6 space-y-3">
+                <h1 className="text-2xl font-bold flex items-center gap-2">You’re not in a household yet</h1>
+                <p className="text-muted-foreground mt-1">
+                    Create a household or ask someone to invite you to unlock analytics.
+                </p>
+
+                <div className="flex gap-2 pt-2">
+                    <Button variant="default" onClick={() => (window.location.href = "/dashboard/household")}>
+                        Go to Household
+                    </Button>
+                    <Button variant="outline" onClick={onRetry}>
+                        Retry
+                    </Button>
+                </div>
+            </div>
+        );
+    };
+
     // -----------------------------
     // API Client (shared)
     // -----------------------------
@@ -141,51 +164,57 @@ const Analytics = () => {
     }, []);
 
     // -----------------------------
-    // Fetch Analytics (shared)
+    // Fetch Analytics (shared) - reusable load()
     // -----------------------------
+    const load = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        setNoHousehold(false);
+
+        try {
+            const summary = await fetchAnalyticsSummary(apiClient);
+
+            setPeople(summary.people || []);
+            setWeeklyData(summary.weeklyData || []);
+            setCategoryData(summary.categoryData || []);
+            setLoadTrendData(summary.loadTrendData || []);
+            setCompletionData(summary.completionData || []);
+            setRadarData(summary.radarData || []);
+            setStats(summary.stats || []);
+            setLabels(summary.labels || {});
+        } catch (err) {
+            const msg = err?.message || "";
+
+            if (msg.toLowerCase().includes("not in a household")) {
+                setNoHousehold(true);
+                setError(null);
+                return;
+            }
+
+            console.error(err);
+            setError(err);
+        } finally {
+            setLoading(false);
+        }
+    }, [apiClient]);
+
     useEffect(() => {
         let alive = true;
 
-        const load = async () => {
-            setLoading(true);
-            setError(null);
-
-            try {
-                const summary = await fetchAnalyticsSummary(apiClient);
-                if (!alive) return;
-                console.log("Radar categories:", radarData.map(r => r.category));
-                console.log("Radar keys on first row:", radarData[0] ? Object.keys(radarData[0]) : []);
-
-                setPeople(summary.people || []);
-                setWeeklyData(summary.weeklyData || []);
-                setCategoryData(summary.categoryData || []);
-                setLoadTrendData(summary.loadTrendData || []);
-                setCompletionData(summary.completionData || []);
-                setRadarData(summary.radarData || []);
-                setStats(summary.stats || []);
-                setLabels(summary.labels || {});
-
-            } catch (err) {
-                if (!alive) return;
-                console.error(err);
-                setError(err);
-            } finally {
-                if (!alive) return;
-                setLoading(false);
-            }
+        const run = async () => {
+            if (!alive) return;
+            await load();
         };
 
-        load();
+        run();
 
         return () => {
             alive = false;
         };
-    }, [apiClient]);
+    }, [load]);
 
     const handleToggleChart = (id) => {
-        setActiveChartIds((prev) =>
-            prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
-        );
+        setActiveChartIds((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
     };
 
     const tooltipStyle = {
@@ -198,12 +227,16 @@ const Analytics = () => {
         return <div className="p-6 text-muted-foreground">Loading analytics…</div>;
     }
 
+    if (noHousehold) {
+        return <NoHouseholdState onRetry={load} />;
+    }
+
     if (error) {
         return (
             <div className="p-6 space-y-3">
                 <p className="text-destructive font-medium">Failed to load analytics</p>
                 <p className="text-sm text-muted-foreground">{error?.message || "Unknown error"}</p>
-                <Button variant="outline" onClick={() => window.location.reload()}>
+                <Button variant="outline" onClick={load}>
                     Retry
                 </Button>
             </div>
@@ -224,6 +257,8 @@ const Analytics = () => {
                     Manage Charts
                 </Button>
             </motion.div>
+
+            {/* Stats Grid */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -248,16 +283,13 @@ const Analytics = () => {
                                 : "bg-muted text-muted-foreground";
 
                     return (
-
                         <Card key={`${stat.title}-${index}`} className="border-border">
                             <CardContent className="p-4">
                                 <div className="flex items-center justify-between">
                                     <Icon className="h-5 w-5 text-muted-foreground" />
 
                                     {stat.change ? (
-                                        <span
-                                            className={`text-xs font-medium px-2 py-0.5 rounded-full ${pillClass}`}
-                                        >
+                                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${pillClass}`}>
                                             {stat.change}
                                         </span>
                                     ) : null}
@@ -280,19 +312,14 @@ const Analytics = () => {
                         </CardHeader>
                         <CardContent className="min-w-0">
                             <ChartFrame isEmpty={!weeklyData?.length}>
-
-                                <BarChart
-                                    data={weeklyData}
-                                    margin={{ top: 20, right: 30, left: -10, bottom: 0 }}
-                                >
+                                <BarChart data={weeklyData} margin={{ top: 20, right: 30, left: -10, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis
                                         dataKey="week"
                                         tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
                                         tickFormatter={(value) => "Week " + value.split("-W")[1]}
                                     />
-                                    <YAxis
-                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                                    <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                                     <Tooltip contentStyle={tooltipStyle} />
                                     <Legend
                                         verticalAlign="bottom"
@@ -335,6 +362,7 @@ const Analytics = () => {
                                             </div>
                                         )}
                                     />
+
                                     {sortedPeople.map((person, index) => (
                                         <Bar
                                             key={`bar-${index}-${person || "unknown"}`}
@@ -357,7 +385,6 @@ const Analytics = () => {
                         </CardHeader>
                         <CardContent className="min-w-0">
                             <ChartFrame isEmpty={!categoryData?.length}>
-
                                 <PieChart>
                                     <Pie
                                         data={categoryData}
@@ -397,7 +424,7 @@ const Analytics = () => {
                                                             display: "flex",
                                                             alignItems: "center",
                                                             gap: 8,
-                                                            color: entry.color, // ✅ same as Recharts legend coloring
+                                                            color: entry.color,
                                                             fontWeight: 500,
                                                         }}
                                                     >
@@ -430,25 +457,17 @@ const Analytics = () => {
 
                         <CardContent className="min-w-0">
                             <ChartFrame isEmpty={!loadTrendData?.length}>
-
                                 <AreaChart
                                     data={loadTrendData}
                                     margin={{ top: 20, right: 30, left: -10, bottom: 0 }}
                                 >
                                     <CartesianGrid strokeDasharray="3 3" />
-
-                                    {/* ✅ Match font + theme */}
                                     <XAxis
                                         dataKey="month"
                                         tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
                                     />
-                                    <YAxis
-                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                                    />
-
+                                    <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                                     <Tooltip contentStyle={tooltipStyle} />
-
-                                    {/* ✅ Add stroke so it matches style */}
                                     <Area
                                         type="monotone"
                                         dataKey="load"
@@ -469,7 +488,6 @@ const Analytics = () => {
                         </CardHeader>
                         <CardContent className="min-w-0">
                             <ChartFrame isEmpty={!completionData?.length}>
-
                                 <LineChart
                                     data={completionData}
                                     margin={{ top: 20, right: 30, left: -10, bottom: 0 }}
@@ -477,9 +495,9 @@ const Analytics = () => {
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis
                                         dataKey="day"
-                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                                    <YAxis
-                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                                    />
+                                    <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                                     <Tooltip contentStyle={tooltipStyle} />
                                     <Legend
                                         verticalAlign="bottom"
@@ -488,7 +506,7 @@ const Analytics = () => {
                                             <div
                                                 style={{
                                                     display: "grid",
-                                                    gridTemplateColumns: "repeat(2, auto)", // 2 per row
+                                                    gridTemplateColumns: "repeat(2, auto)",
                                                     gap: "8px 18px",
                                                     justifyContent: "center",
                                                     paddingTop: 10,
@@ -506,7 +524,6 @@ const Analytics = () => {
                                                             color: entry.color,
                                                         }}
                                                     >
-                                                        {/* ✅ Real SVG line indicator */}
                                                         <svg width="24" height="10">
                                                             <line
                                                                 x1="0"
@@ -540,7 +557,6 @@ const Analytics = () => {
                         </CardHeader>
                         <CardContent className="min-w-0">
                             <ChartFrame isEmpty={!radarData?.length}>
-
                                 <RadarChart
                                     data={radarData}
                                     outerRadius="68%"
@@ -548,7 +564,6 @@ const Analytics = () => {
                                     margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
                                 >
                                     <PolarGrid />
-
                                     <PolarAngleAxis
                                         dataKey="category"
                                         tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
@@ -576,7 +591,7 @@ const Analytics = () => {
                                             <div
                                                 style={{
                                                     display: "grid",
-                                                    gridTemplateColumns: "repeat(2, auto)", // ✅ 2 per row
+                                                    gridTemplateColumns: "repeat(2, auto)",
                                                     gap: "8px 18px",
                                                     justifyContent: "center",
                                                     paddingTop: 10,
@@ -591,7 +606,7 @@ const Analytics = () => {
                                                             display: "flex",
                                                             alignItems: "center",
                                                             gap: 8,
-                                                            color: entry.color, // ✅ same as Recharts legend coloring
+                                                            color: entry.color,
                                                             fontWeight: 500,
                                                         }}
                                                     >
@@ -615,7 +630,6 @@ const Analytics = () => {
                         </CardContent>
                     </Card>
                 )}
-
             </div>
 
             {/* Manage Dialog */}
@@ -630,10 +644,7 @@ const Analytics = () => {
                             const isActive = activeChartIds.includes(id);
 
                             return (
-                                <div
-                                    key={id}
-                                    className="flex items-center justify-between p-3 border rounded-lg"
-                                >
+                                <div key={id} className="flex items-center justify-between p-3 border rounded-lg">
                                     <p className="text-sm font-medium">{id}</p>
 
                                     <Button
