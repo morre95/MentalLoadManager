@@ -175,6 +175,13 @@ export function getDisplayName(user) {
   return normalizeNameFromUsername(user?.username);
 }
 
+export function getDisplayNameFromUsername(username, labels) {
+  if (!username) return "Unknown";
+  const label = labels?.[username];
+  if (label) return capitalizeWords(String(label).replace(/[_-]+/g, " "));
+  return normalizeNameFromUsername(username);
+}
+
 export function getInitials(nameOrUsername) {
   const parts = String(nameOrUsername || "")
     .replace(/[_-]+/g, " ")

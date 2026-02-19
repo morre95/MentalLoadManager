@@ -66,7 +66,7 @@ class RadarPoint(BaseModel):
 class AnalyticsSummaryResponse(BaseModel):
     household_id: str
     people: list[str]
-
+    labels: dict[str, str]
     weeklyData: list[WeeklyPoint]
     categoryData: list[CategoryPoint]
     loadTrendData: list[LoadTrendPoint]
@@ -142,6 +142,11 @@ def get_analytics_summary(
         # ------------------------------------------------------------
         # Household Members (labels for charts)
         # ------------------------------------------------------------
+        # ------------------------------------------------------------
+        # Household Members
+        #   - 'people' must be usernames (stable keys for recharts dataKey)
+        #   - 'labels' provides display_name for UI
+        # ------------------------------------------------------------
         member_rows = db.execute(
             select(UserDB.user_id, UserDB.username, UserDB.display_name)
             .join(UsersHouseholds, UsersHouseholds.user_id == UserDB.user_id)
@@ -149,13 +154,20 @@ def get_analytics_summary(
             .order_by(UserDB.username.asc())
         ).all()
 
-        people: list[str] = []
-        user_labels: dict[UUID, str] = {}
+        people: list[str] = []  # usernames
+        labels: dict[str, str] = {}  # username -> display label
+        user_id_to_username: dict[UUID, str] = {}
 
         for r in member_rows:
-            label = (r.display_name or r.username).strip()
-            people.append(label)
-            user_labels[r.user_id] = label
+            username = (r.username or "").strip()
+            if not username:
+                continue
+
+            display = (r.display_name or r.username).strip()
+
+            people.append(username)
+            labels[username] = display
+            user_id_to_username[r.user_id] = username
 
         # ------------------------------------------------------------
         # Time windows
@@ -192,7 +204,7 @@ def get_analytics_summary(
             iso = wk_dt.isocalendar()
             week_label = f"{iso.year}-W{iso.week:02d}"
 
-            person = user_labels.get(r.assigns_to, "Unassigned")
+            person = user_id_to_username.get(r.assigns_to, "unassigned")
             weekly_map.setdefault(week_label, {})
             weekly_map[week_label][person] = int(r.cnt or 0)
 
@@ -204,21 +216,21 @@ def get_analytics_summary(
 
         category_rows = db.execute(
             select(
-                Categories.name,
+                func.coalesce(Categories.name, "Uncategorized").label("cat"),
                 func.count().label("cnt"),
             )
-            .join(Tasks, Tasks.category_id == Categories.category_id)
+            .select_from(Tasks)
+            .outerjoin(Categories, Tasks.category_id == Categories.category_id)
             .where(
                 Tasks.household_id == hid,
                 Tasks.created_at >= start_6_weeks,
             )
-            .group_by(Categories.name)
+            .group_by("cat")
             .order_by(func.count().desc())
         ).all()
 
-        categoryData = [
-            CategoryPoint(name=r.name, value=int(r.cnt or 0)) for r in category_rows
-        ]
+        categoryData = [CategoryPoint(name=r.cat, value=int(r.cnt or 0)) for r in category_rows]
+
 
         # ============================================================
         # 3. Load Trend (monthly open tasks)
@@ -261,12 +273,8 @@ def get_analytics_summary(
         completion_rows = db.execute(
             select(
                 day_bucket.label("dy"),
-                func.sum(case((Tasks.status == "done", 1), else_=0)).label(
-                    "completed"
-                ),
-                func.sum(case((Tasks.status != "done", 1), else_=0)).label(
-                    "pending"
-                ),
+                func.sum(case((Tasks.status == "done", 1), else_=0)).label("completed"),
+                func.sum(case((Tasks.status != "done", 1), else_=0)).label("pending"),
             )
             .where(
                 Tasks.household_id == hid,
@@ -291,42 +299,49 @@ def get_analytics_summary(
 
         radar_rows = db.execute(
             select(
-                Categories.name,
+                func.coalesce(Categories.name, "Uncategorized").label("cat"),
                 Tasks.assigns_to,
                 func.count().label("cnt"),
             )
-            .join(Tasks, Tasks.category_id == Categories.category_id)
+            .select_from(Tasks)
+            .outerjoin(Categories, Tasks.category_id == Categories.category_id)
             .where(
                 Tasks.household_id == hid,
                 Tasks.created_at >= start_6_weeks,
             )
-            .group_by(Categories.name, Tasks.assigns_to)
+            .group_by("cat", Tasks.assigns_to)
         ).all()
 
         radar_map: dict[str, dict[str, int]] = {}
-
         for r in radar_rows:
-            cat = r.name
-            person = user_labels.get(r.assigns_to, "Unassigned")
-
+            cat = r.cat
+            person = user_id_to_username.get(r.assigns_to, "unassigned")
             radar_map.setdefault(cat, {})
-            radar_map[cat][person] = int(r.cnt or 0)
+            radar_map[cat][person] = int(r.cnt or 0)    
+        radarData = [RadarPoint(category=cat, values=vals) for cat, vals in radar_map.items()]
 
-        radarData = [
-            RadarPoint(category=cat, values=vals) for cat, vals in radar_map.items()
-        ]
 
         # ============================================================
-        # 6. Stats Cards (real values)
+        # 6. Stats Cards
+        #   Done This Week
+        #   Open Tasks Remaining
+        #   Overdue Tasks
+        #   Load Balance Score (based on open tasks by assignee)
         # ============================================================
 
-        total_completed = (
+        # start of week (Mon) in UTC
+        start_of_week = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+        start_of_week = start_of_week - timedelta(days=start_of_week.weekday())
+
+        done_this_week = (
             db.scalar(
                 select(func.count())
                 .select_from(Tasks)
                 .where(
                     Tasks.household_id == hid,
                     Tasks.status == "done",
+                    Tasks.complete_date.is_not(None),
+                    Tasks.complete_date >= start_of_week,
                 )
             )
             or 0
@@ -344,26 +359,80 @@ def get_analytics_summary(
             or 0
         )
 
+        overdue_tasks = (
+            db.scalar(
+                select(func.count())
+                .select_from(Tasks)
+                .where(
+                    Tasks.household_id == hid,
+                    Tasks.status != "done",
+                    Tasks.due_date.is_not(None),
+                    Tasks.due_date < now,
+                )
+            )
+            or 0
+        )
+
+        # Load balance based on OPEN tasks by assignee (ignores unassigned)
+        assignee_counts = db.execute(
+            select(
+                Tasks.assigns_to,
+                func.count().label("cnt"),
+            )
+            .where(
+                Tasks.household_id == hid,
+                Tasks.status != "done",
+                Tasks.assigns_to.is_not(None),
+            )
+            .group_by(Tasks.assigns_to)
+        ).all()
+
+        # Convert to username -> count
+        open_by_person: dict[str, int] = {}
+        for r in assignee_counts:
+            uname = user_id_to_username.get(r.assigns_to)
+            if not uname:
+                continue
+            open_by_person[uname] = int(r.cnt or 0)
+
+        # If 2+ people: score = 100 - (max_share - min_share)*100
+        # If <2 people with tasks: score is "—"
+        load_balance_value = "—"
+        if len(open_by_person) >= 2:
+            total = sum(open_by_person.values()) or 1
+            shares = [c / total for c in open_by_person.values()]
+            spread = max(shares) - min(shares)
+            score = round((1.0 - spread) * 100)
+            score = max(0, min(100, score))
+            load_balance_value = f"{score}"
+
         stats = [
             StatItem(
-                title="Total Tasks Completed",
-                value=str(total_completed),
-                change="+0%",
+                title="Done This Week",
+                value=str(done_this_week),
+                change="",
                 trend="up",
                 icon="CheckCircle2",
             ),
             StatItem(
                 title="Open Tasks Remaining",
                 value=str(open_tasks),
-                change="+0%",
+                change="",
+                trend="info",
+                icon="TrendingUp",
+            ),
+            StatItem(
+                title="Overdue Tasks",
+                value=str(overdue_tasks),
+                change="",
                 trend="down",
                 icon="TrendingDown",
             ),
             StatItem(
-                title="Household Members",
-                value=str(len(people)),
-                change="+0%",
-                trend="up",
+                title="Load Balance Score",
+                value=load_balance_value,
+                change="",
+                trend="info",
                 icon="Users",
             ),
         ]
@@ -375,6 +444,7 @@ def get_analytics_summary(
         return AnalyticsSummaryResponse(
             household_id=str(hid),
             people=people,
+            labels=labels,
             weeklyData=weeklyData,
             categoryData=categoryData,
             loadTrendData=loadTrendData,

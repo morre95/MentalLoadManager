@@ -2,6 +2,7 @@ export function normalizeAnalyticsSummary(data) {
     return {
         household_id: data.household_id,
         people: data.people || [],
+        labels: data.labels || {},
 
         // Convert weekly format → recharts format
         weeklyData: (data.weeklyData || []).map((row) => ({
