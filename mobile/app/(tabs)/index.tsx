@@ -66,6 +66,16 @@ function previousStatus(status: string) {
   return 'done';
 }
 
+function getAssigneeLabel(task: UiTask) {
+  return (
+    task.assigneeLabel ||
+    task.assignee?.displayName ||
+    task.assignee?.display_name ||
+    task.assignee?.username ||
+    'Unassigned'
+  );
+}
+
 export default function TasksScreen() {
   const [tasks, setTasks] = useState<UiTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -205,7 +215,8 @@ export default function TasksScreen() {
           description: '',
           status: 'todo',
           priority: 'medium',
-          assignee: 'Unassigned',
+          assignee: null,
+          assigneeLabel: 'Unassigned',
           category: 'Other',
         },
         ...previous,
@@ -312,7 +323,7 @@ export default function TasksScreen() {
               </View>
 
               <Text style={styles.taskMeta}>
-                {task.category} • {task.assignee}
+                {task.category} • {getAssigneeLabel(task)}
               </Text>
               {task.dueDate ? <Text style={styles.taskMeta}>Due {task.dueDate}</Text> : null}
 

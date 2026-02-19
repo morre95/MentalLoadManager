@@ -74,6 +74,16 @@ const SortableTaskCard = ({ task, onToggleStatus, onClick }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id });
 
+  const assigneeLabel =
+    task?.assigneeLabel ??
+    task?.assignee?.displayName ??
+    task?.assignee?.display_name ??
+    task?.assignee?.username ??
+    task?.assignee_display_name ??
+    task?.assignee_username ??
+    task?.assignee ??
+    "Unassigned";
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -128,7 +138,7 @@ const SortableTaskCard = ({ task, onToggleStatus, onClick }) => {
               <span className="px-2 py-0.5 rounded-full bg-muted truncate max-w-[100px]">
                 {task.category}
               </span>
-              <span className="truncate">{task.assignee}</span>
+              <span className="truncate">{assigneeLabel}</span>
               {task.dueDate ? (
                 <span className={`flex-shrink-0 ${task.dueDate === "Today" ? "text-terracotta font-medium" : ""}`}>
                   {task.dueDate}
@@ -340,14 +350,24 @@ const Tasks = () => {
     }
   };
 
-  const handleUpdateTaskAssignee = async (taskId, assigneeId, assigneeLabel) => {
+  const handleUpdateTaskAssignee = async (taskId, assigneeId, assigneeLabel, assigneeMember) => {
     const rollbackTasks = tasks;
     const rollbackSelectedTask = selectedTask;
     setSyncError(null);
 
+    const nextAssignee =
+      assigneeId && assigneeMember
+        ? {
+            username: assigneeMember.username,
+            displayName: assigneeMember.display_name ?? null,
+            display_name: assigneeMember.display_name ?? null,
+          }
+        : null;
+
     handleUpdateTaskDetails(taskId, {
       assigneeId: assigneeId || undefined,
-      assignee: assigneeLabel || "Unassigned",
+      assignee: nextAssignee,
+      assigneeLabel: assigneeLabel || "Unassigned",
     });
 
     try {

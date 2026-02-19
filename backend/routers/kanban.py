@@ -59,6 +59,8 @@ class KanbanTask(BaseModel):
     due_date: datetime | None = None
     assignee_user_id: str | None = None
     assignee_name: str | None = None
+    assignee_username: str | None = None
+    assignee_display_name: str | None = None
     category_name: str | None = None
 
 
@@ -201,7 +203,8 @@ def list_kamban_tasks(current_user: UserEmail = Depends(get_current_user)):
                 Tasks.priority,
                 Tasks.due_date,
                 Tasks.assigns_to.label("assignee_user_id"),
-                UserDB.username.label("assignee_name"),
+                UserDB.username.label("assignee_username"),
+                UserDB.display_name.label("assignee_display_name"),
                 Categories.name.label("category_name"),
             )
             .join(
@@ -234,7 +237,9 @@ def list_kamban_tasks(current_user: UserEmail = Depends(get_current_user)):
                 assignee_user_id=str(row.assignee_user_id)
                 if row.assignee_user_id
                 else None,
-                assignee_name=row.assignee_name,
+                assignee_name=row.assignee_display_name or row.assignee_username,
+                assignee_username=row.assignee_username,
+                assignee_display_name=row.assignee_display_name,
                 category_name=row.category_name,
             )
             for row in rows

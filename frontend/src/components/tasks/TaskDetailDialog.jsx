@@ -61,6 +61,17 @@ function toDateInputValue(value) {
 const UNASSIGNED_ASSIGNEE_VALUE = "__unassigned__";
 const CUSTOM_CATEGORY_VALUE = "__custom__";
 
+function getTaskAssigneeLabel(task) {
+  return (
+    task?.assigneeLabel ??
+    task?.assignee?.displayName ??
+    task?.assignee?.display_name ??
+    task?.assignee?.username ??
+    task?.assignee ??
+    "Unassigned"
+  );
+}
+
 const TaskDetailDialog = ({
   task,
   open,
@@ -318,7 +329,12 @@ const TaskDetailDialog = ({
                           selectedAssignee?.display_name ||
                           selectedAssignee?.username ||
                           "Unassigned";
-                        onUpdateTaskAssignee?.(task.id, nextAssigneeId, nextAssigneeLabel);
+                        onUpdateTaskAssignee?.(
+                          task.id,
+                          nextAssigneeId,
+                          nextAssigneeLabel,
+                          selectedAssignee || null
+                        );
                         setEditingField(null);
                       }}
                     >
@@ -351,7 +367,7 @@ const TaskDetailDialog = ({
                       setEditingField("assignee");
                     }}
                   >
-                    {task.assignee}
+                    {getTaskAssigneeLabel(task)}
                   </button>
                 )}
               </div>
