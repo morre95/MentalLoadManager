@@ -60,12 +60,18 @@ const columns = [
   { id: "todo", title: "To Do", colorClass: "bg-status-todo", icon: Circle },
   { id: "in-progress", title: "In Progress", colorClass: "bg-status-doing", icon: Clock },
   { id: "done", title: "Done", colorClass: "bg-status-done", icon: CheckCircle2 },
-  { id: "on-hold", title: "Archive", colorClass: "bg-[hsl(var(--lavender))]", icon: PauseCircle },
+  { id: "archive", title: "Archive", colorClass: "bg-[hsl(var(--lavender))]", icon: PauseCircle },
 ];
-const ARCHIVE_COLUMN_ID = "on-hold";
+const ARCHIVE_COLUMN_ID = "archive";
+
+function toUiStatus(status) {
+  if (status === "on-hold") return "archive";
+  return status;
+}
 
 function toApiStatus(status) {
   if (status === "in-progress") return "in_progress";
+  if (status === "archive") return "on_hold";
   if (status === "on-hold") return "on_hold";
   return status;
 }
@@ -274,7 +280,8 @@ const Tasks = () => {
     if (!currentTask) return;
 
     const rollbackTasks = tasks;
-    const nextStatus = currentTask.status === "done" ? "todo" : "done";
+    const currentStatus = toUiStatus(currentTask.status);
+    const nextStatus = currentStatus === "done" ? "todo" : "done";
     setSyncError(null);
     setTasks((prev) =>
       prev.map((task) =>
@@ -288,16 +295,17 @@ const Tasks = () => {
 
   const handleUpdateTaskStatus = async (taskId, nextStatus) => {
     const currentTask = tasks.find((task) => task.id === taskId);
-    if (!currentTask || !nextStatus || currentTask.status === nextStatus) return;
+    const normalizedNextStatus = toUiStatus(nextStatus);
+    if (!currentTask || !normalizedNextStatus || toUiStatus(currentTask.status) === normalizedNextStatus) return;
 
     const rollbackTasks = tasks;
     const rollbackSelectedTask = selectedTask;
     setSyncError(null);
 
-    handleUpdateTaskDetails(taskId, { status: nextStatus });
+    handleUpdateTaskDetails(taskId, { status: normalizedNextStatus });
 
     try {
-      await updateKanbanTaskStatus(taskId, toApiStatus(nextStatus));
+      await updateKanbanTaskStatus(taskId, toApiStatus(normalizedNextStatus));
     } catch (e) {
       setTasks(rollbackTasks);
       setSelectedTask(rollbackSelectedTask);
@@ -449,9 +457,11 @@ const Tasks = () => {
     }
   };
 
+  const getTaskColumnStatus = (task) => toUiStatus(task?.status);
+
   const findColumnForTask = (taskId) => {
     const t = tasks.find((x) => x.id === taskId);
-    return t ? t.status : undefined;
+    return t ? getTaskColumnStatus(t) : undefined;
   };
 
   const handleDragStart = (event) => {
@@ -506,7 +516,7 @@ const Tasks = () => {
     // Reorder only when drag started and ended in the same column.
     if (!movedAcrossColumns && !isOverColumn && aId !== oId) {
       if (dragStartColumn) {
-        const columnTasks = tasks.filter((t) => t.status === dragStartColumn);
+        const columnTasks = tasks.filter((t) => getTaskColumnStatus(t) === dragStartColumn);
         const oldIndex = columnTasks.findIndex((t) => t.id === aId);
         const newIndex = columnTasks.findIndex((t) => t.id === oId);
         if (oldIndex !== -1 && newIndex !== -1) {
@@ -515,7 +525,7 @@ const Tasks = () => {
 
           let reorderCursor = 0;
           const nextTasks = tasks.map((task) => {
-            if (task.status !== dragStartColumn) return task;
+            if (getTaskColumnStatus(task) !== dragStartColumn) return task;
             const reorderedTask = reorderedColumnTasks[reorderCursor];
             reorderCursor += 1;
             return reorderedTask;
@@ -537,7 +547,10 @@ const Tasks = () => {
 
   const activeTask = tasks.find((t) => t.id === activeId);
 
-  const getColumnTasks = (status) => tasks.filter((t) => t.status === status);
+  const getColumnTasks = (status) =>
+    status === ARCHIVE_COLUMN_ID
+      ? tasks.filter((t) => t.status === ARCHIVE_COLUMN_ID)
+      : tasks.filter((t) => getTaskColumnStatus(t) === status);
 
   return (
     <div className="p-4 md:p-6 space-y-6">

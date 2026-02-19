@@ -34,6 +34,7 @@ const priorityColors = {
 const statusConfig = {
   todo: { icon: Clock, label: "To Do", color: "bg-status-todo" },
   "in-progress": { icon: AlertCircle, label: "In Progress", color: "bg-status-doing" },
+  archive: { icon: PauseCircle, label: "Archive", color: "bg-[hsl(var(--lavender))]" },
   "on-hold": { icon: PauseCircle, label: "Archive", color: "bg-[hsl(var(--lavender))]" },
   done: { icon: Check, label: "Done", color: "bg-status-done" },
 };
@@ -50,7 +51,7 @@ const categories = [
 
 const UNASSIGNED_ASSIGNEE_VALUE = "__unassigned__";
 const CUSTOM_CATEGORY_VALUE = "__custom__";
-const ARCHIVE_STATUS = "on-hold";
+const ARCHIVE_STATUS = "archive";
 
 function toDateInputValue(value) {
   if (!value) return "";
@@ -113,7 +114,7 @@ const TaskDetailDialog = ({
 
     setTitleDraft(task.title || "");
     setDescriptionDraft(task.description || "");
-    setStatusDraft(task.status || "todo");
+    setStatusDraft(task.status === "on-hold" ? "archive" : (task.status || "todo"));
     setPriorityDraft(normalizedPriority);
     setAssigneeIdDraft(task.assigneeId || UNASSIGNED_ASSIGNEE_VALUE);
     setDueDateDraft(toDateInputValue(task.dueDate));
@@ -265,7 +266,7 @@ const TaskDetailDialog = ({
                   <SelectContent>
                     <SelectItem value="todo">To Do</SelectItem>
                     <SelectItem value="in-progress">In Progress</SelectItem>
-                    <SelectItem value="on-hold">Archive</SelectItem>
+                    <SelectItem value="archive">Archive</SelectItem>
                     <SelectItem value="done">Done</SelectItem>
                   </SelectContent>
                 </Select>

@@ -15,7 +15,7 @@ router = APIRouter(
 )
 
 
-ALLOWED_TASK_STATUSES = {"todo", "in_progress", "done", "on_hold"}
+ALLOWED_TASK_STATUSES = {"todo", "in_progress", "done", "on_hold", "archive"}
 ALLOWED_TASK_PRIORITIES = {"low", "medium", "high"}
 
 
@@ -543,7 +543,7 @@ def update_task_status(
             task.complete_date = None
         elif next_status == "on_hold":
             task.complete_date = None
-        elif next_status == "done":
+        elif next_status == "done" or next_status == "archive":
             if task.started_at is None:
                 task.started_at = now_utc
             if task.complete_date is None:
@@ -759,7 +759,9 @@ def update_task_assignee(
         next_assignee_id = payload.assigns_to
         next_assignee_name = None
         if next_assignee_id:
-            assignee = db.scalar(select(UserDB).where(UserDB.user_id == next_assignee_id))
+            assignee = db.scalar(
+                select(UserDB).where(UserDB.user_id == next_assignee_id)
+            )
             if not assignee:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -851,7 +853,9 @@ def update_task_description(
             )
 
         next_description = (
-            payload.description.strip() if isinstance(payload.description, str) else None
+            payload.description.strip()
+            if isinstance(payload.description, str)
+            else None
         )
         task.description = next_description or None
         task.updated_at = datetime.now(timezone.utc)
@@ -1113,7 +1117,9 @@ def reorder_tasks(
             detail="Invalid task status",
         )
 
-    ordered_ids_raw = [task_id.strip() for task_id in payload.ordered_task_ids if task_id]
+    ordered_ids_raw = [
+        task_id.strip() for task_id in payload.ordered_task_ids if task_id
+    ]
     if not ordered_ids_raw:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1150,20 +1156,24 @@ def reorder_tasks(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        tasks = db.execute(
-            select(Tasks)
-            .join(
-                UsersHouseholds,
-                and_(
-                    UsersHouseholds.household_id == Tasks.household_id,
-                    UsersHouseholds.user_id == me.user_id,
-                ),
+        tasks = (
+            db.execute(
+                select(Tasks)
+                .join(
+                    UsersHouseholds,
+                    and_(
+                        UsersHouseholds.household_id == Tasks.household_id,
+                        UsersHouseholds.user_id == me.user_id,
+                    ),
+                )
+                .where(
+                    Tasks.task_id.in_(ordered_ids),
+                    Tasks.status == target_status,
+                )
             )
-            .where(
-                Tasks.task_id.in_(ordered_ids),
-                Tasks.status == target_status,
-            )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         if len(tasks) != len(ordered_ids):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
