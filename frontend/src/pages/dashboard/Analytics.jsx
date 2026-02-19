@@ -9,6 +9,7 @@ import {
     Plus,
     Eye,
     EyeOff,
+    RefreshCcw
 } from "lucide-react";
 
 import { createApiClient, fetchAnalyticsSummary } from "../../../../shared";
@@ -56,6 +57,8 @@ const Analytics = () => {
     const [people, setPeople] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
+
 
     const [activeChartIds, setActiveChartIds] = useState([
         "distribution",
@@ -68,7 +71,15 @@ const Analytics = () => {
     const [isManageOpen, setIsManageOpen] = useState(false);
     const [labels, setLabels] = useState({});
     const [noHousehold, setNoHousehold] = useState(false);
+    const [tick, setTick] = useState(0);
 
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setTick((t) => t + 1);
+        }, 60000);
+
+        return () => clearInterval(interval);
+    }, []);
     // -----------------------------
     // Colors (spread out, stable per person)
     // -----------------------------
@@ -94,6 +105,8 @@ const Analytics = () => {
         });
         return acc;
     }, [sortedPeople]);
+
+
 
     // -----------------------------
     // Reusable empty + wrappers
@@ -150,6 +163,25 @@ const Analytics = () => {
         );
     };
 
+    const formatRelativeTime = (date) => {
+        if (!date) return "";
+
+        const diffMs = Date.now() - date.getTime();
+        const diffSeconds = Math.floor(diffMs / 1000);
+
+        if (diffSeconds < 10) return "Updated just now";
+        if (diffSeconds < 60) return `Updated ${diffSeconds}s ago`;
+
+        const diffMinutes = Math.floor(diffSeconds / 60);
+        if (diffMinutes < 60) return `Updated ${diffMinutes} min ago`;
+
+        const diffHours = Math.floor(diffMinutes / 60);
+        if (diffHours < 24) return `Updated ${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+
+        const diffDays = Math.floor(diffHours / 24);
+        return `Updated ${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+    };
+
     // -----------------------------
     // API Client (shared)
     // -----------------------------
@@ -182,6 +214,8 @@ const Analytics = () => {
             setRadarData(summary.radarData || []);
             setStats(summary.stats || []);
             setLabels(summary.labels || {});
+            setLastUpdatedAt(new Date());
+
         } catch (err) {
             const msg = err?.message || "";
 
@@ -252,10 +286,34 @@ const Analytics = () => {
                     Analytics
                 </h1>
 
-                <Button onClick={() => setIsManageOpen(true)} variant="outline">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Manage Charts
-                </Button>
+                <div className="flex items-center gap-3">
+                    {lastUpdatedAt ? (
+                        <p
+                            className="text-xs text-muted-foreground"
+                            title={lastUpdatedAt.toLocaleString()}
+                        >
+                            {formatRelativeTime(lastUpdatedAt)}
+                        </p>
+                    ) : null}
+
+
+
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={load}
+                        disabled={loading}
+                        title="Refresh analytics"
+                        aria-label="Refresh analytics"
+                    >
+                        <RefreshCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                    </Button>
+
+                    <Button onClick={() => setIsManageOpen(true)} variant="outline">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Manage Charts
+                    </Button>
+                </div>
             </motion.div>
 
             {/* Stats Grid */}
