@@ -1,6 +1,6 @@
 // src/pages/Login.jsx
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 import { ArrowLeft, Mail, Lock, Eye, EyeOff, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ const Login = () => {
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
 
@@ -83,6 +84,10 @@ const Login = () => {
 
     try {
       if (isSignUp) {
+        if (password !== confirmPassword) {
+          throw new Error("Passwords do not match.");
+        }
+
         const registerRes = await fetch(`${API_BASE_URL}/api/users/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -134,12 +139,12 @@ const Login = () => {
       {/* Left decorative panel */}
       <div className="hidden lg:flex lg:w-1/2 gradient-hero relative items-center justify-center p-12">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <motion.div
+          <Motion.div
             className="absolute -top-20 -right-20 w-80 h-80 rounded-full bg-sage/10 blur-3xl"
             animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.5, 0.3] }}
             transition={{ duration: 8, repeat: Infinity }}
           />
-          <motion.div
+          <Motion.div
             className="absolute -bottom-40 -left-20 w-96 h-96 rounded-full bg-terracotta/10 blur-3xl"
             animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.4, 0.2] }}
             transition={{ duration: 10, repeat: Infinity, delay: 1 }}
@@ -160,7 +165,7 @@ const Login = () => {
 
       {/* Right form panel */}
       <div className="flex-1 flex items-center justify-center p-6">
-        <motion.div
+        <Motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-md"
@@ -287,6 +292,24 @@ const Login = () => {
               </div>
             </div>
 
+            {isSignUp && (
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="confirmPassword"
+                    type={showPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="pl-10 pr-10"
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+            )}
+
             {authError && (
               <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md p-3">
                 {authError}
@@ -314,7 +337,7 @@ const Login = () => {
               {isSignUp ? "Sign in" : "Sign up"}
             </button>
           </p>
-        </motion.div>
+        </Motion.div>
       </div>
     </div>
   );
