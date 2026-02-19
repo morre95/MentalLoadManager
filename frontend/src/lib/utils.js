@@ -5,6 +5,7 @@ import {
   createKanbanTask as sharedCreateKanbanTask,
   createApiClient,
   deleteKanbanTask as sharedDeleteKanbanTask,
+  fetchKanbanAssignees as sharedFetchKanbanAssignees,
   fetchKanbanTasks as sharedFetchKanbanTasks,
   fetchMe as sharedFetchMe,
   getApiBaseUrl,
@@ -108,6 +109,10 @@ export async function apiFetch(path, options = {}) {
 
 export async function fetchKanbanTasks() {
   return sharedFetchKanbanTasks(apiClient);
+}
+
+export async function fetchKanbanAssignees(householdId) {
+  return sharedFetchKanbanAssignees(apiClient, householdId);
 }
 
 export async function createKanbanTask(payload) {

@@ -60,6 +60,20 @@ export async function fetchKanbanTasks(apiClient) {
   };
 }
 
+export async function fetchKanbanAssignees(apiClient, householdId) {
+  const encodedHouseholdId = encodeURIComponent(String(householdId || "").trim());
+  const data = await apiClient.request(
+    `/api/kanban/households/${encodedHouseholdId}/assignees`,
+    { method: "GET" }
+  );
+  const assignees = Array.isArray(data?.assignees) ? data.assignees : [];
+
+  return {
+    ...data,
+    assignees,
+  };
+}
+
 export async function updateKanbanTaskStatus(apiClient, taskId, status) {
   return apiClient.request(`/api/kanban/tasks/${taskId}/status`, {
     method: "PATCH",

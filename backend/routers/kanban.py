@@ -64,6 +64,16 @@ class KanbanTasksResponse(BaseModel):
     tasks: list[KanbanTask]
 
 
+class KanbanAssignee(BaseModel):
+    user_id: str
+    username: str
+    display_name: str | None = None
+
+
+class KanbanAssigneesResponse(BaseModel):
+    assignees: list[KanbanAssignee]
+
+
 class UpdateTaskStatusRequest(BaseModel):
     status: str
 
@@ -202,6 +212,68 @@ def list_kamban_tasks(current_user: UserEmail = Depends(get_current_user)):
             for row in rows
         ]
     )
+
+
+@router.get(
+    "/households/{household_id}/assignees",
+    response_model=KanbanAssigneesResponse,
+)
+def list_household_assignees(
+    household_id: UUID,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        me = db.scalar(select(UserDB).where(UserDB.username == current_user.username))
+        if not me:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        requester_membership = db.scalar(
+            select(UsersHouseholds).where(
+                and_(
+                    UsersHouseholds.user_id == me.user_id,
+                    UsersHouseholds.household_id == household_id,
+                )
+            )
+        )
+        if requester_membership is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a member of the specified household",
+            )
+
+        rows = db.execute(
+            select(
+                UserDB.user_id,
+                UserDB.username,
+                UserDB.display_name,
+            )
+            .join(UsersHouseholds, UsersHouseholds.user_id == UserDB.user_id)
+            .where(UsersHouseholds.household_id == household_id)
+            .order_by(UserDB.username.asc())
+        ).all()
+
+        return KanbanAssigneesResponse(
+            assignees=[
+                KanbanAssignee(
+                    user_id=str(row.user_id),
+                    username=row.username,
+                    display_name=row.display_name,
+                )
+                for row in rows
+            ]
+        )
 
 
 @router.post(

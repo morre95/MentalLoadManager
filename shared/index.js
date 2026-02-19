@@ -4,6 +4,7 @@ export { createApiClient } from "./apiClient.js";
 export {
   createKanbanTask,
   deleteKanbanTask,
+  fetchKanbanAssignees,
   fetchKanbanTasks,
   mapApiTaskToUi,
   toApiTaskStatus,

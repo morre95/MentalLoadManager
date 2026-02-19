@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { createKanbanTask } from "@/lib/utils";
+import { createKanbanTask, fetchKanbanAssignees } from "@/lib/utils";
 
 const categories = [
     "Shopping",
@@ -30,8 +30,8 @@ const categories = [
     "Other",
 ];
 
-const assignees = ["Maria", "Erik"];
 const CUSTOM_CATEGORY_VALUE = "__custom__";
+const UNASSIGNED_ASSIGNEE_VALUE = "__unassigned__";
 
 function resolveHouseholdId() {
     if (typeof window === "undefined") return null;
@@ -66,10 +66,54 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
     const [priority, setPriority] = useState("medium");
     const [category, setCategory] = useState("Other");
     const [customCategory, setCustomCategory] = useState("");
-    const [assignee, setAssignee] = useState("Maria");
+    const [assignees, setAssignees] = useState([]);
+    const [assigneeId, setAssigneeId] = useState("");
+    const [loadingAssignees, setLoadingAssignees] = useState(false);
+    const [assigneesError, setAssigneesError] = useState("");
     const [dueDate, setDueDate] = useState("");
     const [saving, setSaving] = useState(false);
     const [submitError, setSubmitError] = useState("");
+
+    useEffect(() => {
+        if (!open) return;
+
+        const householdId = resolveHouseholdId();
+        if (!householdId) {
+            setAssignees([]);
+            setAssigneeId("");
+            setAssigneesError("No household found. Create or join a household first.");
+            return;
+        }
+
+        const loadAssignees = async () => {
+            setLoadingAssignees(true);
+            setAssigneesError("");
+
+            try {
+                const data = await fetchKanbanAssignees(householdId);
+                const nextAssignees = Array.isArray(data?.assignees) ? data.assignees : [];
+                setAssignees(nextAssignees);
+
+                setAssigneeId((previousAssigneeId) => {
+                    if (
+                        previousAssigneeId &&
+                        nextAssignees.some((member) => member.user_id === previousAssigneeId)
+                    ) {
+                        return previousAssigneeId;
+                    }
+                    return "";
+                });
+            } catch (err) {
+                setAssignees([]);
+                setAssigneeId("");
+                setAssigneesError(err?.message || "Could not load household members.");
+            } finally {
+                setLoadingAssignees(false);
+            }
+        };
+
+        loadAssignees();
+    }, [open]);
 
     const handleSubmit = async () => {
         if (!title.trim()) return;
@@ -96,7 +140,12 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
                 description: description.trim() || null,
                 priority,
                 due_date: dueDateIso,
+                assigns_to: assigneeId || null,
             });
+
+            const selectedAssignee = assignees.find((member) => member.user_id === assigneeId);
+            const assigneeLabel =
+                selectedAssignee?.display_name || selectedAssignee?.username || "Unassigned";
 
             const newTask = {
                 id: String(createdTask?.task_id || crypto.randomUUID()),
@@ -104,7 +153,7 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
                 description: description.trim() || "",
                 status: "todo",
                 priority,
-                assignee,
+                assignee: assigneeLabel,
                 category: finalCategory,
                 dueDate: dueDate ? new Date(dueDateIso).toLocaleDateString() : "",
             };
@@ -125,7 +174,8 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
         setPriority("medium");
         setCategory("Other");
         setCustomCategory("");
-        setAssignee("Maria");
+        setAssigneeId("");
+        setAssigneesError("");
         setDueDate("");
         setSubmitError("");
         onOpenChange(false);
@@ -210,18 +260,37 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>Assign to</Label>
-                            <Select value={assignee} onValueChange={setAssignee}>
+                            <Select
+                                value={assigneeId || UNASSIGNED_ASSIGNEE_VALUE}
+                                onValueChange={(value) =>
+                                    setAssigneeId(
+                                        value === UNASSIGNED_ASSIGNEE_VALUE ? "" : value
+                                    )
+                                }
+                            >
                                 <SelectTrigger>
-                                    <SelectValue />
+                                    <SelectValue
+                                        placeholder={
+                                            loadingAssignees
+                                                ? "Loading members..."
+                                                : "Select assignee"
+                                        }
+                                    />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {assignees.map((name) => (
-                                        <SelectItem key={name} value={name}>
-                                            {name}
+                                    <SelectItem value={UNASSIGNED_ASSIGNEE_VALUE}>
+                                        Unassigned
+                                    </SelectItem>
+                                    {assignees.map((member) => (
+                                        <SelectItem key={member.user_id} value={member.user_id}>
+                                            {member.display_name || member.username}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
+                            {assigneesError ? (
+                                <p className="text-xs text-destructive">{assigneesError}</p>
+                            ) : null}
                         </div>
 
                         <div className="space-y-2">
