@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 import {
   ListTodo,
   Plus,
@@ -41,6 +41,7 @@ import { useTaskboardTasks } from "@/hooks/useTaskboardTasks";
 import {
   deleteKanbanTask,
   updateKanbanTaskDescription,
+  updateKanbanTaskAssignee,
   updateKanbanTaskDueDate,
   updateKanbanTaskName,
   updateKanbanTaskOrder,
@@ -338,6 +339,25 @@ const Tasks = () => {
     }
   };
 
+  const handleUpdateTaskAssignee = async (taskId, assigneeId, assigneeLabel) => {
+    const rollbackTasks = tasks;
+    const rollbackSelectedTask = selectedTask;
+    setSyncError(null);
+
+    handleUpdateTaskDetails(taskId, {
+      assigneeId: assigneeId || undefined,
+      assignee: assigneeLabel || "Unassigned",
+    });
+
+    try {
+      await updateKanbanTaskAssignee(taskId, assigneeId || null);
+    } catch (e) {
+      setTasks(rollbackTasks);
+      setSelectedTask(rollbackSelectedTask);
+      setSyncError(e);
+    }
+  };
+
   const handleDeleteTask = async (taskId) => {
     const rollbackTasks = tasks;
     const rollbackSelectedTask = selectedTask;
@@ -447,7 +467,7 @@ const Tasks = () => {
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      <motion.div
+      <Motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between"
@@ -478,7 +498,7 @@ const Tasks = () => {
           ) : null}
         </div>
 
-      </motion.div>
+      </Motion.div>
 
       <DndContext
         sensors={sensors}
@@ -487,7 +507,7 @@ const Tasks = () => {
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <motion.div
+        <Motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
@@ -505,7 +525,7 @@ const Tasks = () => {
               onAddTask={col.id === "todo" ? () => setIsAddDialogOpen(true) : undefined}
             />
           ))}
-        </motion.div>
+        </Motion.div>
 
         <DragOverlay>
           {activeTask ? <TaskOverlayCard task={activeTask} /> : null}
@@ -528,6 +548,7 @@ const Tasks = () => {
         onUpdateTaskDueDate={handleUpdateTaskDueDate}
         onUpdateTaskDescription={handleUpdateTaskDescription}
         onUpdateTaskTitle={handleUpdateTaskTitle}
+        onUpdateTaskAssignee={handleUpdateTaskAssignee}
         onDeleteTask={handleDeleteTask}
       />
     </div>

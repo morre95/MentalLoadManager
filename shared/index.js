@@ -9,6 +9,7 @@ export {
   mapApiTaskToUi,
   toApiTaskStatus,
   updateKanbanTaskDescription,
+  updateKanbanTaskAssignee,
   updateKanbanTaskDueDate,
   updateKanbanTaskName,
   updateKanbanTaskOrder,

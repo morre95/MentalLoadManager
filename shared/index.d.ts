@@ -22,6 +22,7 @@ export type UiTask = {
   description?: string;
   status: "todo" | "in-progress" | "on-hold" | "done" | string;
   priority: "low" | "medium" | "high" | string;
+  assigneeId?: string;
   assignee: string;
   dueDate?: string;
   category: string;
@@ -81,6 +82,11 @@ export function updateKanbanTaskDescription(
   apiClient: ApiClient,
   taskId: string,
   description: string | null
+): Promise<any>;
+export function updateKanbanTaskAssignee(
+  apiClient: ApiClient,
+  taskId: string,
+  assigneeId: string | null
 ): Promise<any>;
 export function updateKanbanTaskName(
   apiClient: ApiClient,

@@ -44,6 +44,7 @@ export function mapApiTaskToUi(task) {
     description: task.description || "",
     status: normalizeStatus(task.status),
     priority: normalizePriority(task),
+    assigneeId: task.assignee_user_id ? String(task.assignee_user_id) : undefined,
     assignee: task.assignee_name || "Unassigned",
     dueDate: formatDueDate(task.due_date),
     category: task.category_name || "Other",
@@ -114,6 +115,15 @@ export async function updateKanbanTaskDescription(apiClient, taskId, description
     method: "PATCH",
     body: JSON.stringify({
       description: description ?? null,
+    }),
+  });
+}
+
+export async function updateKanbanTaskAssignee(apiClient, taskId, assigneeId) {
+  return apiClient.request(`/api/kanban/tasks/${taskId}/assignee`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      assigns_to: assigneeId || null,
     }),
   });
 }

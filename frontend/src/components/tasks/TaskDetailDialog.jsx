@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
+import { motion as Motion } from "framer-motion";
 import {
   Clock,
   AlertCircle,
@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { fetchKanbanAssignees } from "@/lib/utils";
 
 const priorityColors = {
   low: "bg-sage-light text-sage border-sage/30",
@@ -47,6 +48,35 @@ function toDateInputValue(value) {
   return parsed.toISOString().slice(0, 10);
 }
 
+const UNASSIGNED_ASSIGNEE_VALUE = "__unassigned__";
+
+function resolveHouseholdId() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const selectedHouseholdRaw = localStorage.getItem("household");
+    if (selectedHouseholdRaw) {
+      const selectedHousehold = JSON.parse(selectedHouseholdRaw);
+      const selectedHouseholdId =
+        selectedHousehold?.household_id ??
+        selectedHousehold?.id ??
+        selectedHousehold;
+      if (selectedHouseholdId) return String(selectedHouseholdId);
+    }
+  } catch {
+    // Ignore malformed local storage and fallback to households list.
+  }
+
+  try {
+    const householdsRaw = localStorage.getItem("households");
+    const households = householdsRaw ? JSON.parse(householdsRaw) : [];
+    const firstHouseholdId = households?.[0]?.household_id ?? households?.[0]?.id;
+    return firstHouseholdId ? String(firstHouseholdId) : null;
+  } catch {
+    return null;
+  }
+}
+
 const TaskDetailDialog = ({
   task,
   open,
@@ -57,12 +87,15 @@ const TaskDetailDialog = ({
   onUpdateTaskDueDate,
   onUpdateTaskDescription,
   onUpdateTaskTitle,
+  onUpdateTaskAssignee,
   onDeleteTask,
 }) => {
   const status = statusConfig[task?.status] || statusConfig.todo;
   const StatusIcon = status.icon;
   const [editingField, setEditingField] = useState(null);
-  const [assigneeDraft, setAssigneeDraft] = useState("");
+  const [assignees, setAssignees] = useState([]);
+  const [assigneeIdDraft, setAssigneeIdDraft] = useState(UNASSIGNED_ASSIGNEE_VALUE);
+  const [assigneesError, setAssigneesError] = useState("");
   const [categoryDraft, setCategoryDraft] = useState("");
   const [dueDateDraft, setDueDateDraft] = useState("");
   const [descriptionDraft, setDescriptionDraft] = useState("");
@@ -74,13 +107,32 @@ const TaskDetailDialog = ({
     return "medium";
   }, [task?.priority]);
 
-  if (!task) return null;
+  useEffect(() => {
+    if (!open) return;
 
-  const saveAssignee = () => {
-    const nextAssignee = assigneeDraft.trim() || "Unassigned";
-    onUpdateTask?.(task.id, { assignee: nextAssignee });
-    setEditingField(null);
-  };
+    const loadAssignees = async () => {
+      const householdId = resolveHouseholdId();
+      if (!householdId) {
+        setAssignees([]);
+        setAssigneesError("No household found. Create or join a household first.");
+        return;
+      }
+
+      setAssigneesError("");
+      try {
+        const data = await fetchKanbanAssignees(householdId);
+        const nextAssignees = Array.isArray(data?.assignees) ? data.assignees : [];
+        setAssignees(nextAssignees);
+      } catch (err) {
+        setAssignees([]);
+        setAssigneesError(err?.message || "Could not load household members.");
+      }
+    };
+
+    loadAssignees();
+  }, [open]);
+
+  if (!task) return null;
 
   const saveCategory = () => {
     const nextCategory = categoryDraft.trim() || "Other";
@@ -161,7 +213,7 @@ const TaskDetailDialog = ({
           </DialogTitle>
         </DialogHeader>
 
-        <motion.div
+        <Motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="space-y-5 mt-2"
@@ -260,26 +312,50 @@ const TaskDetailDialog = ({
               <div>
                 <p className="text-xs text-muted-foreground">Assigned to</p>
                 {editingField === "assignee" ? (
-                  <Input
-                    value={assigneeDraft}
-                    onChange={(e) => setAssigneeDraft(e.target.value)}
-                    onBlur={saveAssignee}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") saveAssignee();
-                      if (e.key === "Escape") {
-                        setAssigneeDraft(task.assignee || "");
+                  <div className="mt-1 space-y-1">
+                    <Select
+                      value={assigneeIdDraft}
+                      onValueChange={(value) => {
+                        setAssigneeIdDraft(value);
+                        const selectedAssignee = assignees.find(
+                          (member) => member.user_id === value
+                        );
+                        const nextAssigneeId =
+                          value === UNASSIGNED_ASSIGNEE_VALUE ? null : value;
+                        const nextAssigneeLabel =
+                          selectedAssignee?.display_name ||
+                          selectedAssignee?.username ||
+                          "Unassigned";
+                        onUpdateTaskAssignee?.(task.id, nextAssigneeId, nextAssigneeLabel);
                         setEditingField(null);
-                      }
-                    }}
-                    autoFocus
-                    className="h-8 mt-1 w-40"
-                  />
+                      }}
+                    >
+                      <SelectTrigger className="h-8 w-44">
+                        <SelectValue placeholder="Select assignee" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={UNASSIGNED_ASSIGNEE_VALUE}>
+                          Unassigned
+                        </SelectItem>
+                        {assignees.map((member) => (
+                          <SelectItem key={member.user_id} value={member.user_id}>
+                            {member.display_name || member.username}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {assigneesError ? (
+                      <p className="text-xs text-destructive">{assigneesError}</p>
+                    ) : null}
+                  </div>
                 ) : (
                   <button
                     type="button"
                     className="text-sm font-medium text-foreground text-left"
                     onClick={() => {
-                      setAssigneeDraft(task.assignee || "");
+                      setAssigneeIdDraft(
+                        task.assigneeId || UNASSIGNED_ASSIGNEE_VALUE
+                      );
                       setEditingField("assignee");
                     }}
                   >
@@ -386,7 +462,7 @@ const TaskDetailDialog = ({
             </Button>
 
           </div>
-        </motion.div>
+        </Motion.div>
       </DialogContent>
     </Dialog>
   );

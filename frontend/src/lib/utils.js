@@ -10,6 +10,7 @@ import {
   fetchMe as sharedFetchMe,
   getApiBaseUrl,
   updateKanbanTaskDescription as sharedUpdateKanbanTaskDescription,
+  updateKanbanTaskAssignee as sharedUpdateKanbanTaskAssignee,
   updateKanbanTaskDueDate as sharedUpdateKanbanTaskDueDate,
   updateKanbanTaskName as sharedUpdateKanbanTaskName,
   updateKanbanTaskOrder as sharedUpdateKanbanTaskOrder,
@@ -145,6 +146,10 @@ export async function updateKanbanTaskDueDate(taskId, dueDate) {
 
 export async function updateKanbanTaskDescription(taskId, description) {
   return sharedUpdateKanbanTaskDescription(apiClient, taskId, description);
+}
+
+export async function updateKanbanTaskAssignee(taskId, assigneeId) {
+  return sharedUpdateKanbanTaskAssignee(apiClient, taskId, assigneeId);
 }
 
 export async function updateKanbanTaskName(taskId, name) {

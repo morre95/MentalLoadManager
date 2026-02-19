@@ -56,6 +56,7 @@ class KanbanTask(BaseModel):
     status: str
     priority: str
     due_date: datetime | None = None
+    assignee_user_id: str | None = None
     assignee_name: str | None = None
     category_name: str | None = None
 
@@ -103,6 +104,17 @@ class UpdateTaskDueDateRequest(BaseModel):
 class UpdateTaskDueDateResponse(BaseModel):
     task_id: str
     due_date: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class UpdateTaskAssigneeRequest(BaseModel):
+    assigns_to: UUID | None = None
+
+
+class UpdateTaskAssigneeResponse(BaseModel):
+    task_id: str
+    assigns_to: str | None = None
+    assignee_name: str | None = None
     updated_at: datetime | None = None
 
 
@@ -176,6 +188,7 @@ def list_kamban_tasks(current_user: UserEmail = Depends(get_current_user)):
                 Tasks.status,
                 Tasks.priority,
                 Tasks.due_date,
+                Tasks.assigns_to.label("assignee_user_id"),
                 UserDB.username.label("assignee_name"),
                 Categories.name.label("category_name"),
             )
@@ -206,6 +219,9 @@ def list_kamban_tasks(current_user: UserEmail = Depends(get_current_user)):
                 status=row.status,
                 priority=row.priority,
                 due_date=row.due_date,
+                assignee_user_id=str(row.assignee_user_id)
+                if row.assignee_user_id
+                else None,
                 assignee_name=row.assignee_name,
                 category_name=row.category_name,
             )
@@ -651,6 +667,100 @@ def update_task_due_date(
         return UpdateTaskDueDateResponse(
             task_id=str(task.task_id),
             due_date=task.due_date,
+            updated_at=task.updated_at,
+        )
+
+
+@router.patch(
+    "/tasks/{task_id}/assignee",
+    response_model=UpdateTaskAssigneeResponse,
+)
+def update_task_assignee(
+    task_id: UUID,
+    payload: UpdateTaskAssigneeRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        me = db.scalar(select(UserDB).where(UserDB.username == current_user.username))
+        if not me:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        task = db.scalar(select(Tasks).where(Tasks.task_id == task_id))
+        if task is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Task was not found",
+            )
+
+        requester_membership = db.scalar(
+            select(UsersHouseholds).where(
+                and_(
+                    UsersHouseholds.user_id == me.user_id,
+                    UsersHouseholds.household_id == task.household_id,
+                )
+            )
+        )
+        if requester_membership is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a member of the task household",
+            )
+
+        next_assignee_id = payload.assigns_to
+        next_assignee_name = None
+        if next_assignee_id:
+            assignee = db.scalar(select(UserDB).where(UserDB.user_id == next_assignee_id))
+            if not assignee:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Assignee was not found",
+                )
+
+            assignee_membership = db.scalar(
+                select(UsersHouseholds).where(
+                    and_(
+                        UsersHouseholds.user_id == next_assignee_id,
+                        UsersHouseholds.household_id == task.household_id,
+                    )
+                )
+            )
+            if assignee_membership is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Assignee is not a member of the task household",
+                )
+
+            next_assignee_name = assignee.display_name or assignee.username
+
+        task.assigns_to = next_assignee_id
+        task.updated_at = datetime.now(timezone.utc)
+
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Unable to update task assignee",
+            ) from exc
+
+        db.refresh(task)
+        return UpdateTaskAssigneeResponse(
+            task_id=str(task.task_id),
+            assigns_to=str(task.assigns_to) if task.assigns_to else None,
+            assignee_name=next_assignee_name,
             updated_at=task.updated_at,
         )
 

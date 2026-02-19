@@ -153,6 +153,7 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
                 description: description.trim() || "",
                 status: "todo",
                 priority,
+                assigneeId: assigneeId || undefined,
                 assignee: assigneeLabel,
                 category: finalCategory,
                 dueDate: dueDate ? new Date(dueDateIso).toLocaleDateString() : "",
