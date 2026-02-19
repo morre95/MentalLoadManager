@@ -55,6 +55,13 @@ function nextStatus(status: string) {
   return 'todo';
 }
 
+function previousStatus(status: string) {
+  if (status === 'done') return 'on-hold';
+  if (status === 'on-hold') return 'in-progress';
+  if (status === 'in-progress') return 'todo';
+  return 'done';
+}
+
 export default function TasksScreen() {
   const [tasks, setTasks] = useState<UiTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,9 +116,10 @@ export default function TasksScreen() {
     }));
   }, [tasks]);
 
-  const onCycleStatus = useCallback(
-    async (task: UiTask) => {
-      const targetStatus = nextStatus(task.status);
+  const onChangeStatus = useCallback(
+    async (task: UiTask, direction: 'forward' | 'backward') => {
+      const targetStatus =
+        direction === 'forward' ? nextStatus(task.status) : previousStatus(task.status);
       const previous = tasks;
 
       setTasks((current) =>
@@ -282,11 +290,24 @@ export default function TasksScreen() {
               </Text>
               {task.dueDate ? <Text style={styles.taskMeta}>Due {task.dueDate}</Text> : null}
 
-              <Pressable style={styles.secondaryButton} onPress={() => onCycleStatus(task)}>
-                <Text style={styles.secondaryButtonText}>
-                  Move to {COLUMN_LABELS[nextStatus(task.status)]}
-                </Text>
-              </Pressable>
+              <View style={styles.statusActions}>
+                <Pressable
+                  style={[styles.secondaryButton, styles.statusActionButton]}
+                  onPress={() => onChangeStatus(task, 'backward')}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    Move back to {COLUMN_LABELS[previousStatus(task.status)]}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.secondaryButton, styles.statusActionButton]}
+                  onPress={() => onChangeStatus(task, 'forward')}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    Move to {COLUMN_LABELS[nextStatus(task.status)]}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           ))}
 
@@ -419,6 +440,13 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: COLORS.text,
     fontWeight: '600',
+  },
+  statusActions: {
+    marginTop: 4,
+    gap: 8,
+  },
+  statusActionButton: {
+    marginTop: 0,
   },
   addTaskWrap: {
     marginTop: 4,
