@@ -10,12 +10,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import and_, func, or_, select, delete
+from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 
 from helpers import get_current_user, get_session_local
-from models import Households, Invitations, UserDB, UsersHouseholds, UserEmail
+from models import Households, Invitations, Tasks, UserDB, UsersHouseholds, UserEmail
 
 router = APIRouter(prefix="/api/household", tags=["household"])
 
@@ -521,6 +521,7 @@ def remove_household_member(
         if not membership:
             raise HTTPException(status_code=404, detail="User is not in that household")
 
+        _unassign_user_tasks_in_household(db, payload.household_id, payload.user_id)
         db.delete(membership)
         db.flush()
         _delete_household_if_empty(db, payload.household_id)
@@ -548,6 +549,7 @@ def leave_household(
         if not membership:
             raise HTTPException(status_code=404, detail="You are not in that household")
 
+        _unassign_user_tasks_in_household(db, payload.household_id, me.user_id)
         db.delete(membership)
         db.flush()
         _delete_household_if_empty(db, payload.household_id)
@@ -565,3 +567,14 @@ def _delete_household_if_empty(db, household_id: UUID) -> None:
 
     if (remaining or 0) == 0:
         db.execute(delete(Households).where(Households.household_id == household_id))
+
+
+def _unassign_user_tasks_in_household(db, household_id: UUID, user_id: UUID) -> None:
+    db.execute(
+        update(Tasks)
+        .where(
+            Tasks.household_id == household_id,
+            Tasks.assigns_to == user_id,
+        )
+        .values(assigns_to=None, updated_at=func.now())
+    )

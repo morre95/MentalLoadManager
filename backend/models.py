@@ -267,7 +267,7 @@ class Tasks(Base):
     __tablename__ = "tasks"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('todo', 'in_progress', 'done', 'on_hold')",
+            "status IN ('todo', 'in_progress', 'done', 'on_hold', 'archive')",
             name="tasks_status_check",
         ),
     )
