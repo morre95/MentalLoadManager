@@ -65,6 +65,7 @@ const columns = [
 ];
 const ARCHIVE_COLUMN_ID = "archive";
 const ALL_HOUSEHOLDS_VALUE = "__all_households__";
+const MAX_VISIBLE_TASKS_PER_COLUMN = 8;
 
 
 function toApiStatus(status) {
@@ -166,6 +167,8 @@ const DroppableColumn = ({
   title,
   colorClass,
   tasks,
+  isExpanded,
+  onToggleExpand,
   onToggleStatus,
   onClickTask,
   onAddTask,
@@ -174,6 +177,12 @@ const DroppableColumn = ({
   onToggleArchive,
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
+  const hasOverflow = tasks.length > MAX_VISIBLE_TASKS_PER_COLUMN;
+  const visibleTasks =
+    hasOverflow && !isExpanded
+      ? tasks.slice(0, MAX_VISIBLE_TASKS_PER_COLUMN)
+      : tasks;
+  const hiddenCount = tasks.length - visibleTasks.length;
 
   return (
     <Card className={`border-border min-w-0 transition-colors ${isOver ? "ring-2 ring-primary/30 bg-primary/5" : ""}`}>
@@ -188,8 +197,8 @@ const DroppableColumn = ({
       </CardHeader>
 
       <CardContent ref={setNodeRef} className="space-y-3 min-h-[60px]">
-        <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-          {tasks.map((task) => (
+        <SortableContext items={visibleTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+          {visibleTasks.map((task) => (
             <SortableTaskCard
               key={task.id}
               task={task}
@@ -198,6 +207,16 @@ const DroppableColumn = ({
             />
           ))}
         </SortableContext>
+
+        {hasOverflow ? (
+          <Button
+            variant="ghost"
+            className="w-full border border-border text-muted-foreground hover:text-foreground"
+            onClick={onToggleExpand}
+          >
+            {isExpanded ? "Show less" : `+${hiddenCount} more`}
+          </Button>
+        ) : null}
 
         {id === "todo" && onAddTask ? (
           <Button
@@ -247,9 +266,17 @@ const Tasks = () => {
   const [dragSnapshot, setDragSnapshot] = useState(null);
   const [syncError, setSyncError] = useState(null);
   const [showArchive, setShowArchive] = useState(false);
+  const [expandedColumns, setExpandedColumns] = useState({});
   const visibleColumns = showArchive
     ? columns
     : columns.filter((column) => column.id !== ARCHIVE_COLUMN_ID);
+
+  const toggleExpandedColumn = (columnId) => {
+    setExpandedColumns((prev) => ({
+      ...prev,
+      [columnId]: !prev[columnId],
+    }));
+  };
 
   useEffect(() => {
     if (!selectedHouseholdFilter) return;
@@ -647,6 +674,8 @@ const Tasks = () => {
               title={col.title}
               colorClass={col.colorClass}
               tasks={getColumnTasks(col.id)}
+              isExpanded={Boolean(expandedColumns[col.id])}
+              onToggleExpand={() => toggleExpandedColumn(col.id)}
               onToggleStatus={handleToggleStatus}
               onClickTask={setSelectedTask}
               onAddTask={col.id === "todo" ? () => setIsAddDialogOpen(true) : undefined}
