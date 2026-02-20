@@ -30,54 +30,52 @@ const COLORS = {
   primary: '#64786f',
   todo: '#d49a00',
   doing: '#5470b3',
-  hold: '#8a7bbf',
   done: '#4f8a62',
+  archive: '#8a7bbf',
 } as const;
 
-const COLUMN_ORDER = ['todo', 'in-progress', 'on-hold', 'done'] as const;
+const COLUMN_ORDER = ['todo', 'in-progress', 'done', 'archive'] as const;
+const ALL_HOUSEHOLDS = '__all_households__';
 
 const COLUMN_LABELS: Record<string, string> = {
   todo: 'To Do',
   'in-progress': 'In Progress',
-  'on-hold': 'On Hold',
   done: 'Done',
+  archive: 'Archive',
 };
 
 const STATUS_COLORS: Record<string, string> = {
   todo: COLORS.todo,
   'in-progress': COLORS.doing,
-  'on-hold': COLORS.hold,
   done: COLORS.done,
+  archive: COLORS.archive,
 };
 const BOTTOM_REFRESH_THRESHOLD = 80;
 const SCROLL_REFRESH_COOLDOWN_MS = 15000;
 
 function nextStatus(status: string) {
   if (status === 'todo') return 'in-progress';
-  if (status === 'in-progress') return 'on-hold';
-  if (status === 'on-hold') return 'done';
+  if (status === 'in-progress') return 'done';
+  if (status === 'done') return 'archive';
   return 'todo';
 }
 
 function previousStatus(status: string) {
-  if (status === 'done') return 'on-hold';
-  if (status === 'on-hold') return 'in-progress';
+  if (status === 'archive') return 'done';
+  if (status === 'done') return 'in-progress';
   if (status === 'in-progress') return 'todo';
-  return 'done';
+  return 'archive';
 }
 
 function getAssigneeLabel(task: UiTask) {
-  return (
-    task.assigneeLabel ||
-    task.assignee?.displayName ||
-    task.assignee?.display_name ||
-    task.assignee?.username ||
-    'Unassigned'
-  );
+  return task.assigneeLabel || 'Unassigned';
 }
 
 export default function TasksScreen() {
   const [tasks, setTasks] = useState<UiTask[]>([]);
+  const [households, setHouseholds] = useState<Array<{ household_id: string | number; name: string }>>([]);
+  const [selectedHouseholdId, setSelectedHouseholdId] = useState<string>(ALL_HOUSEHOLDS);
+  const [activeColumn, setActiveColumn] = useState<(typeof COLUMN_ORDER)[number]>('todo');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,14 +85,35 @@ export default function TasksScreen() {
   const [addTaskError, setAddTaskError] = useState<string | null>(null);
   const lastScrollRefreshAtRef = useRef(0);
 
+  const selectedHouseholdFilter =
+    selectedHouseholdId === ALL_HOUSEHOLDS ? null : selectedHouseholdId;
+
+  const selectedHouseholdName = useMemo(() => {
+    if (selectedHouseholdId === ALL_HOUSEHOLDS) return 'All households';
+    const household = households.find(
+      (item) => String(item.household_id) === String(selectedHouseholdId)
+    );
+    return household?.name || 'Selected household';
+  }, [households, selectedHouseholdId]);
+
   const loadTasks = useCallback(async () => {
     setError(null);
 
     try {
-      const data = await fetchKanbanTasks(mobileApiClient);
+      const data = await fetchKanbanTasks(mobileApiClient, selectedHouseholdFilter);
       setTasks(Array.isArray(data?.tasks) ? data.tasks : []);
     } catch (err: any) {
       setError(err?.message || 'Could not load tasks');
+    }
+  }, [selectedHouseholdFilter]);
+
+  const loadHouseholds = useCallback(async () => {
+    try {
+      const data = await fetchHouseholds(mobileApiClient);
+      const nextHouseholds = Array.isArray(data?.households) ? data.households : [];
+      setHouseholds(nextHouseholds);
+    } catch (err: any) {
+      setError(err?.message || 'Could not load households');
     }
   }, []);
 
@@ -103,6 +122,7 @@ export default function TasksScreen() {
 
     const run = async () => {
       try {
+        await loadHouseholds();
         await loadTasks();
       } finally {
         if (alive) setLoading(false);
@@ -114,13 +134,14 @@ export default function TasksScreen() {
     return () => {
       alive = false;
     };
-  }, [loadTasks]);
+  }, [loadHouseholds, loadTasks]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    await loadHouseholds();
     await loadTasks();
     setRefreshing(false);
-  }, [loadTasks]);
+  }, [loadHouseholds, loadTasks]);
 
   const onScrollRefresh = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -142,13 +163,21 @@ export default function TasksScreen() {
   );
 
   const grouped = useMemo(() => {
-    return COLUMN_ORDER.map((column) => ({
-      id: column,
-      title: COLUMN_LABELS[column],
-      color: STATUS_COLORS[column],
-      tasks: tasks.filter((task) => task.status === column),
-    }));
+    return COLUMN_ORDER.map((column) => {
+      const columnTasks = tasks.filter((task) => task.status === column);
+      return {
+        id: column,
+        title: COLUMN_LABELS[column],
+        color: STATUS_COLORS[column],
+        tasks: columnTasks,
+      };
+    });
   }, [tasks]);
+
+  const activeColumnData = useMemo(
+    () => grouped.find((column) => column.id === activeColumn) ?? grouped[0],
+    [activeColumn, grouped]
+  );
 
   const onChangeStatus = useCallback(
     async (task: UiTask, direction: 'forward' | 'backward') => {
@@ -177,13 +206,6 @@ export default function TasksScreen() {
     [tasks]
   );
 
-  const resolveHouseholdId = useCallback(async () => {
-    const data = await fetchHouseholds(mobileApiClient);
-    const firstHousehold = Array.isArray(data?.households) ? data.households[0] : null;
-    const householdId = firstHousehold?.household_id;
-    return householdId ? String(householdId) : null;
-  }, []);
-
   const onCreateTask = useCallback(async () => {
     const title = newTaskTitle.trim();
     if (!title || addTaskSaving) return;
@@ -193,7 +215,8 @@ export default function TasksScreen() {
     setAddTaskSaving(true);
 
     try {
-      const householdId = await resolveHouseholdId();
+      const householdId =
+        selectedHouseholdFilter || (households[0]?.household_id ? String(households[0].household_id) : null);
       if (!householdId) {
         setAddTaskError('No household found. Create or join a household first.');
         return;
@@ -211,11 +234,11 @@ export default function TasksScreen() {
       setTasks((previous) => [
         {
           id: String(createdTask?.task_id || `tmp-${Date.now()}`),
+          householdId,
           title,
           description: '',
           status: 'todo',
           priority: 'medium',
-          assignee: null,
           assigneeLabel: 'Unassigned',
           category: 'Other',
         },
@@ -229,7 +252,17 @@ export default function TasksScreen() {
     } finally {
       setAddTaskSaving(false);
     }
-  }, [addTaskSaving, newTaskTitle, resolveHouseholdId]);
+  }, [addTaskSaving, households, newTaskTitle, selectedHouseholdFilter]);
+
+  useEffect(() => {
+    if (selectedHouseholdId === ALL_HOUSEHOLDS) return;
+    const exists = households.some(
+      (item) => String(item.household_id) === String(selectedHouseholdId)
+    );
+    if (!exists) {
+      setSelectedHouseholdId(ALL_HOUSEHOLDS);
+    }
+  }, [households, selectedHouseholdId]);
 
   return (
     <ScrollView
@@ -243,6 +276,7 @@ export default function TasksScreen() {
         <Text style={styles.eyebrow}>Mental Load Manager</Text>
         <Text style={styles.title}>Tasks</Text>
         <Text style={styles.subtitle}>Backend: {mobileApiBaseUrl}</Text>
+        <Text style={styles.subtitle}>View: {selectedHouseholdName}</Text>
       </View>
 
       {loading ? (
@@ -253,21 +287,80 @@ export default function TasksScreen() {
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      {grouped.map((column) => (
-        <View key={column.id} style={styles.columnCard}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filtersRow}
+      >
+        <Pressable
+          onPress={() => setSelectedHouseholdId(ALL_HOUSEHOLDS)}
+          style={[
+            styles.filterChip,
+            selectedHouseholdId === ALL_HOUSEHOLDS && styles.filterChipActive,
+          ]}
+        >
+          <Text
+            style={[
+              styles.filterChipText,
+              selectedHouseholdId === ALL_HOUSEHOLDS && styles.filterChipTextActive,
+            ]}
+          >
+            All households
+          </Text>
+        </Pressable>
+        {households.map((household) => {
+          const householdId = String(household.household_id);
+          const isActive = selectedHouseholdId === householdId;
+          return (
+            <Pressable
+              key={householdId}
+              onPress={() => setSelectedHouseholdId(householdId)}
+              style={[styles.filterChip, isActive && styles.filterChipActive]}
+            >
+              <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+                {household.name}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filtersRow}
+      >
+        {grouped.map((column) => {
+          const isActive = activeColumn === column.id;
+          return (
+            <Pressable
+              key={column.id}
+              onPress={() => setActiveColumn(column.id as (typeof COLUMN_ORDER)[number])}
+              style={[styles.filterChip, isActive && styles.filterChipActive]}
+            >
+              <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+                {column.title} ({column.tasks.length})
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {activeColumnData ? (
+        <View key={activeColumnData.id} style={styles.columnCard}>
           <View style={styles.columnHeader}>
-            <View style={[styles.dot, { backgroundColor: column.color }]} />
-            <Text style={styles.columnTitle}>{column.title}</Text>
+            <View style={[styles.dot, { backgroundColor: activeColumnData.color }]} />
+            <Text style={styles.columnTitle}>{activeColumnData.title}</Text>
             <View style={styles.countPill}>
-              <Text style={styles.countText}>{column.tasks.length}</Text>
+              <Text style={styles.countText}>{activeColumnData.tasks.length}</Text>
             </View>
           </View>
 
-          {column.tasks.length === 0 ? (
+          {activeColumnData.tasks.length === 0 ? (
             <Text style={styles.emptyText}>No tasks in this column.</Text>
           ) : null}
 
-          {column.id === 'todo' ? (
+          {activeColumnData.id === 'todo' ? (
             <View style={styles.addTaskWrap}>
               {isAddTaskOpen ? (
                 <View style={styles.addTaskForm}>
@@ -313,7 +406,7 @@ export default function TasksScreen() {
             </View>
           ) : null}
 
-          {column.tasks.map((task) => (
+          {activeColumnData.tasks.map((task) => (
             <View key={task.id} style={styles.taskCard}>
               <View style={styles.taskHeader}>
                 <Text style={styles.taskTitle}>{task.title}</Text>
@@ -350,7 +443,7 @@ export default function TasksScreen() {
 
 
         </View>
-      ))}
+      ) : null}
     </ScrollView>
   );
 }
@@ -399,6 +492,30 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     padding: 14,
     gap: 10,
+  },
+  filtersRow: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  filterChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  filterChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  filterChipText: {
+    color: COLORS.text,
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  filterChipTextActive: {
+    color: '#fff',
   },
   columnHeader: {
     flexDirection: 'row',
