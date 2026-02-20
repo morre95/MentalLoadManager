@@ -55,7 +55,11 @@ export async function fetchAnalyticsSummary(apiClient, householdId = null, timef
     if (timeframe) params.set("timeframe", timeframe);
 
     const query = params.toString() ? `?${params.toString()}` : "";
-    const data = await apiClient.request(`/api/analytics/summary${query}`, { method: "GET" });
+
+    const data = await apiClient.request(`/api/analytics/summary${query}`, {
+        method: "GET",
+    });
+
     return normalizeAnalyticsSummary(data);
 }
 

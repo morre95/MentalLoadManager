@@ -13,11 +13,19 @@ import {
 } from "lucide-react";
 
 import StackedBarChart from "./stackedbarchart_remove_later";
+import { useHousehold } from "@/hooks/useHouseHold";
 
 import { createApiClient, fetchAnalyticsSummary } from "../../../../shared";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    Select,
+    SelectTrigger,
+    SelectContent,
+    SelectItem,
+    SelectValue,
+} from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getDisplayNameFromUsername } from "@/lib/utils";
 import {
@@ -59,7 +67,7 @@ const Analytics = () => {
     const [radarData, setRadarData] = useState([]);
     const [stats, setStats] = useState([]);
     const [people, setPeople] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
 
@@ -74,10 +82,8 @@ const Analytics = () => {
     const [isManageOpen, setIsManageOpen] = useState(false);
     const [labels, setLabels] = useState({});
     const [noHousehold, setNoHousehold] = useState(false);
+    const { households } = useHousehold();
     const [tick, setTick] = useState(0);
-
-    // ✅ Global timeframe (matches backend param)
-    // "7d" | "30d" | "12w"
     const [timeframe, setTimeframe] = useState("30d");
 
     useEffect(() => {
@@ -87,6 +93,22 @@ const Analytics = () => {
 
         return () => clearInterval(interval);
     }, []);
+
+    const [selectedHouseholdId, setSelectedHouseholdId] = useState(() => {
+        try {
+            const selectedHouseholdRaw = localStorage.getItem("household");
+            if (!selectedHouseholdRaw) return null;
+
+            const selectedHousehold = JSON.parse(selectedHouseholdRaw);
+            const householdId =
+                selectedHousehold?.household_id ?? selectedHousehold?.id ?? selectedHousehold;
+
+            return householdId ? String(householdId) : null;
+        } catch {
+            return null;
+        }
+    });
+
 
     // -----------------------------
     // Colors (spread out, stable per person)
@@ -183,7 +205,6 @@ const Analytics = () => {
 
     // -----------------------------
     // Fetch Analytics (shared) - reusable load()
-    //   ✅ Now passes timeframe to backend
     // -----------------------------
     const load = useCallback(
         async (tf = timeframe) => {
@@ -194,7 +215,7 @@ const Analytics = () => {
             try {
                 // NOTE: update fetchAnalyticsSummary to accept timeframe:
                 // fetchAnalyticsSummary(apiClient, householdId = null, timeframe = "30d")
-                const summary = await fetchAnalyticsSummary(apiClient, null, tf);
+                const summary = await fetchAnalyticsSummary(apiClient, selectedHouseholdId, tf);
 
                 setPeople(summary.people || []);
                 setWeeklyData(summary.weeklyData || []);
@@ -220,7 +241,7 @@ const Analytics = () => {
                 setLoading(false);
             }
         },
-        [apiClient, timeframe]
+        [apiClient, timeframe, selectedHouseholdId]
     );
 
     // initial load + reload when timeframe changes
@@ -229,6 +250,7 @@ const Analytics = () => {
 
         const run = async () => {
             if (!alive) return;
+            if (!selectedHouseholdId) return;
             await load(timeframe);
         };
 
@@ -237,7 +259,41 @@ const Analytics = () => {
         return () => {
             alive = false;
         };
-    }, [load, timeframe]);
+    }, [load, timeframe, selectedHouseholdId]);
+
+    useEffect(() => {
+        if (!Array.isArray(households) || households.length === 0) return;
+
+        if (!selectedHouseholdId) {
+            setSelectedHouseholdId(String(households[0].household_id));
+        }
+    }, [households, selectedHouseholdId]);
+
+    useEffect(() => {
+        if (!selectedHouseholdId) return;
+
+        const selected = (households || []).find(
+            (h) => String(h.household_id) === String(selectedHouseholdId)
+        );
+        if (!selected) return;
+
+        localStorage.setItem("household", JSON.stringify(selected));
+    }, [selectedHouseholdId, households]);
+
+    useEffect(() => {
+        if (!selectedHouseholdId) return;
+        if (!Array.isArray(households) || households.length === 0) return;
+
+        const exists = households.some(
+            (h) => String(h.household_id) === String(selectedHouseholdId)
+        );
+
+        if (!exists) {
+            setSelectedHouseholdId(String(households[0].household_id));
+        }
+    }, [selectedHouseholdId, households]);
+
+
 
     const handleToggleChart = (id) => {
         setActiveChartIds((prev) =>
@@ -250,6 +306,10 @@ const Analytics = () => {
         border: "1px solid hsl(var(--border))",
         borderRadius: "8px",
     };
+
+    if (!Array.isArray(households) || households.length === 0) {
+        return <NoHouseholdState onRetry={load} />;
+    }
 
     if (loading) {
         return <div className="p-6 text-muted-foreground">Loading analytics…</div>;
@@ -286,6 +346,31 @@ const Analytics = () => {
                         <BarChart3 className="w-6 h-6 text-primary" />
                         Analytics
                     </h1>
+
+                    <div className="w-[260px]">
+                        <p className="text-xs text-muted-foreground mb-1">Household view</p>
+
+                        <Select
+                            value={selectedHouseholdId || ""}
+                            onValueChange={(val) => {
+                                setSelectedHouseholdId(val);
+                                setLastUpdatedAt(null);
+                            }}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select household" />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                                {(households || []).map((h) => (
+                                    <SelectItem key={h.household_id} value={String(h.household_id)}>
+                                        {h.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
 
                     {/* ✅ Global timeframe selector */}
                     <div className="flex items-center gap-2 rounded-md border bg-card p-1 w-fit">
