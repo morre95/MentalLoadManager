@@ -1,5 +1,475 @@
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+    Settings as SettingsIcon,
+    Bell,
+    Palette,
+    Shield,
+    Globe,
+    Tag,
+    Plus,
+    X,
+    User,
+    Lock,
+    Monitor,
+    Sun,
+    Moon,
+    Eye,
+    EyeOff,
+    LogOut,
+    Trash2,
+    Download,
+} from "lucide-react";
+
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
+import { toast } from "@/components/ui/sonner";
+
+const defaultCategories = ["Shopping", "Cleaning", "Admin", "Health", "Maintenance", "Planning", "Other"];
+
+const languages = [
+    { value: "en", label: "English" },
+    { value: "es", label: "Español" },
+    { value: "fr", label: "Français" },
+    { value: "de", label: "Deutsch" },
+    { value: "pt", label: "Português" },
+    { value: "nl", label: "Nederlands" },
+    { value: "sv", label: "Svenska" },
+];
+
+const SectionCard = ({ children, delay = 0 }) => (
+    <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay, duration: 0.3 }}
+        className="rounded-xl border border-border bg-card p-5 space-y-4"
+    >
+        {children}
+    </motion.div>
+);
+
+const SectionHeader = ({ icon: Icon, title, description }) => (
+    <div className="flex items-start gap-3 pb-1">
+        <div className="p-2 rounded-lg bg-primary/10 text-primary mt-0.5">
+            <Icon className="h-5 w-5" />
+        </div>
+        <div>
+            <h2 className="font-display text-lg font-semibold text-foreground">{title}</h2>
+            <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+    </div>
+);
+
+const SettingRow = ({ label, description, children }) => (
+    <div className="flex items-center justify-between gap-4 py-2">
+        <div className="min-w-0">
+            <Label className="text-sm font-medium text-foreground">{label}</Label>
+            {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
+        </div>
+        <div className="shrink-0">{children}</div>
+    </div>
+);
+
 const Settings = () => {
-    return <nav>Hej</nav>;
+    const [categories, setCategories] = useState(defaultCategories);
+    const [newCategory, setNewCategory] = useState("");
+    const [language, setLanguage] = useState("en");
+    const [theme, setTheme] = useState("light");
+
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [currentPassword, setCurrentPassword] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+
+    // Notification preferences
+    const [pushNotifications, setPushNotifications] = useState(true);
+    const [emailNotifications, setEmailNotifications] = useState(true);
+    const [weeklyAnalytics, setWeeklyAnalytics] = useState(true);
+    const [taskReminders, setTaskReminders] = useState(true);
+    const [goalMilestones, setGoalMilestones] = useState(true);
+    const [householdUpdates, setHouseholdUpdates] = useState(false);
+
+    // Privacy
+    const [profileVisible, setProfileVisible] = useState(true);
+    const [activityVisible, setActivityVisible] = useState(true);
+
+    const handleAddCategory = () => {
+        const trimmed = newCategory.trim();
+        if (trimmed && !categories.includes(trimmed)) {
+            setCategories([...categories, trimmed]);
+            setNewCategory("");
+            toast.success(`Category "${trimmed}" added`);
+        }
+    };
+
+    const handleDeleteCategory = (cat) => {
+        setCategories(categories.filter((c) => c !== cat));
+        toast.success(`Category "${cat}" removed`);
+    };
+
+    const handleThemeChange = (value) => {
+        setTheme(value);
+        const root = document.documentElement;
+
+        if (value === "dark") root.classList.add("dark");
+        else if (value === "light") root.classList.remove("dark");
+        else {
+            const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+            root.classList.toggle("dark", prefersDark);
+        }
+
+        toast.success(`Theme set to ${value}`);
+    };
+
+    const handleChangePassword = () => {
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            toast.error("Please fill in all password fields");
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            toast.error("New passwords don't match");
+            return;
+        }
+        if (newPassword.length < 8) {
+            toast.error("Password must be at least 8 characters");
+            return;
+        }
+        toast.success("Password updated successfully");
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+    };
+
+    const handleLanguageChange = (value) => {
+        setLanguage(value);
+        const lang = languages.find((l) => l.value === value);
+        toast.success(`Language changed to ${lang?.label}`);
+    };
+
+    return (
+        <div className="p-4 md:p-6 max-w-3xl mx-auto">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+                <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
+                    <SettingsIcon className="h-7 w-7 text-primary" /> Settings
+                </h1>
+                <p className="text-muted-foreground mt-1">Manage your account and preferences</p>
+            </motion.div>
+
+            <div className="space-y-6">
+                {/* Profile */}
+                <SectionCard delay={0.05}>
+                    <SectionHeader icon={User} title="Profile" description="Your personal information" />
+                    <Separator />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                            <Label className="text-sm text-muted-foreground">Display Name</Label>
+                            <Input defaultValue="Maria" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-sm text-muted-foreground">Email</Label>
+                            <Input defaultValue="maria@example.com" type="email" />
+                        </div>
+                    </div>
+                    <div className="flex justify-end">
+                        <Button size="sm" onClick={() => toast.success("Profile saved")}>
+                            Save Changes
+                        </Button>
+                    </div>
+                </SectionCard>
+
+                {/* Security */}
+                <SectionCard delay={0.1}>
+                    <SectionHeader icon={Lock} title="Security" description="Password and account protection" />
+                    <Separator />
+                    <div className="space-y-3">
+                        <div className="space-y-1.5">
+                            <Label className="text-sm text-muted-foreground">Current Password</Label>
+                            <div className="relative">
+                                <Input
+                                    type={showCurrentPassword ? "text" : "password"}
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    placeholder="Enter current password"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <Label className="text-sm text-muted-foreground">New Password</Label>
+                                <div className="relative">
+                                    <Input
+                                        type={showNewPassword ? "text" : "password"}
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        placeholder="Min. 8 characters"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowNewPassword(!showNewPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                    >
+                                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-sm text-muted-foreground">Confirm New Password</Label>
+                                <Input
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    placeholder="Repeat new password"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex justify-end">
+                        <Button size="sm" onClick={handleChangePassword}>
+                            Update Password
+                        </Button>
+                    </div>
+                </SectionCard>
+
+                {/* Appearance */}
+                <SectionCard delay={0.15}>
+                    <SectionHeader icon={Palette} title="Appearance" description="Theme and display settings" />
+                    <Separator />
+                    <SettingRow label="Theme" description="Choose between light, dark, or system preference">
+                        <div className="flex items-center gap-1 rounded-lg border border-border p-1 bg-muted/50">
+                            {[
+                                { value: "light", icon: Sun, label: "Light" },
+                                { value: "dark", icon: Moon, label: "Dark" },
+                                { value: "system", icon: Monitor, label: "System" },
+                            ].map(({ value, icon: Icon, label }) => (
+                                <button
+                                    key={value}
+                                    onClick={() => handleThemeChange(value)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${theme === value
+                                            ? "bg-background text-foreground shadow-sm"
+                                            : "text-muted-foreground hover:text-foreground"
+                                        }`}
+                                >
+                                    <Icon className="h-3.5 w-3.5" />
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    </SettingRow>
+
+                    <SettingRow label="Compact mode" description="Reduce spacing for denser layouts">
+                        <Switch />
+                    </SettingRow>
+                </SectionCard>
+
+                {/* Language */}
+                <SectionCard delay={0.2}>
+                    <SectionHeader icon={Globe} title="Language & Region" description="Interface language and formatting" />
+                    <Separator />
+                    <SettingRow label="Language" description="Choose your preferred language">
+                        <Select value={language} onValueChange={handleLanguageChange}>
+                            <SelectTrigger className="w-[160px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {languages.map((lang) => (
+                                    <SelectItem key={lang.value} value={lang.value}>
+                                        {lang.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </SettingRow>
+
+                    <SettingRow label="Date format" description="How dates are displayed">
+                        <Select defaultValue="mdy">
+                            <SelectTrigger className="w-[160px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="mdy">MM/DD/YYYY</SelectItem>
+                                <SelectItem value="dmy">DD/MM/YYYY</SelectItem>
+                                <SelectItem value="ymd">YYYY-MM-DD</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </SettingRow>
+
+                    <SettingRow label="First day of week">
+                        <Select defaultValue="monday">
+                            <SelectTrigger className="w-[160px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="monday">Monday</SelectItem>
+                                <SelectItem value="sunday">Sunday</SelectItem>
+                                <SelectItem value="saturday">Saturday</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </SettingRow>
+                </SectionCard>
+
+                {/* Notifications */}
+                <SectionCard delay={0.25}>
+                    <SectionHeader icon={Bell} title="Notifications" description="Control what alerts you receive" />
+                    <Separator />
+                    <SettingRow label="Push notifications" description="Get notified on your device">
+                        <Switch checked={pushNotifications} onCheckedChange={setPushNotifications} />
+                    </SettingRow>
+                    <SettingRow label="Email notifications" description="Receive updates via email">
+                        <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} />
+                    </SettingRow>
+                    <SettingRow label="Task reminders" description="Reminders before tasks are due">
+                        <Switch checked={taskReminders} onCheckedChange={setTaskReminders} />
+                    </SettingRow>
+                    <SettingRow label="Goal milestones" description="Celebrate when you hit milestones">
+                        <Switch checked={goalMilestones} onCheckedChange={setGoalMilestones} />
+                    </SettingRow>
+                    <SettingRow label="Household updates" description="When members complete or add tasks">
+                        <Switch checked={householdUpdates} onCheckedChange={setHouseholdUpdates} />
+                    </SettingRow>
+                    <Separator />
+                    <SettingRow label="Weekly analytics email" description="Summary of your household's progress every Monday">
+                        <Switch checked={weeklyAnalytics} onCheckedChange={setWeeklyAnalytics} />
+                    </SettingRow>
+                </SectionCard>
+
+                {/* Task Categories */}
+                <SectionCard delay={0.3}>
+                    <SectionHeader icon={Tag} title="Task Categories" description="Organize tasks into custom categories" />
+                    <Separator />
+                    <div className="flex flex-wrap gap-2">
+                        <AnimatePresence>
+                            {categories.map((cat) => (
+                                <motion.div
+                                    key={cat}
+                                    layout
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.8 }}
+                                >
+                                    <Badge variant="secondary" className="gap-1.5 py-1.5 px-3 text-sm">
+                                        {cat}
+                                        <button
+                                            onClick={() => handleDeleteCategory(cat)}
+                                            className="ml-1 text-muted-foreground hover:text-destructive transition-colors"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </Badge>
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
+                    </div>
+
+                    <div className="flex gap-2">
+                        <Input
+                            placeholder="New category name..."
+                            value={newCategory}
+                            onChange={(e) => setNewCategory(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
+                            className="flex-1"
+                        />
+                        <Button onClick={handleAddCategory} size="sm" className="gap-1" disabled={!newCategory.trim()}>
+                            <Plus className="h-4 w-4" /> Add
+                        </Button>
+                    </div>
+                </SectionCard>
+
+                {/* Privacy */}
+                <SectionCard delay={0.35}>
+                    <SectionHeader icon={Shield} title="Privacy" description="Control your visibility and data" />
+                    <Separator />
+                    <SettingRow label="Profile visible to household" description="Others can see your name and avatar">
+                        <Switch checked={profileVisible} onCheckedChange={setProfileVisible} />
+                    </SettingRow>
+                    <SettingRow label="Show activity status" description="Others can see when you complete tasks">
+                        <Switch checked={activityVisible} onCheckedChange={setActivityVisible} />
+                    </SettingRow>
+                </SectionCard>
+
+                {/* Data & Account */}
+                <SectionCard delay={0.4}>
+                    <SectionHeader icon={Download} title="Data & Account" description="Export, logout, or delete your account" />
+                    <Separator />
+                    <div className="space-y-3">
+                        <Button
+                            variant="outline"
+                            className="w-full justify-start gap-2"
+                            onClick={() => toast.success("Export started — check your email shortly")}
+                        >
+                            <Download className="h-4 w-4" /> Export all my data
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            className="w-full justify-start gap-2 text-muted-foreground"
+                            onClick={() => toast.success("Logged out")}
+                        >
+                            <LogOut className="h-4 w-4" /> Log out
+                        </Button>
+
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className="w-full justify-start gap-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+                                >
+                                    <Trash2 className="h-4 w-4" /> Delete my account
+                                </Button>
+                            </AlertDialogTrigger>
+
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This action cannot be undone. This will permanently delete your account, all tasks, goals, and household data.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                        onClick={() => toast.error("Account deletion is not available in demo mode")}
+                                    >
+                                        Delete Account
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+                </SectionCard>
+            </div>
+
+            <div className="h-8" />
+        </div>
+    );
 };
 
 export default Settings;
