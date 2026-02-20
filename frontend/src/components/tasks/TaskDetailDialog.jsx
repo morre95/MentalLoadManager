@@ -65,10 +65,6 @@ function toDateInputValue(value) {
   return parsed.toISOString().slice(0, 10);
 }
 
-function getTaskAssigneeLabel(task) {
-  return task?.assigneeLabel || "Unassigned";
-}
-
 const TaskDetailDialog = ({
   task,
   open,
@@ -102,9 +98,13 @@ const TaskDetailDialog = ({
   const [editingField, setEditingField] = useState(null);
   const [titleRef, setTitleFocus] = useFokus();
   const [descRef, setDescFocus] = useFokus();
+  const [dueDateRef, setDueDateFocus] = useFokus();
+  const [customCategoryRef, setCustomCategoryFocus] = useFokus();
 
   const [isStatusOpen, setIsStatusOpen] = useState(false);
   const [isPriorityOpen, setIsPriorityOpen] = useState(false);
+  const [isAssigneeOpen, setIsAssigneeOpen] = useState(false);
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
 
   const normalizedPriority = useMemo(() => {
     const value = String(task?.priority || "medium").toLowerCase();
@@ -384,22 +384,45 @@ const TaskDetailDialog = ({
               <User className="h-4 w-4 text-muted-foreground" />
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">Assigned to</p>
-                <Select value={assigneeIdDraft} onValueChange={setAssigneeIdDraft}>
-                  <SelectTrigger className="h-8 mt-1 w-44">
-                    <SelectValue placeholder="Select assignee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={UNASSIGNED_ASSIGNEE_VALUE}>Unassigned</SelectItem>
-                    {assignees.map((member) => (
-                      <SelectItem key={member.user_id} value={member.user_id}>
-                        {member.display_name || member.username}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs mt-2 text-muted-foreground">
-                  Current: {getTaskAssigneeLabel(task)}
-                </p>
+                {editingField === "assignee" ? (
+                  <Select
+                    value={assigneeIdDraft}
+                    open={isAssigneeOpen}
+                    onOpenChange={(open) => {
+                      setIsAssigneeOpen(open);
+                      if (!open) setEditingField(null);
+                    }}
+                    onValueChange={(value) => {
+                      setAssigneeIdDraft(value);
+                      setIsAssigneeOpen(false);
+                      setEditingField(null);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 mt-1 w-44">
+                      <SelectValue placeholder="Select assignee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={UNASSIGNED_ASSIGNEE_VALUE}>Unassigned</SelectItem>
+                      {assignees.map((member) => (
+                        <SelectItem key={member.user_id} value={member.user_id}>
+                          {member.display_name || member.username}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div
+                    className="text-left cursor-pointer"
+                    onClick={() => {
+                      setEditingField("assignee");
+                      setIsAssigneeOpen(true);
+                    }}
+                  >
+                    {assignees.find((member) => member.user_id === assigneeIdDraft)?.display_name
+                      || assignees.find((member) => member.user_id === assigneeIdDraft)?.username
+                      || "Unassigned"}
+                  </div>
+                )}
                 {assigneesError ? (
                   <p className="text-xs text-destructive mt-1">{assigneesError}</p>
                 ) : null}
@@ -410,27 +433,64 @@ const TaskDetailDialog = ({
               <Tag className="h-4 w-4 text-muted-foreground" />
               <div className="min-w-0 w-full">
                 <p className="text-xs text-muted-foreground">Category</p>
-                <Select value={categoryDraft} onValueChange={setCategoryDraft}>
-                  <SelectTrigger className="h-8 mt-1 w-44">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value={CUSTOM_CATEGORY_VALUE}>Custom...</SelectItem>
-                  </SelectContent>
-                </Select>
-                {categoryDraft === CUSTOM_CATEGORY_VALUE ? (
-                  <Input
-                    value={customCategoryDraft}
-                    onChange={(e) => setCustomCategoryDraft(e.target.value)}
-                    placeholder="Write category"
-                    className="h-8 mt-2 w-44"
-                  />
-                ) : null}
+                {editingField === "category" ? (
+                  <>
+                    <Select
+                      value={categoryDraft}
+                      open={isCategoryOpen}
+                      onOpenChange={(open) => {
+                        setIsCategoryOpen(open);
+                        if (!open && categoryDraft !== CUSTOM_CATEGORY_VALUE) {
+                          setEditingField(null);
+                        }
+                      }}
+                      onValueChange={(value) => {
+                        setCategoryDraft(value);
+                        if (value === CUSTOM_CATEGORY_VALUE) {
+                          setIsCategoryOpen(false);
+                          requestAnimationFrame(() => setCustomCategoryFocus());
+                          return;
+                        }
+                        setIsCategoryOpen(false);
+                        setEditingField(null);
+                      }}
+                    >
+                      <SelectTrigger className="h-8 mt-1 w-44">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {cat}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value={CUSTOM_CATEGORY_VALUE}>Custom...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {categoryDraft === CUSTOM_CATEGORY_VALUE ? (
+                      <Input
+                        ref={customCategoryRef}
+                        value={customCategoryDraft}
+                        onChange={(e) => setCustomCategoryDraft(e.target.value)}
+                        onBlur={() => setEditingField(null)}
+                        placeholder="Write category"
+                        className="h-8 mt-2 w-44"
+                      />
+                    ) : null}
+                  </>
+                ) : (
+                  <div
+                    className="text-left cursor-pointer"
+                    onClick={() => {
+                      setEditingField("category");
+                      setIsCategoryOpen(true);
+                    }}
+                  >
+                    {categoryDraft === CUSTOM_CATEGORY_VALUE
+                      ? (customCategoryDraft || "Other")
+                      : categoryDraft}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -439,12 +499,26 @@ const TaskDetailDialog = ({
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <div>
               <p className="text-xs text-muted-foreground">Due Date</p>
-              <Input
-                type="date"
-                value={dueDateDraft}
-                onChange={(e) => setDueDateDraft(e.target.value)}
-                className="h-8 mt-1 w-44"
-              />
+              {editingField === "dueDate" ? (
+                <Input
+                  ref={dueDateRef}
+                  type="date"
+                  value={dueDateDraft}
+                  onChange={(e) => setDueDateDraft(e.target.value)}
+                  onBlur={() => setEditingField(null)}
+                  className="h-8 mt-1 w-44"
+                />
+              ) : (
+                <div
+                  className="text-left cursor-pointer"
+                  onClick={() => {
+                    setEditingField("dueDate");
+                    requestAnimationFrame(() => setDueDateFocus());
+                  }}
+                >
+                  {dueDateDraft || "No due date"}
+                </div>
+              )}
             </div>
           </div>
 
