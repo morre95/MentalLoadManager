@@ -11,7 +11,7 @@ import {
   PauseCircle,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
+// import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -25,11 +25,11 @@ import {
 } from "@/components/ui/select";
 import { fetchKanbanAssignees, resolveCurrentHouseholdId } from "@/lib/utils";
 
-const priorityColors = {
-  low: "bg-sage-light text-sage border-sage/30",
-  medium: "bg-status-todo/15 text-status-todo border-status-todo/30",
-  high: "bg-terracotta-light text-terracotta border-terracotta/30",
-};
+// const priorityColors = {
+//   low: "bg-sage-light text-sage border-sage/30",
+//   medium: "bg-status-todo/15 text-status-todo border-status-todo/30",
+//   high: "bg-terracotta-light text-terracotta border-terracotta/30",
+// };
 
 const statusConfig = {
   todo: { icon: Clock, label: "To Do", color: "bg-status-todo" },
@@ -287,12 +287,6 @@ const TaskDetailDialog = ({
                     <SelectItem value="high">High</SelectItem>
                   </SelectContent>
                 </Select>
-                <Badge
-                  variant="outline"
-                  className={`text-xs mt-2 ${priorityColors[priorityDraft] || priorityColors.medium}`}
-                >
-                  {priorityDraft}
-                </Badge>
               </div>
             </div>
 
