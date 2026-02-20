@@ -11,9 +11,11 @@ export const NoHouseholdState = ({ onRetry }) => {
         <Button variant="default" onClick={() => (window.location.href = "/dashboard/household")}>
           Go to Household
         </Button>
-        <Button variant="outline" onClick={onRetry}>
-          Retry
-        </Button>
+        {onRetry &&
+          <Button variant="outline" onClick={onRetry}>
+            Retry
+          </Button>
+        }
       </div>
     </div>
   );

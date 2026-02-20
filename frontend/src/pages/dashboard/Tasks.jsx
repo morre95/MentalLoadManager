@@ -51,6 +51,8 @@ import {
   updateKanbanTaskStatus,
 } from "@/lib/utils";
 
+import { NoHouseholdState } from "@/components/ui/noHouseHoldState";
+
 const priorityColors = {
   low: "bg-sage-light text-sage border-sage/30",
   medium: "bg-status-todo/15 text-status-todo border-status-todo/30",
@@ -599,6 +601,14 @@ const Tasks = () => {
     status === ARCHIVE_COLUMN_ID
       ? tasks.filter((t) => t.status === ARCHIVE_COLUMN_ID)
       : tasks.filter((t) => t.status === status);
+
+
+  if (!Array.isArray(households) || households.length === 0) {
+    return (
+      <NoHouseholdState />
+    )
+  }
+
 
   return (
     <div className="p-4 md:p-6 space-y-6">
