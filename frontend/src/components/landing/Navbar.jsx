@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Home } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { isUserLoggedIn, fetchMe as fetchUser, getDisplayName, getInitials } from "../../lib/utils";
+import { isUserLoggedIn, fetchMe as fetchUser, getInitials } from "../../lib/utils";
 import { useEffect, useState } from "react";
 
 const navItems = [
@@ -76,12 +76,12 @@ const Navbar = () => {
                 className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-muted transition"
               >
                 <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-semibold">
-                  {getInitials(getDisplayName(user))}
+                  {getInitials(user.display_name || user.username)}
                 </div>
 
                 <div className="hidden sm:flex flex-col leading-tight">
                   <span className="text-sm font-medium text-foreground">
-                    {getDisplayName(user)}
+                    {user.display_name || user.username}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {user.email}

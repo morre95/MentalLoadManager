@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select, func, and_
 from sqlalchemy import case
+from typing import Literal
 
 from helpers import get_current_user, get_session_local
 from models import (
@@ -125,6 +126,7 @@ def _default_household(db, user_id: UUID) -> UUID:
 @router.get("/summary", response_model=AnalyticsSummaryResponse)
 def get_analytics_summary(
     household_id: UUID | None = None,
+    timeframe: Literal["7d", "30d", "12w"] = "30d",
     current_user: UserEmail = Depends(get_current_user),
 ):
     """
@@ -173,9 +175,11 @@ def get_analytics_summary(
         # Time windows
         # ------------------------------------------------------------
         now = datetime.now(timezone.utc)
-        start_6_weeks = now - timedelta(weeks=6)
-        start_6_months = now - timedelta(days=31 * 6)
-        start_7_days = now - timedelta(days=7)
+        # Global timeframe
+        days = (
+            7 if timeframe == "7d" else 30 if timeframe == "30d" else 84
+        )  # 12w ≈ 84 days
+        start = now - timedelta(days=days)
 
         # ============================================================
         # 1. Weekly Task Distribution per Person
@@ -191,7 +195,7 @@ def get_analytics_summary(
             )
             .where(
                 Tasks.household_id == hid,
-                Tasks.created_at >= start_6_weeks,
+                Tasks.created_at >= start,
             )
             .group_by("wk", Tasks.assigns_to)
             .order_by("wk")
@@ -208,7 +212,9 @@ def get_analytics_summary(
             weekly_map.setdefault(week_label, {})
             weekly_map[week_label][person] = int(r.cnt or 0)
 
-        weeklyData = [WeeklyPoint(week=w, values=v) for w, v in weekly_map.items()]
+        weeklyData = [
+            WeeklyPoint(week=w, values=weekly_map[w]) for w in sorted(weekly_map.keys())
+        ]
 
         # ============================================================
         # 2. Category Breakdown (real join)
@@ -223,14 +229,15 @@ def get_analytics_summary(
             .outerjoin(Categories, Tasks.category_id == Categories.category_id)
             .where(
                 Tasks.household_id == hid,
-                Tasks.created_at >= start_6_weeks,
+                Tasks.created_at >= start,
             )
             .group_by("cat")
             .order_by(func.count().desc())
         ).all()
 
-        categoryData = [CategoryPoint(name=r.cat, value=int(r.cnt or 0)) for r in category_rows]
-
+        categoryData = [
+            CategoryPoint(name=r.cat, value=int(r.cnt or 0)) for r in category_rows
+        ]
 
         # ============================================================
         # 3. Load Trend (monthly open tasks)
@@ -247,7 +254,7 @@ def get_analytics_summary(
             )
             .where(
                 Tasks.household_id == hid,
-                Tasks.created_at >= start_6_months,
+                Tasks.created_at >= start,
             )
             .group_by("mo")
             .order_by("mo")
@@ -256,7 +263,7 @@ def get_analytics_summary(
         loadTrendData = []
 
         for r in load_rows:
-            month_label = r.mo.strftime("%b")
+            month_label = r.mo.strftime("%Y-%m")
             loadTrendData.append(
                 LoadTrendPoint(
                     month=month_label,
@@ -278,7 +285,7 @@ def get_analytics_summary(
             )
             .where(
                 Tasks.household_id == hid,
-                Tasks.created_at >= start_7_days,
+                Tasks.created_at >= start,
             )
             .group_by("dy")
             .order_by("dy")
@@ -286,7 +293,7 @@ def get_analytics_summary(
 
         completionData = [
             CompletionPoint(
-                day=r.dy.strftime("%a"),
+                day=r.dy.strftime("%Y-%m-%d"),
                 completed=int(r.completed or 0),
                 pending=int(r.pending or 0),
             )
@@ -307,7 +314,7 @@ def get_analytics_summary(
             .outerjoin(Categories, Tasks.category_id == Categories.category_id)
             .where(
                 Tasks.household_id == hid,
-                Tasks.created_at >= start_6_weeks,
+                Tasks.created_at >= start,
             )
             .group_by("cat", Tasks.assigns_to)
         ).all()
@@ -317,9 +324,10 @@ def get_analytics_summary(
             cat = r.cat
             person = user_id_to_username.get(r.assigns_to, "unassigned")
             radar_map.setdefault(cat, {})
-            radar_map[cat][person] = int(r.cnt or 0)    
-        radarData = [RadarPoint(category=cat, values=vals) for cat, vals in radar_map.items()]
-
+            radar_map[cat][person] = int(r.cnt or 0)
+        radarData = [
+            RadarPoint(category=cat, values=vals) for cat, vals in radar_map.items()
+        ]
 
         # ============================================================
         # 6. Stats Cards

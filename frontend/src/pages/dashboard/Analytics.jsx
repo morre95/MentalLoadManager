@@ -9,7 +9,7 @@ import {
     Plus,
     Eye,
     EyeOff,
-    RefreshCcw
+    RefreshCcw,
 } from "lucide-react";
 
 import StackedBarChart from "./stackedbarchart_remove_later";
@@ -42,7 +42,7 @@ import {
     Radar,
 } from "recharts";
 
-import { NoHouseholdState } from '@/components/ui/noHouseholdState'
+import { NoHouseholdState } from "@/components/ui/noHouseholdState";
 
 /* -----------------------------
 Component
@@ -63,7 +63,6 @@ const Analytics = () => {
     const [error, setError] = useState(null);
     const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
 
-
     const [activeChartIds, setActiveChartIds] = useState([
         "distribution",
         "category",
@@ -77,6 +76,10 @@ const Analytics = () => {
     const [noHousehold, setNoHousehold] = useState(false);
     const [tick, setTick] = useState(0);
 
+    // ✅ Global timeframe (matches backend param)
+    // "7d" | "30d" | "12w"
+    const [timeframe, setTimeframe] = useState("30d");
+
     useEffect(() => {
         const interval = setInterval(() => {
             setTick((t) => t + 1);
@@ -84,6 +87,7 @@ const Analytics = () => {
 
         return () => clearInterval(interval);
     }, []);
+
     // -----------------------------
     // Colors (spread out, stable per person)
     // -----------------------------
@@ -110,13 +114,11 @@ const Analytics = () => {
         return acc;
     }, [sortedPeople]);
 
-
-
     // -----------------------------
     // Reusable empty + wrappers
     // -----------------------------
     const ChartEmptyState = ({
-        title = "No data yet for the last 6 weeks",
+        title = "No data yet for the selected timeframe",
         hint = "Add a task with category + assignee to unlock this chart",
     }) => {
         return (
@@ -146,7 +148,6 @@ const Analytics = () => {
             </div>
         );
     };
-
 
     const formatRelativeTime = (date) => {
         if (!date) return "";
@@ -182,47 +183,53 @@ const Analytics = () => {
 
     // -----------------------------
     // Fetch Analytics (shared) - reusable load()
+    //   ✅ Now passes timeframe to backend
     // -----------------------------
-    const load = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        setNoHousehold(false);
+    const load = useCallback(
+        async (tf = timeframe) => {
+            setLoading(true);
+            setError(null);
+            setNoHousehold(false);
 
-        try {
-            const summary = await fetchAnalyticsSummary(apiClient);
+            try {
+                // NOTE: update fetchAnalyticsSummary to accept timeframe:
+                // fetchAnalyticsSummary(apiClient, householdId = null, timeframe = "30d")
+                const summary = await fetchAnalyticsSummary(apiClient, null, tf);
 
-            setPeople(summary.people || []);
-            setWeeklyData(summary.weeklyData || []);
-            setCategoryData(summary.categoryData || []);
-            setLoadTrendData(summary.loadTrendData || []);
-            setCompletionData(summary.completionData || []);
-            setRadarData(summary.radarData || []);
-            setStats(summary.stats || []);
-            setLabels(summary.labels || {});
-            setLastUpdatedAt(new Date());
+                setPeople(summary.people || []);
+                setWeeklyData(summary.weeklyData || []);
+                setCategoryData(summary.categoryData || []);
+                setLoadTrendData(summary.loadTrendData || []);
+                setCompletionData(summary.completionData || []);
+                setRadarData(summary.radarData || []);
+                setStats(summary.stats || []);
+                setLabels(summary.labels || {});
+                setLastUpdatedAt(new Date());
+            } catch (err) {
+                const msg = err?.message || "";
 
-        } catch (err) {
-            const msg = err?.message || "";
+                if (msg.toLowerCase().includes("not in a household")) {
+                    setNoHousehold(true);
+                    setError(null);
+                    return;
+                }
 
-            if (msg.toLowerCase().includes("not in a household")) {
-                setNoHousehold(true);
-                setError(null);
-                return;
+                console.error(err);
+                setError(err);
+            } finally {
+                setLoading(false);
             }
+        },
+        [apiClient, timeframe]
+    );
 
-            console.error(err);
-            setError(err);
-        } finally {
-            setLoading(false);
-        }
-    }, [apiClient]);
-
+    // initial load + reload when timeframe changes
     useEffect(() => {
         let alive = true;
 
         const run = async () => {
             if (!alive) return;
-            await load();
+            await load(timeframe);
         };
 
         run();
@@ -230,10 +237,12 @@ const Analytics = () => {
         return () => {
             alive = false;
         };
-    }, [load]);
+    }, [load, timeframe]);
 
     const handleToggleChart = (id) => {
-        setActiveChartIds((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
+        setActiveChartIds((prev) =>
+            prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+        );
     };
 
     const tooltipStyle = {
@@ -247,7 +256,7 @@ const Analytics = () => {
     }
 
     if (noHousehold) {
-        return <NoHouseholdState onRetry={load} />;
+        return <NoHouseholdState onRetry={() => load(timeframe)} />;
     }
 
     if (error) {
@@ -255,38 +264,59 @@ const Analytics = () => {
             <div className="p-6 space-y-3">
                 <p className="text-destructive font-medium">Failed to load analytics</p>
                 <p className="text-sm text-muted-foreground">{error?.message || "Unknown error"}</p>
-                <Button variant="outline" onClick={load}>
+                <Button variant="outline" onClick={() => load(timeframe)}>
                     Retry
                 </Button>
             </div>
         );
     }
 
+    const timeframeOptions = [
+        { id: "7d", label: "7 days" },
+        { id: "30d", label: "30 days" },
+        { id: "12w", label: "12 weeks" },
+    ];
+
     return (
         <div className="p-4 md:p-6 space-y-6">
             {/* Header */}
-            <motion.div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold flex items-center gap-2">
-                    <BarChart3 className="w-6 h-6 text-primary" />
-                    Analytics
-                </h1>
+            <motion.div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-bold flex items-center gap-2">
+                        <BarChart3 className="w-6 h-6 text-primary" />
+                        Analytics
+                    </h1>
+
+                    {/* ✅ Global timeframe selector */}
+                    <div className="flex items-center gap-2 rounded-md border bg-card p-1 w-fit">
+                        {timeframeOptions.map((opt) => (
+                            <Button
+                                key={opt.id}
+                                type="button"
+                                size="sm"
+                                className="h-8"
+                                variant={timeframe === opt.id ? "default" : "ghost"}
+                                onClick={() => setTimeframe(opt.id)}
+                                disabled={loading}
+                                aria-pressed={timeframe === opt.id}
+                            >
+                                {opt.label}
+                            </Button>
+                        ))}
+                    </div>
+                </div>
 
                 <div className="flex items-center gap-3">
                     {lastUpdatedAt ? (
-                        <p
-                            className="text-xs text-muted-foreground"
-                            title={lastUpdatedAt.toLocaleString()}
-                        >
+                        <p className="text-xs text-muted-foreground" title={lastUpdatedAt.toLocaleString()}>
                             {formatRelativeTime(lastUpdatedAt)}
                         </p>
                     ) : null}
 
-
-
                     <Button
                         variant="outline"
                         size="icon"
-                        onClick={load}
+                        onClick={() => load(timeframe)}
                         disabled={loading}
                         title="Refresh analytics"
                         aria-label="Refresh analytics"
@@ -500,15 +530,9 @@ const Analytics = () => {
 
                         <CardContent className="min-w-0">
                             <ChartFrame isEmpty={!loadTrendData?.length}>
-                                <AreaChart
-                                    data={loadTrendData}
-                                    margin={{ top: 20, right: 30, left: -10, bottom: 0 }}
-                                >
+                                <AreaChart data={loadTrendData} margin={{ top: 20, right: 30, left: -10, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis
-                                        dataKey="month"
-                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                                    />
+                                    <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                                     <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                                     <Tooltip contentStyle={tooltipStyle} />
                                     <Area
@@ -531,15 +555,9 @@ const Analytics = () => {
                         </CardHeader>
                         <CardContent className="min-w-0">
                             <ChartFrame isEmpty={!completionData?.length}>
-                                <LineChart
-                                    data={completionData}
-                                    margin={{ top: 20, right: 30, left: -10, bottom: 0 }}
-                                >
+                                <LineChart data={completionData} margin={{ top: 20, right: 30, left: -10, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis
-                                        dataKey="day"
-                                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                                    />
+                                    <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                                     <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                                     <Tooltip contentStyle={tooltipStyle} />
                                     <Legend
@@ -711,7 +729,8 @@ const Analytics = () => {
                     </div>
                 </DialogContent>
             </Dialog>
-            <StackedBarChart></StackedBarChart>
+
+            <StackedBarChart />
         </div>
     );
 };
