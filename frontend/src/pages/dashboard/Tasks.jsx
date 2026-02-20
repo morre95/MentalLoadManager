@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import {
   ListTodo,
@@ -38,6 +38,7 @@ import AddTaskDialog from "@/components/tasks/AddTaskDialog";
 import TaskDetailDialog from "@/components/tasks/TaskDetailDialog";
 
 import { useTaskboardTasks } from "@/hooks/useTaskboardTasks";
+import { useHousehold } from "@/hooks/useHouseHold";
 import {
   deleteKanbanTask,
   updateKanbanTaskDescription,
@@ -63,6 +64,7 @@ const columns = [
   { id: "archive", title: "Archive", colorClass: "bg-[hsl(var(--lavender))]", icon: PauseCircle },
 ];
 const ARCHIVE_COLUMN_ID = "archive";
+const ALL_HOUSEHOLDS_VALUE = "__all_households__";
 
 
 function toApiStatus(status) {
@@ -222,7 +224,21 @@ const DroppableColumn = ({
 };
 
 const Tasks = () => {
-  const { tasks, setTasks, loading, error } = useTaskboardTasks();
+  const [selectedHouseholdId, setSelectedHouseholdId] = useState(() => {
+    try {
+      const selectedHouseholdRaw = localStorage.getItem("household");
+      if (!selectedHouseholdRaw) return ALL_HOUSEHOLDS_VALUE;
+      const selectedHousehold = JSON.parse(selectedHouseholdRaw);
+      const householdId = selectedHousehold?.household_id ?? selectedHousehold?.id ?? selectedHousehold;
+      return householdId ? String(householdId) : ALL_HOUSEHOLDS_VALUE;
+    } catch {
+      return ALL_HOUSEHOLDS_VALUE;
+    }
+  });
+  const selectedHouseholdFilter =
+    selectedHouseholdId === ALL_HOUSEHOLDS_VALUE ? null : selectedHouseholdId;
+  const { households } = useHousehold();
+  const { tasks, setTasks, loading, error } = useTaskboardTasks(selectedHouseholdFilter);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -234,6 +250,36 @@ const Tasks = () => {
   const visibleColumns = showArchive
     ? columns
     : columns.filter((column) => column.id !== ARCHIVE_COLUMN_ID);
+
+  useEffect(() => {
+    if (!selectedHouseholdFilter) return;
+    if (!Array.isArray(households) || households.length === 0) return;
+    const exists = households.some(
+      (household) => String(household.household_id) === selectedHouseholdFilter
+    );
+    if (!exists) {
+      setSelectedHouseholdId(ALL_HOUSEHOLDS_VALUE);
+    }
+  }, [selectedHouseholdFilter, households]);
+
+  useEffect(() => {
+    if (!selectedHouseholdFilter) return;
+    const selectedHousehold = (households || []).find(
+      (household) => String(household.household_id) === selectedHouseholdFilter
+    );
+    if (!selectedHousehold) return;
+    localStorage.setItem("household", JSON.stringify(selectedHousehold));
+  }, [selectedHouseholdFilter, households]);
+
+  useEffect(() => {
+    if (!selectedTask) return;
+    const updatedTask = tasks.find((task) => task.id === selectedTask.id);
+    if (!updatedTask) {
+      setSelectedTask(null);
+      return;
+    }
+    setSelectedTask(updatedTask);
+  }, [tasks, selectedTask]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -532,7 +578,7 @@ const Tasks = () => {
       <Motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
+        className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center"
       >
         <div>
           <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
@@ -558,6 +604,24 @@ const Tasks = () => {
               Couldn’t sync task changes. Changes were reverted.
             </p>
           ) : null}
+        </div>
+        <div className="w-full max-w-[280px]">
+          <label htmlFor="tasks-household-filter" className="text-xs text-muted-foreground">
+            Household view
+          </label>
+          <select
+            id="tasks-household-filter"
+            className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+            value={selectedHouseholdId}
+            onChange={(event) => setSelectedHouseholdId(event.target.value)}
+          >
+            <option value={ALL_HOUSEHOLDS_VALUE}>All households</option>
+            {(households || []).map((household) => (
+              <option key={household.household_id} value={String(household.household_id)}>
+                {household.name}
+              </option>
+            ))}
+          </select>
         </div>
 
       </Motion.div>
@@ -602,6 +666,7 @@ const Tasks = () => {
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
         onAddTask={handleAddTask}
+        householdId={selectedHouseholdFilter}
       />
 
       <TaskDetailDialog

@@ -42,6 +42,7 @@ export function mapApiTaskToUi(task) {
 
   return {
     id: String(task.task_id),
+    householdId: task.household_id ? String(task.household_id) : undefined,
     title: task.name || "",
     description: task.description || "",
     status: normalizeStatus(task.status),
@@ -53,8 +54,12 @@ export function mapApiTaskToUi(task) {
   };
 }
 
-export async function fetchKanbanTasks(apiClient) {
-  const data = await apiClient.request("/api/kanban/tasks", { method: "GET" });
+export async function fetchKanbanTasks(apiClient, householdId) {
+  const normalizedHouseholdId = String(householdId || "").trim();
+  const path = normalizedHouseholdId
+    ? `/api/kanban/tasks?household_id=${encodeURIComponent(normalizedHouseholdId)}`
+    : "/api/kanban/tasks";
+  const data = await apiClient.request(path, { method: "GET" });
   const tasks = Array.isArray(data?.tasks) ? data.tasks : [];
 
   return {

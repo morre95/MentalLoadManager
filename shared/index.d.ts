@@ -18,6 +18,7 @@ export function createApiClient(options?: {
 
 export type UiTask = {
   id: string;
+  householdId?: string;
   title: string;
   description?: string;
   status: "todo" | "in-progress" | "on-hold" | "done" | string;
@@ -47,7 +48,10 @@ export function deleteKanbanTask(
   apiClient: ApiClient,
   taskId: string
 ): Promise<any>;
-export function fetchKanbanTasks(apiClient: ApiClient): Promise<{ tasks: UiTask[] }>;
+export function fetchKanbanTasks(
+  apiClient: ApiClient,
+  householdId?: string | null
+): Promise<{ tasks: UiTask[] }>;
 export function fetchKanbanAssignees(
   apiClient: ApiClient,
   householdId: string | number

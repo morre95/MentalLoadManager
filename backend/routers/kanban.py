@@ -52,6 +52,7 @@ class TaskResponse(BaseModel):
 
 class KanbanTask(BaseModel):
     task_id: str
+    household_id: str
     name: str
     description: str | None = None
     status: str
@@ -167,7 +168,10 @@ class ReorderTasksResponse(BaseModel):
 
 
 @router.get("/tasks", response_model=KanbanTasksResponse)
-def list_kamban_tasks(current_user: UserEmail = Depends(get_current_user)):
+def list_kamban_tasks(
+    household_id: UUID | None = None,
+    current_user: UserEmail = Depends(get_current_user),
+):
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
@@ -185,6 +189,21 @@ def list_kamban_tasks(current_user: UserEmail = Depends(get_current_user)):
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        if household_id:
+            requester_membership = db.scalar(
+                select(UsersHouseholds).where(
+                    and_(
+                        UsersHouseholds.user_id == me.user_id,
+                        UsersHouseholds.household_id == household_id,
+                    )
+                )
+            )
+            if requester_membership is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="User is not a member of the specified household",
+                )
+
         priority_sort = case(
             (Tasks.priority == "high", 0),
             (Tasks.priority == "medium", 1),
@@ -192,9 +211,10 @@ def list_kamban_tasks(current_user: UserEmail = Depends(get_current_user)):
             else_=3,
         )
 
-        rows = db.execute(
+        query = (
             select(
                 Tasks.task_id,
+                Tasks.household_id,
                 Tasks.name,
                 Tasks.description,
                 Tasks.status,
@@ -220,12 +240,17 @@ def list_kamban_tasks(current_user: UserEmail = Depends(get_current_user)):
                 Tasks.due_date.asc().nulls_last(),
                 Tasks.created_at.desc(),
             )
-        ).all()
+        )
+        if household_id:
+            query = query.where(Tasks.household_id == household_id)
+
+        rows = db.execute(query).all()
 
     return KanbanTasksResponse(
         tasks=[
             KanbanTask(
                 task_id=str(row.task_id),
+                household_id=str(row.household_id),
                 name=row.name,
                 description=row.description,
                 status=row.status,

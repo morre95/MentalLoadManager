@@ -115,8 +115,8 @@ export async function apiFetch(path, options = {}) {
   return apiClient.request(path, options);
 }
 
-export async function fetchKanbanTasks() {
-  return sharedFetchKanbanTasks(apiClient);
+export async function fetchKanbanTasks(householdId) {
+  return sharedFetchKanbanTasks(apiClient, householdId);
 }
 
 export async function fetchKanbanAssignees(householdId) {

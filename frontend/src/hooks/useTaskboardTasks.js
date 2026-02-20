@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchKanbanTasks, isUserLoggedIn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
-export function useTaskboardTasks() {
+export function useTaskboardTasks(householdId) {
   const navigate = useNavigate();
 
   const [tasks, setTasks] = useState([]);
@@ -25,7 +25,7 @@ export function useTaskboardTasks() {
       }
 
       try {
-        const data = await fetchKanbanTasks();
+        const data = await fetchKanbanTasks(householdId || undefined);
         const uiTasks = Array.isArray(data?.tasks) ? data.tasks : [];
         if (alive) {
           setTasks(uiTasks);
@@ -51,7 +51,7 @@ export function useTaskboardTasks() {
     return () => {
       alive = false;
     };
-  }, [navigate]);
+  }, [navigate, householdId]);
 
   return { tasks, setTasks, loading, error };
 }

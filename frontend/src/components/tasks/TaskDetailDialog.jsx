@@ -126,7 +126,7 @@ const TaskDetailDialog = ({
     if (!open) return;
 
     const loadAssignees = async () => {
-      const householdId = await resolveCurrentHouseholdId();
+      const householdId = task?.householdId || await resolveCurrentHouseholdId();
       if (!householdId) {
         setAssignees([]);
         setAssigneesError("No household found. Create or join a household first.");
@@ -145,7 +145,7 @@ const TaskDetailDialog = ({
     };
 
     loadAssignees();
-  }, [open]);
+  }, [open, task?.householdId]);
 
   if (!task) return null;
 

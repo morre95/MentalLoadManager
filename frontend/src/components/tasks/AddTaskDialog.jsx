@@ -37,7 +37,7 @@ const categories = [
 const CUSTOM_CATEGORY_VALUE = "__custom__";
 const UNASSIGNED_ASSIGNEE_VALUE = "__unassigned__";
 
-const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
+const AddTaskDialog = ({ open, onOpenChange, onAddTask, householdId }) => {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [priority, setPriority] = useState("medium");
@@ -55,8 +55,8 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
         if (!open) return;
 
         const loadAssignees = async () => {
-            const householdId = await resolveCurrentHouseholdId();
-            if (!householdId) {
+            const activeHouseholdId = householdId || await resolveCurrentHouseholdId();
+            if (!activeHouseholdId) {
                 setAssignees([]);
                 setAssigneeId("");
                 setAssigneesError("No household found. Create or join a household first.");
@@ -67,7 +67,7 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
             setAssigneesError("");
 
             try {
-                const data = await fetchKanbanAssignees(householdId);
+                const data = await fetchKanbanAssignees(activeHouseholdId);
                 const nextAssignees = Array.isArray(data?.assignees) ? data.assignees : [];
                 setAssignees(nextAssignees);
 
@@ -90,14 +90,14 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
         };
 
         loadAssignees();
-    }, [open]);
+    }, [open, householdId]);
 
     const handleSubmit = async () => {
         if (!title.trim()) return;
         setSubmitError("");
 
-        const householdId = await resolveCurrentHouseholdId();
-        if (!householdId) {
+        const activeHouseholdId = householdId || await resolveCurrentHouseholdId();
+        if (!activeHouseholdId) {
             setSubmitError("No household found. Create or join a household first.");
             return;
         }
@@ -111,7 +111,7 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
         setSaving(true);
         try {
             const createdTask = await createKanbanTask({
-                household_id: householdId,
+                household_id: activeHouseholdId,
                 name: title.trim(),
                 status: "todo",
                 description: description.trim() || null,
@@ -127,6 +127,7 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask }) => {
 
             const newTask = {
                 id: String(createdTask?.task_id || crypto.randomUUID()),
+                householdId: activeHouseholdId,
                 title: title.trim(),
                 description: description.trim() || "",
                 status: "todo",
