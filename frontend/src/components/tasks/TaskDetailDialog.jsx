@@ -64,14 +64,7 @@ function toDateInputValue(value) {
 }
 
 function getTaskAssigneeLabel(task) {
-  return (
-    task?.assigneeLabel ??
-    task?.assignee?.displayName ??
-    task?.assignee?.display_name ??
-    task?.assignee?.username ??
-    task?.assignee ??
-    "Unassigned"
-  );
+  return task?.assigneeLabel || "Unassigned";
 }
 
 const TaskDetailDialog = ({

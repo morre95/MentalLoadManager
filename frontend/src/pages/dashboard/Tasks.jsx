@@ -76,15 +76,7 @@ const SortableTaskCard = ({ task, onToggleStatus, onClick }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id });
 
-  const assigneeLabel =
-    task?.assigneeLabel ??
-    task?.assignee?.displayName ??
-    task?.assignee?.display_name ??
-    task?.assignee?.username ??
-    task?.assignee_display_name ??
-    task?.assignee_username ??
-    task?.assignee ??
-    "Unassigned";
+  const assigneeLabel = task?.assigneeLabel || "Unassigned";
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -389,23 +381,13 @@ const Tasks = () => {
     }
   };
 
-  const handleUpdateTaskAssignee = async (taskId, assigneeId, assigneeLabel, assigneeMember) => {
+  const handleUpdateTaskAssignee = async (taskId, assigneeId, assigneeLabel) => {
     const rollbackTasks = tasks;
     const rollbackSelectedTask = selectedTask;
     setSyncError(null);
 
-    const nextAssignee =
-      assigneeId && assigneeMember
-        ? {
-          username: assigneeMember.username,
-          displayName: assigneeMember.display_name ?? null,
-          display_name: assigneeMember.display_name ?? null,
-        }
-        : null;
-
     handleUpdateTaskDetails(taskId, {
       assigneeId: assigneeId || undefined,
-      assignee: nextAssignee,
       assigneeLabel: assigneeLabel || "Unassigned",
     });
 

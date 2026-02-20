@@ -38,10 +38,7 @@ export function toApiTaskStatus(status) {
 }
 
 export function mapApiTaskToUi(task) {
-  const assigneeUsername = task.assignee_username || null;
-  const assigneeDisplayName = task.assignee_display_name || null;
-  const assigneeLabel =
-    assigneeDisplayName || assigneeUsername || task.assignee_name || "Unassigned";
+  const assigneeLabel = task.assignee_name || "Unassigned";
 
   return {
     id: String(task.task_id),
@@ -50,13 +47,6 @@ export function mapApiTaskToUi(task) {
     status: normalizeStatus(task.status),
     priority: normalizePriority(task),
     assigneeId: task.assignee_user_id ? String(task.assignee_user_id) : undefined,
-    assignee: assigneeUsername
-      ? {
-          username: assigneeUsername,
-          displayName: assigneeDisplayName,
-          display_name: assigneeDisplayName,
-        }
-      : null,
     assigneeLabel,
     dueDate: formatDueDate(task.due_date),
     category: task.category_name || "Other",

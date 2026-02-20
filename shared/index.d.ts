@@ -23,11 +23,6 @@ export type UiTask = {
   status: "todo" | "in-progress" | "on-hold" | "done" | string;
   priority: "low" | "medium" | "high" | string;
   assigneeId?: string;
-  assignee: {
-    username: string;
-    displayName?: string | null;
-    display_name?: string | null;
-  } | null;
   assigneeLabel: string;
   dueDate?: string;
   category: string;
