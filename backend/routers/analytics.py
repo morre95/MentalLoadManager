@@ -1,17 +1,12 @@
-# backend/routers/analytics.py
-# TODO: Change so that you can decide what Household to query for (if user has multiple); for now we just pick the first one they belong to.
-# TODO: Change dynamic keys to "series" list if you want stricter typing; but this is easier for frontend mapping.
-
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import select, func, and_
-from sqlalchemy import case
-from typing import Literal
+from sqlalchemy import select, func, and_, case
 
 from helpers import get_current_user, get_session_local
 from models import (
@@ -26,9 +21,16 @@ router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
 
 # ============================================================
-# Response Models
+# Status semantics (consistent across endpoint)
 # ============================================================
 
+OPEN_STATUSES = ("todo", "in_progress")
+COMPLETED_STATUSES = ("done", "archive")  # archive = completed but hidden
+
+
+# ============================================================
+# Response Models
+# ============================================================
 
 class StatItem(BaseModel):
     title: str
@@ -73,14 +75,12 @@ class AnalyticsSummaryResponse(BaseModel):
     loadTrendData: list[LoadTrendPoint]
     completionData: list[CompletionPoint]
     radarData: list[RadarPoint]
-
     stats: list[StatItem]
 
 
 # ============================================================
 # Helpers
 # ============================================================
-
 
 def _get_db_user(db, current_user: UserEmail) -> UserDB:
     user = db.scalar(select(UserDB).where(UserDB.username == current_user.username))
@@ -122,7 +122,6 @@ def _default_household(db, user_id: UUID) -> UUID:
 # Main Endpoint
 # ============================================================
 
-
 @router.get("/summary", response_model=AnalyticsSummaryResponse)
 def get_analytics_summary(
     household_id: UUID | None = None,
@@ -142,9 +141,6 @@ def get_analytics_summary(
         _require_membership(db, me.user_id, hid)
 
         # ------------------------------------------------------------
-        # Household Members (labels for charts)
-        # ------------------------------------------------------------
-        # ------------------------------------------------------------
         # Household Members
         #   - 'people' must be usernames (stable keys for recharts dataKey)
         #   - 'labels' provides display_name for UI
@@ -156,8 +152,8 @@ def get_analytics_summary(
             .order_by(UserDB.username.asc())
         ).all()
 
-        people: list[str] = []  # usernames
-        labels: dict[str, str] = {}  # username -> display label
+        people: list[str] = []            # usernames
+        labels: dict[str, str] = {}       # username -> display label
         user_id_to_username: dict[UUID, str] = {}
 
         for r in member_rows:
@@ -175,14 +171,12 @@ def get_analytics_summary(
         # Time windows
         # ------------------------------------------------------------
         now = datetime.now(timezone.utc)
-        # Global timeframe
-        days = (
-            7 if timeframe == "7d" else 30 if timeframe == "30d" else 84
-        )  # 12w ≈ 84 days
+
+        days = 7 if timeframe == "7d" else 30 if timeframe == "30d" else 84  # 12w ≈ 84 days
         start = now - timedelta(days=days)
 
         # ============================================================
-        # 1. Weekly Task Distribution per Person
+        # 1. Weekly Task Distribution per Person (by created_at)
         # ============================================================
 
         week_bucket = func.date_trunc("week", Tasks.created_at)
@@ -217,7 +211,7 @@ def get_analytics_summary(
         ]
 
         # ============================================================
-        # 2. Category Breakdown (real join)
+        # 2. Category Breakdown (by created_at)
         # ============================================================
 
         category_rows = db.execute(
@@ -240,7 +234,7 @@ def get_analytics_summary(
         ]
 
         # ============================================================
-        # 3. Load Trend (monthly open tasks)
+        # 3. Load Trend (monthly OPEN tasks created) - open excludes done+archive
         # ============================================================
 
         month_bucket = func.date_trunc("month", Tasks.created_at)
@@ -248,9 +242,12 @@ def get_analytics_summary(
         load_rows = db.execute(
             select(
                 month_bucket.label("mo"),
-                func.sum(case((Tasks.status != "done", 1), else_=0)).label(
-                    "open_tasks"
-                ),
+                func.sum(
+                    case(
+                        (Tasks.status.in_(OPEN_STATUSES), 1),
+                        else_=0,
+                    )
+                ).label("open_tasks"),
             )
             .where(
                 Tasks.household_id == hid,
@@ -260,8 +257,7 @@ def get_analytics_summary(
             .order_by("mo")
         ).all()
 
-        loadTrendData = []
-
+        loadTrendData: list[LoadTrendPoint] = []
         for r in load_rows:
             month_label = r.mo.strftime("%Y-%m")
             loadTrendData.append(
@@ -272,7 +268,9 @@ def get_analytics_summary(
             )
 
         # ============================================================
-        # 4. Completion Rate (last 7 days)
+        # 4. Completion Rate (by created_at, within selected timeframe)
+        #   - completed = done + archive
+        #   - pending   = open statuses
         # ============================================================
 
         day_bucket = func.date_trunc("day", Tasks.created_at)
@@ -280,8 +278,12 @@ def get_analytics_summary(
         completion_rows = db.execute(
             select(
                 day_bucket.label("dy"),
-                func.sum(case((Tasks.status == "done", 1), else_=0)).label("completed"),
-                func.sum(case((Tasks.status != "done", 1), else_=0)).label("pending"),
+                func.sum(
+                    case((Tasks.status.in_(COMPLETED_STATUSES), 1), else_=0)
+                ).label("completed"),
+                func.sum(
+                    case((Tasks.status.in_(OPEN_STATUSES), 1), else_=0)
+                ).label("pending"),
             )
             .where(
                 Tasks.household_id == hid,
@@ -301,7 +303,7 @@ def get_analytics_summary(
         ]
 
         # ============================================================
-        # 5. Radar Data (category responsibility per person)
+        # 5. Radar Data (category responsibility per person, by created_at)
         # ============================================================
 
         radar_rows = db.execute(
@@ -325,16 +327,17 @@ def get_analytics_summary(
             person = user_id_to_username.get(r.assigns_to, "unassigned")
             radar_map.setdefault(cat, {})
             radar_map[cat][person] = int(r.cnt or 0)
+
         radarData = [
             RadarPoint(category=cat, values=vals) for cat, vals in radar_map.items()
         ]
 
         # ============================================================
-        # 6. Stats Cards
-        #   Done This Week
-        #   Open Tasks Remaining
-        #   Overdue Tasks
-        #   Load Balance Score (based on open tasks by assignee)
+        # 6. Stats Cards (consistent definitions)
+        #   Done This Week      = completed (done+archive) where complete_date is this week
+        #   Open Tasks Remaining= open statuses only
+        #   Overdue Tasks       = open statuses with due_date < now
+        #   Load Balance Score  = based on OPEN tasks by assignee
         # ============================================================
 
         # start of week (Mon) in UTC
@@ -347,7 +350,7 @@ def get_analytics_summary(
                 .select_from(Tasks)
                 .where(
                     Tasks.household_id == hid,
-                    Tasks.status == "done",
+                    Tasks.status.in_(COMPLETED_STATUSES),
                     Tasks.complete_date.is_not(None),
                     Tasks.complete_date >= start_of_week,
                 )
@@ -361,7 +364,7 @@ def get_analytics_summary(
                 .select_from(Tasks)
                 .where(
                     Tasks.household_id == hid,
-                    Tasks.status != "done",
+                    Tasks.status.in_(OPEN_STATUSES),
                 )
             )
             or 0
@@ -373,7 +376,7 @@ def get_analytics_summary(
                 .select_from(Tasks)
                 .where(
                     Tasks.household_id == hid,
-                    Tasks.status != "done",
+                    Tasks.status.in_(OPEN_STATUSES),
                     Tasks.due_date.is_not(None),
                     Tasks.due_date < now,
                 )
@@ -389,13 +392,12 @@ def get_analytics_summary(
             )
             .where(
                 Tasks.household_id == hid,
-                Tasks.status != "done",
+                Tasks.status.in_(OPEN_STATUSES),
                 Tasks.assigns_to.is_not(None),
             )
             .group_by(Tasks.assigns_to)
         ).all()
 
-        # Convert to username -> count
         open_by_person: dict[str, int] = {}
         for r in assignee_counts:
             uname = user_id_to_username.get(r.assigns_to)
@@ -403,8 +405,6 @@ def get_analytics_summary(
                 continue
             open_by_person[uname] = int(r.cnt or 0)
 
-        # If 2+ people: score = 100 - (max_share - min_share)*100
-        # If <2 people with tasks: score is "—"
         load_balance_value = "—"
         if len(open_by_person) >= 2:
             total = sum(open_by_person.values()) or 1
