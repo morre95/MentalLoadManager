@@ -11,7 +11,7 @@ import {
   PauseCircle,
 } from "lucide-react";
 
-// import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -25,11 +25,13 @@ import {
 } from "@/components/ui/select";
 import { fetchKanbanAssignees, resolveCurrentHouseholdId } from "@/lib/utils";
 
-// const priorityColors = {
-//   low: "bg-sage-light text-sage border-sage/30",
-//   medium: "bg-status-todo/15 text-status-todo border-status-todo/30",
-//   high: "bg-terracotta-light text-terracotta border-terracotta/30",
-// };
+import useFokus from '@/hooks/useFocus';
+
+const priorityColors = {
+  low: "bg-sage-light text-sage border-sage/30",
+  medium: "bg-status-todo/15 text-status-todo border-status-todo/30",
+  high: "bg-terracotta-light text-terracotta border-terracotta/30",
+};
 
 const statusConfig = {
   todo: { icon: Clock, label: "To Do", color: "bg-status-todo" },
@@ -95,6 +97,14 @@ const TaskDetailDialog = ({
   const [categoryDraft, setCategoryDraft] = useState("Other");
   const [customCategoryDraft, setCustomCategoryDraft] = useState("");
   const [dueDateDraft, setDueDateDraft] = useState("");
+
+
+  const [editingField, setEditingField] = useState(null);
+  const [titleRef, setTitleFocus] = useFokus();
+  const [descRef, setDescFocus] = useFokus();
+
+  const [isStatusOpen, setIsStatusOpen] = useState(false);
+  const [isPriorityOpen, setIsPriorityOpen] = useState(false);
 
   const normalizedPriority = useMemo(() => {
     const value = String(task?.priority || "medium").toLowerCase();
@@ -225,11 +235,28 @@ const TaskDetailDialog = ({
         <DialogHeader>
           <DialogTitle className="font-display text-xl flex items-center gap-3">
             <div className={`w-3 h-3 rounded-full ${status.color}`} />
-            <Input
-              value={titleDraft}
-              onChange={(e) => setTitleDraft(e.target.value)}
-              className="h-9"
-            />
+            {editingField === "title" ? (
+              <Input
+                ref={titleRef}
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onBlur={(e) => {
+                  setTitleDraft(e.target.value);
+                  setEditingField(null);
+                }}
+                className="h-9"
+              />
+            ) : (
+              <div
+                className="text-left cursor-pointer"
+                onClick={() => {
+                  setEditingField("title");
+                  requestAnimationFrame(() => setTitleFocus());
+                }}
+              >
+                {titleDraft}
+              </div>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -240,11 +267,29 @@ const TaskDetailDialog = ({
         >
           <div>
             <p className="text-sm font-medium text-muted-foreground mb-1">Description</p>
-            <Textarea
-              value={descriptionDraft}
-              onChange={(e) => setDescriptionDraft(e.target.value)}
-              rows={4}
-            />
+            {editingField == "description" ?
+              (
+                <Textarea
+                  ref={descRef}
+                  value={descriptionDraft}
+                  onChange={(e) => setDescriptionDraft(e.target.value)}
+                  onBlur={(e) => {
+                    setDescriptionDraft(e.target.value)
+                    setEditingField(null);
+                  }}
+                  rows={4}
+                />
+              ) : (
+                <div
+                  className="text-foreground text-left w-full rounded-md hover:bg-muted/40 p-2 -ml-2 cursor-pointer"
+                  onClick={() => {
+                    setEditingField("description");
+                    requestAnimationFrame(() => setDescFocus());
+                  }}
+                >
+                  {descriptionDraft}
+                </div>
+              )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -252,34 +297,86 @@ const TaskDetailDialog = ({
               <StatusIcon className="h-4 w-4 text-muted-foreground" />
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">Status</p>
-                <Select value={statusDraft} onValueChange={setStatusDraft}>
-                  <SelectTrigger className="h-8 mt-1 w-44">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todo">To Do</SelectItem>
-                    <SelectItem value="in-progress">In Progress</SelectItem>
-                    <SelectItem value="archive">Archive</SelectItem>
-                    <SelectItem value="done">Done</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                {editingField === "status" ? (
+                  <Select
+                    value={statusDraft}
+                    open={isStatusOpen}
+                    onOpenChange={(open) => {
+                      setIsStatusOpen(open);
+                      if (!open) setEditingField(null);
+                    }}
+                    onValueChange={(value) => {
+                      setStatusDraft(value);
+                      setIsStatusOpen(false);
+                      setEditingField(null);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 mt-1 w-44">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todo">To Do</SelectItem>
+                      <SelectItem value="in-progress">In Progress</SelectItem>
+                      <SelectItem value="archive">Archive</SelectItem>
+                      <SelectItem value="done">Done</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div
+                    className="text-left cursor-pointer"
+                    onClick={() => {
+                      setEditingField("status");
+                      setIsStatusOpen(true);
+                    }}
+                  >
+                    {statusDraft}
+                  </div>
+                )}              </div>
             </div>
 
             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
               <Flag className="h-4 w-4 text-muted-foreground" />
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">Priority</p>
-                <Select value={priorityDraft} onValueChange={setPriorityDraft}>
-                  <SelectTrigger className="h-8 mt-1 w-36">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                  </SelectContent>
-                </Select>
+                {editingField == "priority" ?
+                  (
+
+                    <Select
+                      value={priorityDraft}
+                      open={isPriorityOpen}
+                      onOpenChange={(open) => {
+                        setIsPriorityOpen(open);
+                        if (!open) setEditingField(null);
+                      }}
+                      onValueChange={(value) => {
+                        setPriorityDraft(value);
+                        setIsPriorityOpen(false);
+                        setEditingField(null);
+                      }}
+                    >
+                      <SelectTrigger className="h-8 mt-1 w-36">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="text-left cursor-pointer">
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${priorityColors[priorityDraft] || priorityColors.medium}`}
+                        onClick={() => {
+                          setEditingField("priority");
+                          setIsPriorityOpen(true);
+                        }}
+                      >
+                        {priorityDraft}
+                      </Badge>
+                    </div>
+                  )}
               </div>
             </div>
 
