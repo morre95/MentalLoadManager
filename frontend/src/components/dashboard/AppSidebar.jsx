@@ -16,7 +16,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   clearAuth,
   getUserFromLocalStorage,
-  getDisplayName,
   getInitials,
 } from "@/lib/utils";
 
@@ -56,7 +55,7 @@ export function AppSidebar() {
   const queryClient = useQueryClient();
 
   const user = getUserFromLocalStorage();
-  const fullName = getDisplayName(user);
+  const fullName = user.display_name || user.username || "User";
   const initials = getInitials(fullName);
 
   const handleSignOut = () => {

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight, Heart, LayoutGrid, BarChart3, CalendarDays } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { fetchMe, getDisplayName } from "@/lib/utils";
+import { fetchMe} from "@/lib/utils";
 
 const features = [
     {
@@ -73,7 +73,7 @@ const HeroSection = () => {
                         className="font-display text-2xl md:text-4xl lg:text-5xl font-bold text-foreground mb-6 leading-tight"
                     >
                         Welcome back,{" "}
-                        <span className="gradient-text">{getDisplayName(me)}</span>
+                        <span className="gradient-text">{me.display_name || me.username}</span>
                         <br />
                         Share the mental load
                     </motion.h1>

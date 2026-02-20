@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { getDisplayName, getInitials } from "@/lib/utils";
+import {getInitials } from "@/lib/utils";
 
 export default function MemberCard({
   member,
@@ -14,7 +14,7 @@ export default function MemberCard({
   removingKey,
   onConfirmRemove,
 }) {
-  const name = getDisplayName(member);
+  const name = member.display_name || member.username || "User";
   const initials = getInitials(name);
 
   const key = `${householdId}:${member.user_id}`;

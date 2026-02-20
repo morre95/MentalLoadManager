@@ -226,14 +226,6 @@ export function normalizeNameFromUsername(username) {
     .join(" ");
 }
 
-export function getDisplayName(user) {
-  const displayName = user.display_name;
-  if (displayName) {
-    return capitalizeWords(String(displayName).replace(/[_-]+/g, " "));
-  }
-  return normalizeNameFromUsername(user?.username);
-}
-
 export function getDisplayNameFromUsername(username, labels) {
   if (!username) return "Unknown";
   const label = labels?.[username];
