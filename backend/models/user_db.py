@@ -1,13 +1,25 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, String, text
+from sqlalchemy import DateTime, String, text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from .calendar_connections import CalendarConnections
+    from .invitations import Invitations
+    from .oauth_accounts import OAuthAccounts
+    from .preferences import Preferences
+    from .reminders import Reminders
+    from .tasks import Tasks
+    from .user_task import UserTask
+    from .users_households import UsersHouseholds
 
 
 class UserDB(Base):

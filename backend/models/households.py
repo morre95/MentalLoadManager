@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from datetime import datetime
 from uuid import UUID
 
@@ -8,6 +9,18 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+
+
+if TYPE_CHECKING:
+    from .users_households import UsersHouseholds
+    from .invitations import Invitations
+    from .categories import Categories
+    from .reminders import Reminders
+    from .tasks import Tasks
+    from .ai_summaries import AISummaries
+    from .daily_reports import DailyReports
+    from .weekly_reports import WeeklyReports
+    from .monthly_reports import MonthlyReports
 
 
 class Households(Base):
