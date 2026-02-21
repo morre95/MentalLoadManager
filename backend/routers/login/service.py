@@ -5,27 +5,25 @@ from urllib.parse import urlencode
 
 import jwt
 import requests
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from models import OAuthAccounts, Token, UserDB, User
 from helpers import (
     ALGORITHM,
     SECRET_KEY,
     authenticate_user,
     create_access_token,
     get_session_local,
-    get_current_user,
 )
+from models import Token
+
+from .repository import find_user, get_google_oauth_account, get_user_by_username
 
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "30"))
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 BACKEND_URL = os.getenv("BACKEND_URL", "").rstrip("/")
-
-router = APIRouter(tags=["login"])
 
 
 def create_oauth_state(provider: str) -> str:
@@ -59,7 +57,6 @@ def oauth_redirect_uri(request: Request, provider: str) -> str:
     if BACKEND_URL:
         return f"{BACKEND_URL}/api/auth/{provider}/callback"
 
-    # Prefer proxy headers when the app runs behind a reverse proxy.
     forwarded_proto = request.headers.get("x-forwarded-proto")
     forwarded_host = request.headers.get("x-forwarded-host")
     if forwarded_proto and forwarded_host:
@@ -80,17 +77,19 @@ def issue_login_redirect(username: str) -> RedirectResponse:
     )
 
 
-def find_user(db, email, username) -> UserDB | None:
-    user = None
-    if email:
-        user = db.scalar(select(UserDB).where(UserDB.email == email))
-    if user is None:
-        user = db.scalar(select(UserDB).where(UserDB.username == username))
-
-    return user
+def require_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Missing environment variable: {name}",
+        )
+    return value
 
 
 def upsert_google_user(user_data: dict) -> str:
+    from models import UserDB
+
     email = user_data.get("email")
     provider_sub = user_data.get("sub")
     username = email or f"google:{provider_sub or 'unknown'}"
@@ -123,7 +122,6 @@ def upsert_google_user(user_data: dict) -> str:
             db.commit()
         except IntegrityError:
             db.rollback()
-            # Handle race conditions on unique email.
             user = find_user(db=db, email=email, username=username)
             if user is None:
                 raise HTTPException(
@@ -135,16 +133,6 @@ def upsert_google_user(user_data: dict) -> str:
         return user.username
 
 
-def require_env(name: str) -> str:
-    value = os.getenv(name)
-    if not value:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Missing environment variable: {name}",
-        )
-    return value
-
-
 def save_google_tokens(
     username: str,
     access_token: str,
@@ -153,6 +141,8 @@ def save_google_tokens(
     email: str | None = None,
     expires_at: datetime | None = None,
 ) -> None:
+    from models import OAuthAccounts
+
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
@@ -162,18 +152,13 @@ def save_google_tokens(
         ) from exc
 
     with session_local() as db:
-        user = db.scalar(select(UserDB).where(UserDB.username == username))
+        user = get_user_by_username(db, username)
         if user is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found",
             )
-        oauth_account = db.scalar(
-            select(OAuthAccounts).where(
-                OAuthAccounts.user_id == user.user_id,
-                OAuthAccounts.provider == "google",
-            )
-        )
+        oauth_account = get_google_oauth_account(db, user.user_id)
         if oauth_account is None:
             if not provider_user_id:
                 raise HTTPException(
@@ -192,7 +177,6 @@ def save_google_tokens(
             db.add(oauth_account)
         else:
             oauth_account.access_token = access_token
-            # Google may omit refresh_token on subsequent exchanges.
             if refresh_token:
                 oauth_account.refresh_token = refresh_token
             if email:
@@ -216,19 +200,14 @@ def get_google_tokens(username: str) -> tuple[str, str]:
         ) from exc
 
     with session_local() as db:
-        user = db.scalar(select(UserDB).where(UserDB.username == username))
+        user = get_user_by_username(db, username)
         if user is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found",
             )
 
-        oauth_account = db.scalar(
-            select(OAuthAccounts).where(
-                OAuthAccounts.user_id == user.user_id,
-                OAuthAccounts.provider == "google",
-            )
-        )
+        oauth_account = get_google_oauth_account(db, user.user_id)
         if oauth_account is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -248,6 +227,26 @@ def get_google_tokens(username: str) -> tuple[str, str]:
             )
 
         return oauth_account.access_token, oauth_account.refresh_token
+
+
+def refresh_google_token(refresh_token: str):
+    client_id = require_env("GOOGLE_CLIENT_ID")
+    client_secret = require_env("GOOGLE_CLIENT_SECRET")
+
+    token_url = "https://oauth2.googleapis.com/token"
+    data = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "refresh_token": refresh_token,
+        "grant_type": "refresh_token",
+    }
+
+    response = requests.post(token_url, data=data, timeout=15)
+    if not response.ok:
+        raise HTTPException(status_code=401, detail="Could not refresh Google token")
+
+    new_tokens = response.json()
+    return new_tokens.get("access_token")
 
 
 def create_calendar_event(access_token, username):
@@ -276,39 +275,7 @@ def create_calendar_event(access_token, username):
     return response.json()
 
 
-def refresh_google_token(refresh_token: str):
-    client_id = require_env("GOOGLE_CLIENT_ID")
-    client_secret = require_env("GOOGLE_CLIENT_SECRET")
-
-    token_url = "https://oauth2.googleapis.com/token"
-
-    data = {
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "refresh_token": refresh_token,
-        "grant_type": "refresh_token",
-    }
-
-    response = requests.post(token_url, data=data, timeout=15)
-
-    if not response.ok:
-        raise HTTPException(status_code=401, detail="Could not refresh Google token")
-
-    new_tokens = response.json()
-
-    return new_tokens.get("access_token")
-
-
-@router.get("/api/test/calendar")
-def test_calendar(user: User = Depends(get_current_user)):
-    access_token, _ = get_google_tokens(user.username)
-    create_calendar_event(access_token=access_token, username=user.username)
-    return {"success": True}
-
-
-@router.post("/api/token")
-@router.post("/api/passwrod/login", response_model=Token)
-def login(form: OAuth2PasswordRequestForm = Depends()):
+def login(form: OAuth2PasswordRequestForm) -> Token:
     try:
         user = authenticate_user(form.username, form.password)
     except RuntimeError as exc:
@@ -322,14 +289,14 @@ def login(form: OAuth2PasswordRequestForm = Depends()):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
         )
+
     access_token = create_access_token(
         subject=user.username,
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return Token(access_token=access_token, token_type="bearer")
 
 
-@router.get("/api/auth/google/login")
 def login_google(request: Request):
     client_id = require_env("GOOGLE_CLIENT_ID")
     state = create_oauth_state("google")
@@ -338,7 +305,6 @@ def login_google(request: Request):
             "client_id": client_id,
             "redirect_uri": oauth_redirect_uri(request, "google"),
             "response_type": "code",
-            # "scope": "openid email profile https://www.googleapis.com/auth/calendar",
             "scope": "openid email profile",
             "state": state,
             "access_type": "offline",
@@ -350,7 +316,6 @@ def login_google(request: Request):
     )
 
 
-@router.get("/api/auth/google/callback")
 def callback_google(request: Request, code: str = Query(...), state: str = Query(...)):
     decode_oauth_state(state, "google")
     client_id = require_env("GOOGLE_CLIENT_ID")
@@ -406,7 +371,6 @@ def callback_google(request: Request, code: str = Query(...), state: str = Query
     return issue_login_redirect(username)
 
 
-@router.get("/api/auth/facebook/login")
 def login_facebook(request: Request):
     client_id = require_env("FACEBOOK_CLIENT_ID")
     state = create_oauth_state("facebook")
@@ -422,7 +386,6 @@ def login_facebook(request: Request):
     return RedirectResponse(url=f"https://www.facebook.com/dialog/oauth?{params}")
 
 
-@router.get("/api/auth/facebook/callback")
 def callback_facebook(
     request: Request, code: str = Query(...), state: str = Query(...)
 ):
@@ -458,7 +421,6 @@ def callback_facebook(
     return issue_login_redirect(username)
 
 
-@router.get("/api/auth/instagram/login")
 def login_instagram(request: Request):
     client_id = require_env("INSTAGRAM_CLIENT_ID")
     state = create_oauth_state("instagram")
@@ -474,7 +436,6 @@ def login_instagram(request: Request):
     return RedirectResponse(url=f"https://api.instagram.com/oauth/authorize?{params}")
 
 
-@router.get("/api/auth/instagram/callback")
 def callback_instagram(
     request: Request, code: str = Query(...), state: str = Query(...)
 ):
