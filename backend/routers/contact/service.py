@@ -1,36 +1,22 @@
-from uuid import UUID
-from fastapi import APIRouter, Depends, status, HTTPException
-from pydantic import BaseModel
 import logging
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.exc import SQLAlchemyError
-from models import ContactMessages
-from helpers import get_session_local, get_user_id_from_token
+from uuid import UUID
 
+from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-# /api/contact/send/message
-router = APIRouter(
-    prefix="/api/contact",
-    tags=["contact"],
-)
+from helpers import get_session_local
+
+from .repository import save_contact_message
+from .schemas import SendMessageRequest
 
 logger = logging.getLogger(__name__)
 
 
-class SendMessageRequest(BaseModel):
-    name: str
-    email: str
-    message: str
-
-
-@router.post("/send/message")
-def send_message(
-    payload: SendMessageRequest,
-    user_id: UUID | None = Depends(get_user_id_from_token),
-):
+def send_message(payload: SendMessageRequest, user_id: UUID | None):
     name = payload.name.strip()
     email = payload.email.strip()
     message = payload.message.strip()
+
     if not name:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -56,13 +42,13 @@ def send_message(
         ) from exc
 
     with session_local() as db:
-        new_contact_message = ContactMessages(
+        new_contact_message = save_contact_message(
+            db,
             name=name,
             email=email,
             message=message,
             user_id=user_id,
         )
-        db.add(new_contact_message)
 
         try:
             db.commit()

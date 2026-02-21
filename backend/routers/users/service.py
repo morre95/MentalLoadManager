@@ -1,40 +1,17 @@
-from pydantic import BaseModel
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import or_, select
+from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 
-from helpers import get_current_user, get_session_local, password_hasher
-from models import UserDB, UserEmail
+from helpers import get_session_local, password_hasher
 
-router = APIRouter(
-    prefix="/api/users",
-    tags=["users"],
-)
+from .repository import create_user, find_existing_user
+from .schemas import RegisterUserRequest, RegisterUserResponse
 
 
-class RegisterUserRequest(BaseModel):
-    username: str
-    password: str
-    email: str | None = None
-    display_name: str | None = None
-
-
-class RegisterUserResponse(BaseModel):
-    user_id: str
-    username: str
-    email: str | None = None
-    display_name: str | None = None
-
-
-@router.post(
-    "/register",
-    response_model=RegisterUserResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-def register_user(payload: RegisterUserRequest):
+def register_user(payload: RegisterUserRequest) -> RegisterUserResponse:
     username = payload.username.strip()
     email = payload.email.strip() if payload.email else None
     display_name = payload.display_name.strip() if payload.display_name else None
+
     if not username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -55,24 +32,20 @@ def register_user(payload: RegisterUserRequest):
         ) from exc
 
     with session_local() as db:
-        duplicate_conditions = [UserDB.username == username]
-        if email:
-            duplicate_conditions.append(UserDB.email == email)
-
-        existing_user = db.scalar(select(UserDB).where(or_(*duplicate_conditions)))
+        existing_user = find_existing_user(db, username, email)
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Username or email already exists",
             )
 
-        new_user = UserDB(
+        new_user = create_user(
+            db,
             username=username,
-            password=password_hasher.hash(payload.password),
+            password_hash=password_hasher.hash(payload.password),
             email=email,
             display_name=display_name,
         )
-        db.add(new_user)
 
         try:
             db.commit()
@@ -84,16 +57,10 @@ def register_user(payload: RegisterUserRequest):
             ) from exc
 
         db.refresh(new_user)
-        response = RegisterUserResponse(
+
+        return RegisterUserResponse(
             user_id=str(new_user.user_id),
             username=new_user.username,
             email=new_user.email,
             display_name=new_user.display_name,
         )
-
-    return response
-
-
-@router.get("/me", response_model=UserEmail)
-def read_users_me(current_user: UserEmail = Depends(get_current_user)):
-    return current_user
