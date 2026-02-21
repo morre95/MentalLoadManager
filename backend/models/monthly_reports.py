@@ -9,8 +9,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
 
-from .households import Households
-
 
 class MonthlyReports(Base):
     __tablename__ = "monthly_reports"

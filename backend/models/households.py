@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from uuid import UUID
 
@@ -6,15 +8,6 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
-from .users_households import UsersHouseholds
-from .categories import Categories
-from .tasks import Tasks
-from .invitations import Invitations
-from .reminders import Reminders
-from .weekly_reports import WeeklyReports
-from .daily_reports import DailyReports
-from .monthly_reports import MonthlyReports
-from .ai_summaries import AISummaries
 
 
 class Households(Base):

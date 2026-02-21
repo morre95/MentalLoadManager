@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from uuid import UUID
 
 from sqlalchemy import ForeignKey, String, UniqueConstraint, text
@@ -5,9 +7,6 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
-
-from .households import Households
-from .tasks import Tasks
 
 
 class Categories(Base):

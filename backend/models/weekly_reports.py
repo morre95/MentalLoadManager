@@ -8,7 +8,6 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
-from .households import Households
 
 
 class WeeklyReports(Base):
