@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from uuid import UUID
 
 from sqlalchemy import and_, delete, func, or_, select, update
@@ -18,7 +19,7 @@ def get_memberships_for_user(db: Session, user_id: UUID):
     ).all()
 
 
-def list_members_for_households(db: Session, household_ids: list[UUID]):
+def list_members_for_households(db: Session, household_ids: Sequence[UUID]):
     return db.execute(
         select(
             UserDB.user_id,
@@ -71,7 +72,7 @@ def find_households_for_user(db: Session, user_id: UUID):
     ).all()
 
 
-def list_household_member_rows(db: Session, household_ids: list[UUID]):
+def list_household_member_rows(db: Session, household_ids: Sequence[UUID]):
     return db.execute(
         select(
             UsersHouseholds.household_id,
@@ -101,7 +102,9 @@ def count_household_members(db: Session, household_id: UUID) -> int:
     )
 
 
-def unassign_user_tasks_in_household(db: Session, household_id: UUID, user_id: UUID) -> None:
+def unassign_user_tasks_in_household(
+    db: Session, household_id: UUID, user_id: UUID
+) -> None:
     db.execute(
         update(Tasks)
         .where(

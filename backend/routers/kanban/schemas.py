@@ -80,7 +80,7 @@ class UpdateTaskPriorityRequest(BaseModel):
 
 class UpdateTaskPriorityResponse(BaseModel):
     task_id: str
-    priority: str
+    priority: str | None = None
     updated_at: datetime | None = None
 
 
