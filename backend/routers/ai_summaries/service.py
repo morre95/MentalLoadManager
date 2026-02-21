@@ -1,44 +1,31 @@
 import hashlib
 import json
+import logging
 import os
 import time as time_module
-import logging
 from datetime import UTC, date, datetime, time, timedelta
-from uuid import UUID
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
-from sqlalchemy import and_, or_, select
+from fastapi import HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import aliased
 
-from helpers import get_current_user, get_session_local
-from models import AISummaries, Tasks, UserDB, UserEmail, UsersHouseholds
+from helpers import get_session_local
+from models import UserEmail
+
+from .repository import (
+    create_ai_summary,
+    fetch_household_tasks,
+    fetch_weekly_tasks,
+    get_user_by_username,
+    has_household_membership,
+)
+from .schemas import GenerateWeeklySummaryRequest, GenerateWeeklySummaryResponse
 
 DEFAULT_OPENROUTER_MODEL = "openrouter/free"
 OPENROUTER_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_FALLBACK_MODELS = ["openrouter/free"]
 
-router = APIRouter(
-    prefix="/api/ai",
-    tags=["ai"],
-)
 logger = logging.getLogger(__name__)
-
-
-class GenerateWeeklySummaryRequest(BaseModel):
-    household_id: UUID
-    week_start: date | None = None
-
-
-class GenerateWeeklySummaryResponse(BaseModel):
-    ai_summary_id: str
-    household_id: str
-    week_start: date
-    model: str
-    content: str
-    prompt_hash: str
 
 
 def _normalize_week_start(value: date | None) -> date:
@@ -101,11 +88,10 @@ def _load_model_candidates(primary_model: str) -> list[str]:
     return candidates
 
 
-@router.post("/weekly-summary", response_model=GenerateWeeklySummaryResponse)
 def generate_weekly_summary(
     payload: GenerateWeeklySummaryRequest,
-    current_user: UserEmail = Depends(get_current_user),
-):
+    current_user: UserEmail,
+) -> GenerateWeeklySummaryResponse:
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         raise HTTPException(
@@ -129,83 +115,26 @@ def generate_weekly_summary(
         ) from exc
 
     with session_local() as db:
-        user = db.scalar(select(UserDB).where(UserDB.username == current_user.username))
+        user = get_user_by_username(db, current_user.username)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Could not validate credentials",
             )
 
-        membership = db.scalar(
-            select(UsersHouseholds).where(
-                and_(
-                    UsersHouseholds.user_id == user.user_id,
-                    UsersHouseholds.household_id == payload.household_id,
-                )
-            )
-        )
-        if membership is None:
+        if not has_household_membership(db, user.user_id, payload.household_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User is not a member of the specified household",
             )
 
-        creator_user = aliased(UserDB)
-        assignee_user = aliased(UserDB)
-        weekly_tasks = db.execute(
-            select(
-                Tasks.task_id,
-                Tasks.name,
-                Tasks.status,
-                Tasks.priority,
-                Tasks.created_at,
-                Tasks.started_at,
-                Tasks.complete_date,
-                Tasks.due_date,
-                Tasks.created_by,
-                Tasks.assigns_to,
-                creator_user.username.label("created_by_username"),
-                assignee_user.username.label("assignee_username"),
-            ).where(
-                and_(
-                    Tasks.household_id == payload.household_id,
-                    or_(
-                        and_(
-                            Tasks.created_at >= week_start_dt,
-                            Tasks.created_at < week_end_dt,
-                        ),
-                        and_(
-                            Tasks.started_at >= week_start_dt,
-                            Tasks.started_at < week_end_dt,
-                        ),
-                        and_(
-                            Tasks.complete_date >= week_start_dt,
-                            Tasks.complete_date < week_end_dt,
-                        ),
-                        and_(
-                            Tasks.due_date >= week_start_dt,
-                            Tasks.due_date < week_end_dt,
-                        ),
-                    ),
-                )
-            ).outerjoin(creator_user, Tasks.created_by == creator_user.user_id)
-            .outerjoin(assignee_user, Tasks.assigns_to == assignee_user.user_id)
-        ).all()
-
-        household_assignee_user = aliased(UserDB)
-        household_tasks = db.execute(
-            select(
-                Tasks.status,
-                Tasks.priority,
-                Tasks.assigns_to,
-                household_assignee_user.username.label("assignee_username"),
-            )
-            .outerjoin(
-                household_assignee_user,
-                Tasks.assigns_to == household_assignee_user.user_id,
-            )
-            .where(Tasks.household_id == payload.household_id)
-        ).all()
+        weekly_tasks = fetch_weekly_tasks(
+            db,
+            payload.household_id,
+            week_start_dt,
+            week_end_dt,
+        )
+        household_tasks = fetch_household_tasks(db, payload.household_id)
 
     status_counts: dict[str, int] = {}
     for row in household_tasks:
@@ -273,10 +202,14 @@ def generate_weekly_summary(
         )
 
     total_household_tasks = len(household_tasks)
-    household_task_percentage_by_assignee = {
-        assignee: round((count / total_household_tasks) * 100, 1)
-        for assignee, count in household_assignee_counts.items()
-    } if total_household_tasks else {}
+    household_task_percentage_by_assignee = (
+        {
+            assignee: round((count / total_household_tasks) * 100, 1)
+            for assignee, count in household_assignee_counts.items()
+        }
+        if total_household_tasks
+        else {}
+    )
 
     prompt_payload = {
         "week_start": week_start.isoformat(),
@@ -407,14 +340,14 @@ def generate_weekly_summary(
 
     with session_local() as db:
         model_for_db = selected_model[:100] if selected_model else None
-        ai_summary = AISummaries(
+        ai_summary = create_ai_summary(
+            db,
             household_id=payload.household_id,
             week_start=week_start,
             content=summary_text,
             model=model_for_db,
             prompt_hash=prompt_hash,
         )
-        db.add(ai_summary)
         try:
             db.commit()
         except SQLAlchemyError as exc:
