@@ -8,6 +8,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
 
+from .households import Households
+from .tasks import Tasks
+
 
 class Categories(Base):
     __tablename__ = "categories"
