@@ -3,7 +3,7 @@ FROM node:20-slim AS build
 WORKDIR /app
 
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 COPY frontend/ ./
 COPY shared/ ../shared/
