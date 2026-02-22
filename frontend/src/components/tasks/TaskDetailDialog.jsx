@@ -305,13 +305,6 @@ const TaskDetailDialog = ({
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-              <Home className="h-4 w-4 text-muted-foreground" />
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">Household</p>
-                <p className="text-sm truncate">{householdName}</p>
-              </div>
-            </div>
 
             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
               <StatusIcon className="h-4 w-4 text-muted-foreground" />
@@ -351,7 +344,8 @@ const TaskDetailDialog = ({
                   >
                     {statusDraft}
                   </div>
-                )}              </div>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
@@ -515,30 +509,40 @@ const TaskDetailDialog = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <p className="text-xs text-muted-foreground">Due Date</p>
-              {editingField === "dueDate" ? (
-                <Input
-                  ref={dueDateRef}
-                  type="date"
-                  value={dueDateDraft}
-                  onChange={(e) => setDueDateDraft(e.target.value)}
-                  onBlur={() => setEditingField(null)}
-                  className="h-8 mt-1 w-44"
-                />
-              ) : (
-                <div
-                  className="text-left cursor-pointer"
-                  onClick={() => {
-                    setEditingField("dueDate");
-                    requestAnimationFrame(() => setDueDateFocus());
-                  }}
-                >
-                  {dueDateDraft || "No due date"}
-                </div>
-              )}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <div className="min-w-0 w-full">
+                <p className="text-xs text-muted-foreground">Due Date</p>
+                {editingField === "dueDate" ? (
+                  <Input
+                    ref={dueDateRef}
+                    type="date"
+                    value={dueDateDraft}
+                    onChange={(e) => setDueDateDraft(e.target.value)}
+                    onBlur={() => setEditingField(null)}
+                    className="h-8 mt-1 w-44"
+                  />
+                ) : (
+                  <div
+                    className="text-left cursor-pointer"
+                    onClick={() => {
+                      setEditingField("dueDate");
+                      requestAnimationFrame(() => setDueDateFocus());
+                    }}
+                  >
+                    {dueDateDraft || "No due date"}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+              <Home className="h-4 w-4 text-muted-foreground" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Household</p>
+                <p className="text-sm truncate">{householdName}</p>
+              </div>
             </div>
           </div>
 
