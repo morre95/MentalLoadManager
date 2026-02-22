@@ -21,7 +21,9 @@ from models import Token
 
 from .repository import find_user, get_google_oauth_account, get_user_by_username
 
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "30"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(
+    os.getenv("JWT_EXPIRE_MINUTES", "1440")
+)  # 1440 min = 24h
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 BACKEND_URL = os.getenv("BACKEND_URL", "").rstrip("/")
 
