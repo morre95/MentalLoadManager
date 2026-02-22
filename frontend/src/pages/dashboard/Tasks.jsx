@@ -706,6 +706,7 @@ const Tasks = () => {
         onOpenChange={setIsAddDialogOpen}
         onAddTask={handleAddTask}
         householdId={selectedHouseholdFilter}
+        households={households}
       />
 
       <TaskDetailDialog

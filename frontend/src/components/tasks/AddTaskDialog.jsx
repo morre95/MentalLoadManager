@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,13 @@ const categories = [
 const CUSTOM_CATEGORY_VALUE = "__custom__";
 const UNASSIGNED_ASSIGNEE_VALUE = "__unassigned__";
 
-const AddTaskDialog = ({ open, onOpenChange, onAddTask, householdId }) => {
+const AddTaskDialog = ({
+    open,
+    onOpenChange,
+    onAddTask,
+    householdId,
+    households = [],
+}) => {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [priority, setPriority] = useState("medium");
@@ -50,12 +56,78 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask, householdId }) => {
     const [dueDate, setDueDate] = useState("");
     const [saving, setSaving] = useState(false);
     const [submitError, setSubmitError] = useState("");
+    const [selectedHouseholdId, setSelectedHouseholdId] = useState("");
+
+    const householdOptions = useMemo(() => {
+        const nextHouseholds = Array.isArray(households) ? households : [];
+        const mapped = nextHouseholds
+            .map((household) => {
+                const id = household?.household_id ?? household?.id;
+                if (!id) return null;
+                return {
+                    id: String(id),
+                    name: household?.name || "Unnamed household",
+                };
+            })
+            .filter(Boolean);
+
+        if (
+            householdId &&
+            !mapped.some((household) => household.id === String(householdId))
+        ) {
+            mapped.push({
+                id: String(householdId),
+                name: "Selected household",
+            });
+        }
+
+        return mapped;
+    }, [householdId, households]);
+
+    const isHouseholdSelectDisabled =
+        Boolean(householdId) || householdOptions.length <= 1;
+
+    useEffect(() => {
+        if (!open) return;
+
+        let cancelled = false;
+
+        const initializeHousehold = async () => {
+            if (householdId) {
+                if (!cancelled) setSelectedHouseholdId(String(householdId));
+                return;
+            }
+
+            const knownIds = householdOptions.map((household) => household.id);
+            const resolvedHouseholdId = await resolveCurrentHouseholdId();
+            const resolvedId = resolvedHouseholdId ? String(resolvedHouseholdId) : "";
+
+            const fallbackId = knownIds.includes(resolvedId)
+                ? resolvedId
+                : knownIds[0] || resolvedId;
+
+            if (cancelled) return;
+
+            setSelectedHouseholdId((previousHouseholdId) => {
+                if (!previousHouseholdId) return fallbackId;
+                if (knownIds.length === 0) return previousHouseholdId;
+                if (knownIds.includes(previousHouseholdId)) return previousHouseholdId;
+                return fallbackId;
+            });
+        };
+
+        initializeHousehold();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [open, householdId, householdOptions]);
 
     useEffect(() => {
         if (!open) return;
 
         const loadAssignees = async () => {
-            const activeHouseholdId = householdId || await resolveCurrentHouseholdId();
+            const activeHouseholdId = selectedHouseholdId;
             if (!activeHouseholdId) {
                 setAssignees([]);
                 setAssigneeId("");
@@ -90,13 +162,13 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask, householdId }) => {
         };
 
         loadAssignees();
-    }, [open, householdId]);
+    }, [open, selectedHouseholdId]);
 
     const handleSubmit = async () => {
         if (!title.trim()) return;
         setSubmitError("");
 
-        const activeHouseholdId = householdId || await resolveCurrentHouseholdId();
+        const activeHouseholdId = selectedHouseholdId || await resolveCurrentHouseholdId();
         if (!activeHouseholdId) {
             setSubmitError("No household found. Create or join a household first.");
             return;
@@ -156,6 +228,7 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask, householdId }) => {
         setCustomCategory("");
         setAssigneeId("");
         setAssigneesError("");
+        setSelectedHouseholdId("");
         setDueDate("");
         setSubmitError("");
         onOpenChange(false);
@@ -171,6 +244,26 @@ const AddTaskDialog = ({ open, onOpenChange, onAddTask, householdId }) => {
                 </DialogHeader>
 
                 <div className="space-y-4 mt-4">
+                    <div className="space-y-2">
+                        <Label>Household</Label>
+                        <Select
+                            value={selectedHouseholdId}
+                            onValueChange={setSelectedHouseholdId}
+                            disabled={isHouseholdSelectDisabled}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select household" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {householdOptions.map((household) => (
+                                    <SelectItem key={household.id} value={household.id}>
+                                        {household.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
                     {/* Title */}
                     <div className="space-y-2">
                         <Label htmlFor="title">Task Title *</Label>
