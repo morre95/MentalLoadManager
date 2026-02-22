@@ -305,12 +305,12 @@ const TaskDetailDialog = ({
           </div>
 
           <div className="grid grid-cols-2 gap-4">
+            {editingField === "status" ? (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <StatusIcon className="h-4 w-4 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Status</p>
 
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-              <StatusIcon className="h-4 w-4 text-muted-foreground" />
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">Status</p>
-                {editingField === "status" ? (
                   <Select
                     value={statusDraft}
                     open={isStatusOpen}
@@ -334,27 +334,37 @@ const TaskDetailDialog = ({
                       <SelectItem value="done">Done</SelectItem>
                     </SelectContent>
                   </Select>
-                ) : (
+                </div>
+              </div>
+            ) : (
+              <div
+                className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer"
+                onClick={() => {
+                  setEditingField("status");
+                  setIsStatusOpen(true);
+                }}
+              >
+                <StatusIcon className="h-4 w-4 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Status</p>
+
                   <div
-                    className="text-left cursor-pointer"
-                    onClick={() => {
-                      setEditingField("status");
-                      setIsStatusOpen(true);
-                    }}
+                    className="text-left"
+
                   >
                     {statusDraft}
                   </div>
-                )}
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-              <Flag className="h-4 w-4 text-muted-foreground" />
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">Priority</p>
-                {editingField == "priority" ?
-                  (
+            {editingField == "priority" ?
+              (
 
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <Flag className="h-4 w-4 text-muted-foreground" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Priority</p>
                     <Select
                       value={priorityDraft}
                       open={isPriorityOpen}
@@ -377,28 +387,41 @@ const TaskDetailDialog = ({
                         <SelectItem value="high">High</SelectItem>
                       </SelectContent>
                     </Select>
-                  ) : (
-                    <div className="text-left cursor-pointer">
+                  </div>
+                </div>
+
+              ) : (
+                <div
+                  className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer"
+                  onClick={() => {
+                    setEditingField("priority");
+                    setIsPriorityOpen(true);
+                  }}
+
+                >
+                  <Flag className="h-4 w-4 text-muted-foreground" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Priority</p>
+
+                    <div className="text-left">
                       <Badge
                         variant="outline"
                         className={`text-xs ${priorityColors[priorityDraft] || priorityColors.medium}`}
-                        onClick={() => {
-                          setEditingField("priority");
-                          setIsPriorityOpen(true);
-                        }}
                       >
                         {priorityDraft}
                       </Badge>
                     </div>
-                  )}
-              </div>
-            </div>
+                  </div>
+                </div>
 
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-              <User className="h-4 w-4 text-muted-foreground" />
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">Assigned to</p>
-                {editingField === "assignee" ? (
+              )}
+
+
+            {editingField === "assignee" ? (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Assigned to</p>
                   <Select
                     value={assigneeIdDraft}
                     open={isAssigneeOpen}
@@ -424,97 +447,119 @@ const TaskDetailDialog = ({
                       ))}
                     </SelectContent>
                   </Select>
-                ) : (
+                  {assigneesError ? (
+                    <p className="text-xs text-destructive mt-1">{assigneesError}</p>
+                  ) : null}
+
+                </div>
+              </div>
+
+            ) : (
+              <div
+                className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer"
+                onClick={() => {
+                  setEditingField("assignee");
+                  setIsAssigneeOpen(true);
+                }}
+              >
+                <User className="h-4 w-4 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Assigned to</p>
                   <div
-                    className="text-left cursor-pointer"
-                    onClick={() => {
-                      setEditingField("assignee");
-                      setIsAssigneeOpen(true);
-                    }}
+                    className="text-left"
+
                   >
                     {assignees.find((member) => member.user_id === assigneeIdDraft)?.display_name
                       || assignees.find((member) => member.user_id === assigneeIdDraft)?.username
                       || "Unassigned"}
                   </div>
-                )}
-                {assigneesError ? (
-                  <p className="text-xs text-destructive mt-1">{assigneesError}</p>
-                ) : null}
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-              <Tag className="h-4 w-4 text-muted-foreground" />
-              <div className="min-w-0 w-full">
-                <p className="text-xs text-muted-foreground">Category</p>
-                {editingField === "category" ? (
-                  <>
-                    <Select
-                      value={categoryDraft}
-                      open={isCategoryOpen}
-                      onOpenChange={(open) => {
-                        setIsCategoryOpen(open);
-                        if (!open && categoryDraft !== CUSTOM_CATEGORY_VALUE) {
-                          setEditingField(null);
-                        }
-                      }}
-                      onValueChange={(value) => {
-                        setCategoryDraft(value);
-                        if (value === CUSTOM_CATEGORY_VALUE) {
-                          setIsCategoryOpen(false);
-                          requestAnimationFrame(() => setCustomCategoryFocus());
-                          return;
-                        }
-                        setIsCategoryOpen(false);
+            )}
+
+
+            {editingField === "category" ? (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <Tag className="h-4 w-4 text-muted-foreground" />
+                <div className="min-w-0 w-full">
+                  <p className="text-xs text-muted-foreground">Category</p>
+                  <Select
+                    value={categoryDraft}
+                    open={isCategoryOpen}
+                    onOpenChange={(open) => {
+                      setIsCategoryOpen(open);
+                      if (!open && categoryDraft !== CUSTOM_CATEGORY_VALUE) {
                         setEditingField(null);
-                      }}
-                    >
-                      <SelectTrigger className="h-8 mt-1 w-44">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {cat}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value={CUSTOM_CATEGORY_VALUE}>Custom...</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {categoryDraft === CUSTOM_CATEGORY_VALUE ? (
-                      <Input
-                        ref={customCategoryRef}
-                        value={customCategoryDraft}
-                        onChange={(e) => setCustomCategoryDraft(e.target.value)}
-                        onBlur={() => setEditingField(null)}
-                        placeholder="Write category"
-                        className="h-8 mt-2 w-44"
-                      />
-                    ) : null}
-                  </>
-                ) : (
-                  <div
-                    className="text-left cursor-pointer"
-                    onClick={() => {
-                      setEditingField("category");
-                      setIsCategoryOpen(true);
+                      }
                     }}
+                    onValueChange={(value) => {
+                      setCategoryDraft(value);
+                      if (value === CUSTOM_CATEGORY_VALUE) {
+                        setIsCategoryOpen(false);
+                        requestAnimationFrame(() => setCustomCategoryFocus());
+                        return;
+                      }
+                      setIsCategoryOpen(false);
+                      setEditingField(null);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 mt-1 w-44">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value={CUSTOM_CATEGORY_VALUE}>Custom...</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {categoryDraft === CUSTOM_CATEGORY_VALUE ? (
+                    <Input
+                      ref={customCategoryRef}
+                      value={customCategoryDraft}
+                      onChange={(e) => setCustomCategoryDraft(e.target.value)}
+                      onBlur={() => setEditingField(null)}
+                      placeholder="Write category"
+                      className="h-8 mt-2 w-44"
+                    />
+                  ) : null}
+                </div>
+              </div>
+
+            ) : (
+              <div
+                className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer"
+                onClick={() => {
+                  setEditingField("category");
+                  setIsCategoryOpen(true);
+                }}
+              >
+                <Tag className="h-4 w-4 text-muted-foreground" />
+                <div className="min-w-0 w-full">
+                  <p className="text-xs text-muted-foreground">Category</p>
+                  <div
+                    className="text-left"
                   >
                     {categoryDraft === CUSTOM_CATEGORY_VALUE
                       ? (customCategoryDraft || "Other")
                       : categoryDraft}
                   </div>
-                )}
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <div className="min-w-0 w-full">
-                <p className="text-xs text-muted-foreground">Due Date</p>
-                {editingField === "dueDate" ? (
+            )}
+
+
+
+
+            {editingField === "dueDate" ? (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <div className="min-w-0 w-full">
+                  <p className="text-xs text-muted-foreground">Due Date</p>
                   <Input
                     ref={dueDateRef}
                     type="date"
@@ -523,27 +568,41 @@ const TaskDetailDialog = ({
                     onBlur={() => setEditingField(null)}
                     className="h-8 mt-1 w-44"
                   />
-                ) : (
+                </div>
+              </div>
+
+            ) : (
+              <div
+                className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer"
+                onClick={() => {
+                  setEditingField("dueDate");
+                  requestAnimationFrame(() => setDueDateFocus());
+                }}
+              >
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <div className="min-w-0 w-full">
+                  <p className="text-xs text-muted-foreground">Due Date</p>
                   <div
-                    className="text-left cursor-pointer"
-                    onClick={() => {
-                      setEditingField("dueDate");
-                      requestAnimationFrame(() => setDueDateFocus());
-                    }}
+                    className="text-left"
                   >
                     {dueDateDraft || "No due date"}
                   </div>
-                )}
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+            )}
+
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-not-allowed">
               <Home className="h-4 w-4 text-muted-foreground" />
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">Household</p>
                 <p className="text-sm truncate">{householdName}</p>
               </div>
             </div>
+
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
