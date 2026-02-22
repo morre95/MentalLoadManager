@@ -84,8 +84,7 @@ const AddTaskDialog = ({
         return mapped;
     }, [householdId, households]);
 
-    const isHouseholdSelectDisabled =
-        Boolean(householdId) || householdOptions.length <= 1;
+    const isHouseholdSelectDisabled = householdOptions.length <= 1;
 
     useEffect(() => {
         if (!open) return;
@@ -93,18 +92,19 @@ const AddTaskDialog = ({
         let cancelled = false;
 
         const initializeHousehold = async () => {
-            if (householdId) {
-                if (!cancelled) setSelectedHouseholdId(String(householdId));
-                return;
-            }
-
             const knownIds = householdOptions.map((household) => household.id);
+            const preferredId = householdId ? String(householdId) : "";
             const resolvedHouseholdId = await resolveCurrentHouseholdId();
             const resolvedId = resolvedHouseholdId ? String(resolvedHouseholdId) : "";
 
-            const fallbackId = knownIds.includes(resolvedId)
-                ? resolvedId
-                : knownIds[0] || resolvedId;
+            let fallbackId = "";
+            if (preferredId && knownIds.includes(preferredId)) {
+                fallbackId = preferredId;
+            } else if (knownIds.includes(resolvedId)) {
+                fallbackId = resolvedId;
+            } else {
+                fallbackId = knownIds[0] || preferredId || resolvedId;
+            }
 
             if (cancelled) return;
 
@@ -196,10 +196,14 @@ const AddTaskDialog = ({
             const selectedAssignee = assignees.find((member) => member.user_id === assigneeId);
             const assigneeLabel =
                 selectedAssignee?.display_name || selectedAssignee?.username || "Unassigned";
+            const selectedHousehold = householdOptions.find(
+                (household) => household.id === String(activeHouseholdId)
+            );
 
             const newTask = {
                 id: String(createdTask?.task_id || crypto.randomUUID()),
                 householdId: activeHouseholdId,
+                householdName: selectedHousehold?.name || "Unknown household",
                 title: title.trim(),
                 description: description.trim() || "",
                 status: "todo",

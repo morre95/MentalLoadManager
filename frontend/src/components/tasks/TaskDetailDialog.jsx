@@ -5,6 +5,7 @@ import {
   AlertCircle,
   Check,
   Calendar,
+  Home,
   User,
   Tag,
   Flag,
@@ -68,6 +69,7 @@ function toDateInputValue(value) {
 const TaskDetailDialog = ({
   task,
   open,
+  households = [],
   onOpenChange,
   onUpdateTask,
   onUpdateTaskStatus,
@@ -79,6 +81,16 @@ const TaskDetailDialog = ({
   onUpdateTaskCategory,
   onDeleteTask,
 }) => {
+  const householdName = useMemo(() => {
+    if (!task?.householdId) return "Unknown household";
+    const taskHouseholdId = String(task.householdId);
+    const matchedHousehold = (households || []).find((household) => {
+      const householdId = household?.household_id ?? household?.id;
+      return String(householdId) === taskHouseholdId;
+    });
+    return matchedHousehold?.name || task?.householdName || "Unknown household";
+  }, [households, task?.householdId, task?.householdName]);
+
   const status = statusConfig[task?.status] || statusConfig.todo;
   const StatusIcon = status.icon;
   const [assignees, setAssignees] = useState([]);
@@ -293,6 +305,14 @@ const TaskDetailDialog = ({
           </div>
 
           <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+              <Home className="h-4 w-4 text-muted-foreground" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Household</p>
+                <p className="text-sm truncate">{householdName}</p>
+              </div>
+            </div>
+
             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
               <StatusIcon className="h-4 w-4 text-muted-foreground" />
               <div className="min-w-0">

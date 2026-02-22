@@ -375,6 +375,11 @@ const Tasks = () => {
   };
 
   const handleAddTask = (newTask) => {
+    const taskHouseholdId = newTask?.householdId ? String(newTask.householdId) : null;
+    const shouldShowInCurrentView =
+      !selectedHouseholdFilter || taskHouseholdId === selectedHouseholdFilter;
+
+    if (!shouldShowInCurrentView) return;
     setTasks((prev) => [newTask, ...prev]);
   };
 
@@ -712,6 +717,7 @@ const Tasks = () => {
       <TaskDetailDialog
         task={selectedTask}
         open={!!selectedTask}
+        households={households}
         onOpenChange={(open) => !open && setSelectedTask(null)}
         onUpdateTask={handleUpdateTaskDetails}
         onUpdateTaskStatus={handleUpdateTaskStatus}
