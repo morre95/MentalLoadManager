@@ -241,6 +241,18 @@ const TaskDetailDialog = ({
     }
   };
 
+  const handleArchive = async () => {
+    if (isSaving) return;
+
+    setIsSaving(true);
+    try {
+      await onUpdateTaskStatus?.(task.id, ARCHIVE_STATUS);
+      onOpenChange(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg" key={task.id}>
@@ -617,7 +629,7 @@ const TaskDetailDialog = ({
               <Button
                 variant="destructive"
                 className="bg-terracotta hover:bg-terracotta/90"
-                onClick={() => onUpdateTaskStatus?.(task.id, ARCHIVE_STATUS)}
+                onClick={handleArchive}
                 disabled={isSaving}
               >
                 Archive
