@@ -21,3 +21,6 @@ all_routers = [
     household_router,
     analytics_router,
 ]
+
+
+__all__ = ["all_routers"]
