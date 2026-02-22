@@ -50,7 +50,7 @@ import {
   Radar,
 } from "recharts";
 
-import { NoHouseholdState } from "@/components/ui/noHouseholdState";
+import { NoHouseholdState } from "@/components/ui/noHouseHoldState"
 
 /* -----------------------------
 Component
