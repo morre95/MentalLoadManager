@@ -1,5 +1,4 @@
 // src/components/dashboard/DashboardHeader.jsx
-import { useState } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Bell, Search, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
