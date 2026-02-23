@@ -85,7 +85,7 @@ SELECT
   '42f7ab97-1623-4eb9-b115-21332e655e2d' -- household_id
 FROM generate_series(1,30) AS s(i);
 
-
+-- NOTE: Slumpar ut status och prioritet
 INSERT INTO tasks (
   due_date,
   name,
@@ -110,4 +110,37 @@ SELECT
   '1a8f5d9d-8691-454c-a818-a3b4f533a7e7', -- user_id -> created_by
   '42f7ab97-1623-4eb9-b115-21332e655e2d' -- household_id
 FROM generate_series(1,30) AS s(i);
+
+
+-- NOTE: Samma som ovan fast enklare och som hämtar ut det första household_id
+-- Om man inte vill hämta det första household_id vyt då ut raden:
+-- (SELECT household_id FROM users_households WHERE user_id = val.uid LIMIT 1) till det id du vill anända
+INSERT INTO tasks (
+  due_date, 
+  name, 
+  description, 
+  status, 
+  priority, 
+  "order", 
+  assigns_to, 
+  created_by, 
+  household_id
+  )
+SELECT
+  NOW() + (i || ' days')::interval,
+  'Task ' || i,
+  'Auto generated Task with random status and priority',
+  (ARRAY['todo', 'in_progress', 'done'])[floor(random() * 3 + 1)],
+  (ARRAY['low', 'medium', 'high'])[floor(random() * 3 + 1)],
+  i,
+  val.uid,
+  val.uid,
+  (
+    SELECT household_id 
+    FROM users_households 
+    WHERE user_id = val.uid 
+    LIMIT 1
+  )
+FROM generate_series(1,30) AS s(i)
+CROSS JOIN (SELECT '1a8f5d9d-8691-454c-a818-a3b4f533a7e7'::uuid AS uid) AS val;
 
