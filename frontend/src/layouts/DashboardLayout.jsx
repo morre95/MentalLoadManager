@@ -9,7 +9,7 @@ export default function DashboardLayout() {
       <div className="flex min-h-svh w-full">
         <AppSidebar />
         <SidebarInset className="flex-1">
-          <DashboardHeader onAddTask={() => { console.log("simulate add task") }} />
+          <DashboardHeader />
           <div className="p-4 md:p-6">
             <Outlet />
           </div>

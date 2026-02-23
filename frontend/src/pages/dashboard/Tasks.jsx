@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import {
   ListTodo,
@@ -68,6 +68,7 @@ const columns = [
 const ARCHIVE_COLUMN_ID = "archive";
 const ALL_HOUSEHOLDS_VALUE = "__all_households__";
 const MAX_VISIBLE_TASKS_PER_COLUMN = 8;
+const TASK_CREATED_EVENT = "kanban-task-created";
 
 
 function toApiStatus(status) {
@@ -374,14 +375,25 @@ const Tasks = () => {
     }
   };
 
-  const handleAddTask = (newTask) => {
+  const handleAddTask = useCallback((newTask) => {
     const taskHouseholdId = newTask?.householdId ? String(newTask.householdId) : null;
     const shouldShowInCurrentView =
       !selectedHouseholdFilter || taskHouseholdId === selectedHouseholdFilter;
 
     if (!shouldShowInCurrentView) return;
     setTasks((prev) => [newTask, ...prev]);
-  };
+  }, [selectedHouseholdFilter, setTasks]);
+
+  useEffect(() => {
+    const handleTaskCreated = (event) => {
+      const newTask = event?.detail;
+      if (!newTask) return;
+      handleAddTask(newTask);
+    };
+
+    window.addEventListener(TASK_CREATED_EVENT, handleTaskCreated);
+    return () => window.removeEventListener(TASK_CREATED_EVENT, handleTaskCreated);
+  }, [handleAddTask]);
 
   const handleUpdateTaskDetails = (taskId, updates) => {
     setTasks((prev) =>
