@@ -74,6 +74,11 @@ export default function Household() {
                     const inviteUrl = inviteState.inviteUrl || "";
                     const copied = !!inviteState.copied;
                     const inviting = !!inviteState.inviting;
+                    const myMembership = (h.members || []).find(
+                        (member) => member.username === me?.username
+                    );
+                    const canManageMembers =
+                        myMembership?.role === "owner" || myMembership?.role === "admin";
 
 
                     return (
@@ -173,6 +178,7 @@ export default function Household() {
                                         idx={idx}
                                         colors={colors}
                                         me={me}
+                                        canManageMembers={canManageMembers}
                                         confirmKey={confirmKey}
                                         setConfirmKey={setConfirmKey}
                                         removingKey={removingKey}

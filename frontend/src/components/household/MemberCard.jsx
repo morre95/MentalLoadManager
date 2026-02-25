@@ -9,6 +9,7 @@ export default function MemberCard({
   idx,
   colors,
   me,
+  canManageMembers = false,
   confirmKey,
   setConfirmKey,
   removingKey,
@@ -26,7 +27,7 @@ export default function MemberCard({
     <div className="relative overflow-hidden p-4 pr-6 rounded-xl border border-border bg-card">
 
       {/* Remove button only for others */}
-      {!isMe && !isConfirming && (
+      {canManageMembers && !isMe && !isConfirming && (
         <button
           type="button"
           className="absolute top-2 right-2 h-8 w-8 flex items-center justify-center rounded-md
@@ -60,7 +61,7 @@ export default function MemberCard({
       </div>
 
       {/* Confirm remove */}
-      {!isMe && isConfirming && (
+      {canManageMembers && !isMe && isConfirming && (
         <div className="mt-3 flex gap-2">
           <Button
             variant="destructive"
