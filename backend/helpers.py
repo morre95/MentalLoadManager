@@ -11,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 from config import settings
 
 from pwdlib.hashers.argon2 import Argon2Hasher
-from models import User, UserDB, UserEmail
+from models import User, UserDB, UserEmail, Base
 
 password_hasher = PasswordHash([Argon2Hasher()])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/token")
@@ -23,24 +23,29 @@ ALGORITHM = "HS256"
 SessionLocal: sessionmaker | None = None
 
 
+def normalize_database_url(database_url: str) -> str:
+    if database_url.startswith("postgres://"):
+        return database_url.replace("postgres://", "postgresql+psycopg://", 1)
+    if database_url.startswith("postgresql://") and "+psycopg" not in database_url:
+        return database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    if database_url.startswith("postgresql+psycopg2://"):
+        return database_url.replace(
+            "postgresql+psycopg2://", "postgresql+psycopg://", 1
+        )
+    return database_url
+
+
+database_url = normalize_database_url(settings.DATABASE_URL)
+engine = create_engine(database_url, pool_pre_ping=True)
+
+
+def setup_db_and_tables() -> None:
+    Base.metadata.create_all(bind=engine)
+
+
 def get_session_local() -> sessionmaker:
     global SessionLocal
     if SessionLocal is None:
-        database_url = settings.DATABASE_URL
-
-        if not database_url:
-            raise RuntimeError("DATABASE_URL is not set")
-        if database_url.startswith("postgres://"):
-            database_url = database_url.replace(
-                "postgres://", "postgresql+psycopg://", 1
-            )
-        elif (
-            database_url.startswith("postgresql://") and "+psycopg" not in database_url
-        ):
-            database_url = database_url.replace(
-                "postgresql://", "postgresql+psycopg://", 1
-            )
-        engine = create_engine(database_url, pool_pre_ping=True)
         SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
     return SessionLocal
 
