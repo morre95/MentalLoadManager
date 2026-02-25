@@ -123,17 +123,6 @@ def create_household(
                 status_code=409, detail="Unable to create household"
             ) from exc
 
-        # Defensive: enforce creator ownership in case DB defaults/triggers
-        # override role during insert.
-        membership = find_membership(db, me.user_id, new_household.household_id)
-        if membership and membership.role != ROLE_OWNER:
-            membership.role = ROLE_OWNER
-            print("Japp jag är ägare")
-            print(membership.role)
-            db.commit()
-        else:
-            print("Nej det är fel här")
-
         return CreateHouseholdResponse(
             household_id=str(new_household.household_id),
             name=new_household.name,
