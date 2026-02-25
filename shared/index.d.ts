@@ -108,6 +108,7 @@ export type HouseholdMember = {
   username: string;
   email: string | null;
   display_name: string | null;
+  role: "owner" | "admin" | "member" | string;
 };
 
 export type Household = {
