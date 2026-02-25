@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
@@ -39,8 +38,9 @@ from .schemas import (
     MyHouseholdsResponse,
     RemoveHouseholdMemberRequest,
 )
+from config import settings
 
-FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173")
+FRONTEND_BASE_URL = settings.FRONTEND_URL or "http://localhost:5173"
 
 
 def _get_db_user(db, current_user: UserEmail):
@@ -112,7 +112,9 @@ def create_household(
             db.commit()
         except IntegrityError as exc:
             db.rollback()
-            raise HTTPException(status_code=409, detail="Unable to create household") from exc
+            raise HTTPException(
+                status_code=409, detail="Unable to create household"
+            ) from exc
 
         return CreateHouseholdResponse(
             household_id=str(new_household.household_id),
@@ -156,7 +158,9 @@ def add_household_member(
         if not user_to_add:
             raise HTTPException(status_code=404, detail="User to add was not found")
 
-        existing_membership = find_membership(db, user_to_add.user_id, payload.household_id)
+        existing_membership = find_membership(
+            db, user_to_add.user_id, payload.household_id
+        )
         if existing_membership is not None:
             raise HTTPException(
                 status_code=409, detail="User is already a member of this household"
@@ -222,7 +226,9 @@ def get_my_households(current_user: UserEmail) -> MyHouseholdsResponse:
         return MyHouseholdsResponse(households=households)
 
 
-def create_invite(payload: InviteCreateRequest, current_user: UserEmail) -> InviteResponse:
+def create_invite(
+    payload: InviteCreateRequest, current_user: UserEmail
+) -> InviteResponse:
     session_local = get_session_local()
 
     with session_local() as db:
@@ -250,7 +256,9 @@ def create_invite(payload: InviteCreateRequest, current_user: UserEmail) -> Invi
         return InviteResponse(code=code, invite_url=invite_url, expires_at=expires_at)
 
 
-def accept_invite(payload: AcceptInviteRequest, current_user: UserEmail) -> AcceptInviteResponse:
+def accept_invite(
+    payload: AcceptInviteRequest, current_user: UserEmail
+) -> AcceptInviteResponse:
     session_local = get_session_local()
 
     with session_local() as db:
@@ -294,7 +302,9 @@ def remove_household_member(
 
         my_membership = find_membership(db, me.user_id, payload.household_id)
         if not my_membership:
-            raise HTTPException(status_code=403, detail="Not a member of that household")
+            raise HTTPException(
+                status_code=403, detail="Not a member of that household"
+            )
 
         if payload.user_id == me.user_id:
             raise HTTPException(status_code=400, detail="You cannot remove yourself")

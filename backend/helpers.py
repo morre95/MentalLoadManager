@@ -1,4 +1,3 @@
-import os
 from uuid import UUID
 from fastapi import Depends, HTTPException, status
 import jwt
@@ -9,6 +8,8 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import create_engine, func, or_, select
 from sqlalchemy.orm import sessionmaker
 
+from config import settings
+
 from pwdlib.hashers.argon2 import Argon2Hasher
 from models import User, UserDB, UserEmail
 
@@ -16,7 +17,7 @@ password_hasher = PasswordHash([Argon2Hasher()])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/token")
 
 
-SECRET_KEY = os.getenv("JWT_SECRET", "dev-secret-change-me")
+SECRET_KEY = settings.JWT_SECRET
 ALGORITHM = "HS256"
 
 SessionLocal: sessionmaker | None = None
@@ -25,7 +26,8 @@ SessionLocal: sessionmaker | None = None
 def get_session_local() -> sessionmaker:
     global SessionLocal
     if SessionLocal is None:
-        database_url = os.getenv("DATABASE_URL")
+        database_url = settings.DATABASE_URL
+
         if not database_url:
             raise RuntimeError("DATABASE_URL is not set")
         if database_url.startswith("postgres://"):

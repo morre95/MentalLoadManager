@@ -1,15 +1,13 @@
-from dotenv import load_dotenv
-import os
 import random
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import all_routers
-
-load_dotenv()
+from config import settings
 
 app = FastAPI()
 
-raw_origins = os.getenv("CORS_ALLOW_ORIGINS", "")
+raw_origins = settings.CORS_ALLOW_ORIGINS
+
 allowed_origins = [
     origin.strip() for origin in raw_origins.split(",") if origin.strip()
 ]

@@ -1,4 +1,3 @@
-import os
 import secrets
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
@@ -20,12 +19,23 @@ from helpers import (
 from models import Token
 
 from .repository import find_user, get_google_oauth_account, get_user_by_username
+from config import settings
 
-ACCESS_TOKEN_EXPIRE_MINUTES = int(
-    os.getenv("JWT_EXPIRE_MINUTES", "1440")
-)  # 1440 min = 24h
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
-BACKEND_URL = os.getenv("BACKEND_URL", "").rstrip("/")
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.JWT_EXPIRE_MINUTES or 1440  # 1440 min = 24h
+FRONTEND_URL = (settings.FRONTEND_URL or "http://localhost:5173").rstrip("/")
+BACKEND_URL = (settings.BACKEND_URL or "").rstrip("/")
+REDIRECT_URIS_BY_PROVIDER = {
+    "google": (settings.GOOGLE_REDIRECT_URI or "").rstrip("/"),
+}
+
+SETTINGS_VALUES_BY_NAME = {
+    "GOOGLE_CLIENT_ID": settings.GOOGLE_CLIENT_ID,
+    "GOOGLE_CLIENT_SECRET": settings.GOOGLE_CLIENT_SECRET,
+    "FACEBOOK_CLIENT_ID": settings.FACEBOOK_CLIENT_ID,
+    "FACEBOOK_CLIENT_SECRET": settings.FACEBOOK_CLIENT_SECRET,
+    "INSTAGRAM_CLIENT_ID": settings.INSTAGRAM_CLIENT_ID,
+    "INSTAGRAM_CLIENT_SECRET": settings.INSTAGRAM_CLIENT_SECRET,
+}
 
 
 def create_oauth_state(provider: str) -> str:
@@ -50,9 +60,7 @@ def decode_oauth_state(state: str, expected_provider: str) -> None:
 
 
 def oauth_redirect_uri(request: Request, provider: str) -> str:
-    provider_redirect_uri = os.getenv(f"{provider.upper()}_REDIRECT_URI", "").rstrip(
-        "/"
-    )
+    provider_redirect_uri = REDIRECT_URIS_BY_PROVIDER.get(provider, "")
     if provider_redirect_uri:
         return provider_redirect_uri
 
@@ -80,7 +88,7 @@ def issue_login_redirect(username: str) -> RedirectResponse:
 
 
 def require_env(name: str) -> str:
-    value = os.getenv(name)
+    value = SETTINGS_VALUES_BY_NAME.get(name)
     if not value:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

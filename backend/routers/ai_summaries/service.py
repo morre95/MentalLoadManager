@@ -1,14 +1,13 @@
 import hashlib
 import json
 import logging
-import os
 import time as time_module
 from datetime import UTC, date, datetime, time, timedelta
 
 import requests
 from fastapi import HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
-
+from config import settings
 from helpers import get_session_local
 from models import UserEmail
 
@@ -74,10 +73,7 @@ def _parse_retry_after_seconds(response: requests.Response) -> float:
 
 
 def _load_model_candidates(primary_model: str) -> list[str]:
-    fallback_raw = os.getenv("OPENROUTER_WEEKLY_SUMMARY_FALLBACK_MODELS", "")
-    fallbacks = [item.strip() for item in fallback_raw.split(",") if item.strip()]
-    if not fallbacks:
-        fallbacks = DEFAULT_FALLBACK_MODELS
+    fallbacks = DEFAULT_FALLBACK_MODELS
 
     candidates: list[str] = []
     for model in [primary_model, *fallbacks]:
@@ -92,14 +88,16 @@ def generate_weekly_summary(
     payload: GenerateWeeklySummaryRequest,
     current_user: UserEmail,
 ) -> GenerateWeeklySummaryResponse:
-    api_key = os.getenv("OPENROUTER_API_KEY")
+    api_key = settings.OPENROUTER_API_KEY
+
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="OPENROUTER_API_KEY is not configured",
         )
 
-    model_name = os.getenv("OPENROUTER_WEEKLY_SUMMARY_MODEL", DEFAULT_OPENROUTER_MODEL)
+    model_name = settings.OPENROUTER_WEEKLY_SUMMARY_MODEL or DEFAULT_OPENROUTER_MODEL
+
     model_candidates = _load_model_candidates(model_name)
     week_start = _normalize_week_start(payload.week_start)
     week_end = week_start + timedelta(days=7)
