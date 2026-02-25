@@ -112,18 +112,21 @@ def seed_user_households(
             household_id=households[
                 "b1b2b3b4-1111-1111-1111-111111111111"
             ].household_id,
+            role="owner",
         ),
         UsersHouseholds(
             user_id=users["erik_johansson"].user_id,
             household_id=households[
                 "b1b2b3b4-1111-1111-1111-111111111111"
             ].household_id,
+            role="member",
         ),
         UsersHouseholds(
             user_id=users["maria_andersson"].user_id,
             household_id=households[
                 "b1b2b3b4-2222-2222-2222-222222222222"
             ].household_id,
+            role="owner",
         ),
     ]
     for link in links:

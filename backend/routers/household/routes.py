@@ -16,6 +16,7 @@ from .schemas import (
     LeaveHouseholdRequest,
     MyHouseholdsResponse,
     RemoveHouseholdMemberRequest,
+    TransferOwnershipRequest,
 )
 from .service import (
     accept_invite,
@@ -26,6 +27,7 @@ from .service import (
     leave_household,
     list_household_members,
     remove_household_member,
+    transfer_household_ownership,
 )
 
 router = APIRouter(prefix="/api/household", tags=["household"])
@@ -88,4 +90,13 @@ def leave_household_route(
     current_user: UserEmail = Depends(get_current_user),
 ):
     leave_household(payload, current_user)
+    return
+
+
+@router.post("/transfer-ownership", status_code=status.HTTP_204_NO_CONTENT)
+def transfer_household_ownership_route(
+    payload: TransferOwnershipRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    transfer_household_ownership(payload, current_user)
     return

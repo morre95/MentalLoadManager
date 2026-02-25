@@ -37,10 +37,15 @@ from .schemas import (
     LeaveHouseholdRequest,
     MyHouseholdsResponse,
     RemoveHouseholdMemberRequest,
+    TransferOwnershipRequest,
 )
 from config import settings
 
 FRONTEND_BASE_URL = settings.FRONTEND_URL or "http://localhost:5173"
+ROLE_OWNER = "owner"
+ROLE_ADMIN = "admin"
+ROLE_MEMBER = "member"
+PRIVILEGED_HOUSEHOLD_ROLES = {ROLE_OWNER, ROLE_ADMIN}
 
 
 def _get_db_user(db, current_user: UserEmail):
@@ -75,6 +80,7 @@ def list_household_members(current_user: UserEmail) -> HouseholdMembersResponse:
                     username=r.username,
                     email=r.email,
                     display_name=r.display_name,
+                    role=r.role,
                 )
                 for r in rows
             ]
@@ -105,6 +111,7 @@ def create_household(
             UsersHouseholds(
                 user_id=me.user_id,
                 household_id=new_household.household_id,
+                role=ROLE_OWNER,
             )
         )
 
@@ -170,6 +177,7 @@ def add_household_member(
             UsersHouseholds(
                 user_id=user_to_add.user_id,
                 household_id=payload.household_id,
+                role=ROLE_MEMBER,
             )
         )
 
@@ -186,6 +194,7 @@ def add_household_member(
             username=user_to_add.username,
             email=user_to_add.email,
             display_name=user_to_add.display_name,
+            role=ROLE_MEMBER,
         )
 
 
@@ -211,6 +220,7 @@ def get_my_households(current_user: UserEmail) -> MyHouseholdsResponse:
                     username=r.username,
                     email=r.email,
                     display_name=r.display_name,
+                    role=r.role,
                 )
             )
 
@@ -279,6 +289,7 @@ def accept_invite(
             UsersHouseholds(
                 user_id=user.user_id,
                 household_id=inv.household_id,
+                role=ROLE_MEMBER,
             )
         )
 
@@ -305,16 +316,30 @@ def remove_household_member(
             raise HTTPException(
                 status_code=403, detail="Not a member of that household"
             )
+        if my_membership.role not in PRIVILEGED_HOUSEHOLD_ROLES:
+            raise HTTPException(
+                status_code=403,
+                detail="Only owners and admins can remove household members",
+            )
 
         if payload.user_id == me.user_id:
             raise HTTPException(status_code=400, detail="You cannot remove yourself")
 
-        membership = find_membership(db, payload.user_id, payload.household_id)
-        if not membership:
+        target_membership = find_membership(db, payload.user_id, payload.household_id)
+        if not target_membership:
             raise HTTPException(status_code=404, detail="User is not in that household")
+        if target_membership.role == ROLE_OWNER:
+            raise HTTPException(status_code=403, detail="Owner cannot be removed")
+        if (
+            my_membership.role == ROLE_ADMIN
+            and target_membership.role == ROLE_ADMIN
+        ):
+            raise HTTPException(
+                status_code=403, detail="Admins cannot remove other admins"
+            )
 
         unassign_user_tasks_in_household(db, payload.household_id, payload.user_id)
-        db.delete(membership)
+        db.delete(target_membership)
         db.flush()
         _delete_household_if_empty(db, payload.household_id)
         db.commit()
@@ -329,11 +354,52 @@ def leave_household(payload: LeaveHouseholdRequest, current_user: UserEmail) -> 
         membership = find_membership(db, me.user_id, payload.household_id)
         if not membership:
             raise HTTPException(status_code=404, detail="You are not in that household")
+        if membership.role == ROLE_OWNER:
+            member_count = count_household_members(db, payload.household_id)
+            if member_count > 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Owner cannot leave while other members exist. "
+                        "Transfer ownership first."
+                    ),
+                )
 
         unassign_user_tasks_in_household(db, payload.household_id, me.user_id)
         db.delete(membership)
         db.flush()
         _delete_household_if_empty(db, payload.household_id)
+        db.commit()
+
+
+def transfer_household_ownership(
+    payload: TransferOwnershipRequest,
+    current_user: UserEmail,
+) -> None:
+    session_local = get_session_local()
+
+    with session_local() as db:
+        me = _get_db_user(db, current_user)
+        my_membership = find_membership(db, me.user_id, payload.household_id)
+        if not my_membership:
+            raise HTTPException(status_code=403, detail="Not a member of that household")
+        if my_membership.role != ROLE_OWNER:
+            raise HTTPException(
+                status_code=403, detail="Only the owner can transfer ownership"
+            )
+        if payload.new_owner_user_id == me.user_id:
+            raise HTTPException(
+                status_code=400, detail="New owner must be a different member"
+            )
+
+        target_membership = find_membership(
+            db, payload.new_owner_user_id, payload.household_id
+        )
+        if not target_membership:
+            raise HTTPException(status_code=404, detail="Target user is not a member")
+
+        my_membership.role = ROLE_ADMIN
+        target_membership.role = ROLE_OWNER
         db.commit()
 
 

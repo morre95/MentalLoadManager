@@ -22,15 +22,16 @@ def get_memberships_for_user(db: Session, user_id: UUID):
 def list_members_for_households(db: Session, household_ids: Sequence[UUID]):
     return db.execute(
         select(
+            UsersHouseholds.household_id,
             UserDB.user_id,
             UserDB.username,
             UserDB.email,
             UserDB.display_name,
+            UsersHouseholds.role,
         )
-        .distinct(UserDB.user_id)
         .join(UsersHouseholds, UsersHouseholds.user_id == UserDB.user_id)
         .where(UsersHouseholds.household_id.in_(household_ids))
-        .order_by(UserDB.user_id, UserDB.username.asc())
+        .order_by(UsersHouseholds.household_id, UserDB.username.asc())
     ).all()
 
 
@@ -80,6 +81,7 @@ def list_household_member_rows(db: Session, household_ids: Sequence[UUID]):
             UserDB.username,
             UserDB.email,
             UserDB.display_name,
+            UsersHouseholds.role,
         )
         .join(UserDB, UsersHouseholds.user_id == UserDB.user_id)
         .where(UsersHouseholds.household_id.in_(household_ids))

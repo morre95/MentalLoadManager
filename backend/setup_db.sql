@@ -26,8 +26,13 @@ CREATE TABLE IF NOT EXISTS households (
 CREATE TABLE IF NOT EXISTS users_households (
   user_id        UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   household_id       UUID NOT NULL REFERENCES households(household_id) ON DELETE CASCADE,
+  role           VARCHAR(20) NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member')),
   PRIMARY KEY (user_id, household_id)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_households_single_owner
+ON users_households (household_id)
+WHERE role = 'owner';
 
 -- Preferences per user (1:1)
 CREATE TABLE IF NOT EXISTS preferences (

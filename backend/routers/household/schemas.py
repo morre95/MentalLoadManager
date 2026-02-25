@@ -11,6 +11,7 @@ class HouseholdMember(BaseModel):
     username: str
     email: str | None = None
     display_name: str | None = None
+    role: str
 
 
 class HouseholdMembersResponse(BaseModel):
@@ -68,3 +69,8 @@ class RemoveHouseholdMemberRequest(BaseModel):
 
 class LeaveHouseholdRequest(BaseModel):
     household_id: UUID
+
+
+class TransferOwnershipRequest(BaseModel):
+    household_id: UUID
+    new_owner_user_id: UUID
