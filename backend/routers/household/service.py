@@ -123,6 +123,17 @@ def create_household(
                 status_code=409, detail="Unable to create household"
             ) from exc
 
+        # Defensive: enforce creator ownership in case DB defaults/triggers
+        # override role during insert.
+        membership = find_membership(db, me.user_id, new_household.household_id)
+        if membership and membership.role != ROLE_OWNER:
+            membership.role = ROLE_OWNER
+            print("Japp jag är ägare")
+            print(membership.role)
+            db.commit()
+        else:
+            print("Nej det är fel här")
+
         return CreateHouseholdResponse(
             household_id=str(new_household.household_id),
             name=new_household.name,
@@ -330,10 +341,7 @@ def remove_household_member(
             raise HTTPException(status_code=404, detail="User is not in that household")
         if target_membership.role == ROLE_OWNER:
             raise HTTPException(status_code=403, detail="Owner cannot be removed")
-        if (
-            my_membership.role == ROLE_ADMIN
-            and target_membership.role == ROLE_ADMIN
-        ):
+        if my_membership.role == ROLE_ADMIN and target_membership.role == ROLE_ADMIN:
             raise HTTPException(
                 status_code=403, detail="Admins cannot remove other admins"
             )
@@ -382,7 +390,9 @@ def transfer_household_ownership(
         me = _get_db_user(db, current_user)
         my_membership = find_membership(db, me.user_id, payload.household_id)
         if not my_membership:
-            raise HTTPException(status_code=403, detail="Not a member of that household")
+            raise HTTPException(
+                status_code=403, detail="Not a member of that household"
+            )
         if my_membership.role != ROLE_OWNER:
             raise HTTPException(
                 status_code=403, detail="Only the owner can transfer ownership"
