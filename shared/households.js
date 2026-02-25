@@ -7,6 +7,7 @@ export function normalizeHousehold(household) {
       username: member.username ?? "",
       email: member.email ?? null,
       display_name: member.display_name ?? member.displayName ?? null,
+      role: member.role ?? "member",
     })),
   };
 }
