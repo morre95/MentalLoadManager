@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS users_households (
   PRIMARY KEY (user_id, household_id)
 );
 
+-- ALTER TABLE users_households ALTER COLUMN role SET DEFAULT 'member'
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_households_single_owner
 ON users_households (household_id)
 WHERE role = 'owner';
