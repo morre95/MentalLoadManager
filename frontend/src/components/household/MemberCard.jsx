@@ -80,7 +80,7 @@ export default function MemberCard({
       {canEditRole ? (
         <button
           type="button"
-          className={`absolute top-2 ${showRemoveButton ? "right-12" : "right-2"} rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${roleBadgeClass} hover:opacity-90 transition`}
+          className={`absolute top-2 ${showRemoveButton ? "right-12" : "right-2"} rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${roleBadgeClass} hover:opacity-90 transition cursor-pointer`}
           onClick={() => setIsRoleEditorOpen((prev) => !prev)}
           disabled={isUpdatingRole}
         >
