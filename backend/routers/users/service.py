@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 
@@ -10,7 +12,12 @@ from .repository import (
     find_user_by_email,
     find_user_by_username,
 )
-from .schemas import RegisterUserRequest, RegisterUserResponse, UpdateMeRequest
+from .schemas import (
+    ChangePasswordRequest,
+    RegisterUserRequest,
+    RegisterUserResponse,
+    UpdateMeRequest,
+)
 
 
 def register_user(payload: RegisterUserRequest) -> RegisterUserResponse:
@@ -134,3 +141,56 @@ def update_me(payload: UpdateMeRequest, current_user: UserEmail) -> UserEmail:
             email=user.email,
             display_name=user.display_name,
         )
+
+
+def change_my_password(payload: ChangePasswordRequest, current_user: UserEmail) -> dict:
+    current_password = payload.current_password or ""
+    new_password = payload.new_password or ""
+
+    if not current_password or not new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current and new password are required",
+        )
+    if len(new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters",
+        )
+    if current_password == new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be different from current password",
+        )
+
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        user = find_user_by_username(db, current_user.username)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+            )
+        if not user.password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password login is not available for this account",
+            )
+        if not password_hasher.verify(current_password, user.password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect",
+            )
+
+        user.password = password_hasher.hash(new_password)
+        user.updated_at = datetime.now(timezone.utc)
+        db.commit()
+
+    return {"message": "Password updated successfully"}

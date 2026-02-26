@@ -3,6 +3,7 @@ import { twMerge } from "tailwind-merge";
 import {
   acceptHouseholdInvite as sharedAcceptHouseholdInvite,
   createKanbanTask as sharedCreateKanbanTask,
+  changeMyPassword as sharedChangeMyPassword,
   createApiClient,
   deleteKanbanTask as sharedDeleteKanbanTask,
   fetchHouseholds as sharedFetchHouseholds,
@@ -136,6 +137,10 @@ export async function updateMe(payload) {
     saveUserToLocalStorage(data);
   }
   return data;
+}
+
+export async function changeMyPassword(payload) {
+  return sharedChangeMyPassword(apiClient, payload);
 }
 
 export async function fetchKanbanTasks(householdId) {

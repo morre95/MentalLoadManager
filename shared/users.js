@@ -8,3 +8,10 @@ export async function updateMe(apiClient, payload) {
     body: JSON.stringify(payload),
   });
 }
+
+export async function changeMyPassword(apiClient, payload) {
+  return apiClient.request("/api/users/me/password", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}

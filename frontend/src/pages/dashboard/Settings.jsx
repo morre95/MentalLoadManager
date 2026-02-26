@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { toast } from "@/components/ui/sonner";
-import { fetchMe, getUserFromLocalStorage, updateMe } from "@/lib/utils";
+import { changeMyPassword, fetchMe, getUserFromLocalStorage, updateMe } from "@/lib/utils";
 
 const defaultCategories = ["Shopping", "Cleaning", "Admin", "Health", "Maintenance", "Planning", "Other"];
 
@@ -102,6 +102,7 @@ const Settings = () => {
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
 
     // Notification preferences
     const [pushNotifications, setPushNotifications] = useState(true);
@@ -167,7 +168,7 @@ const Settings = () => {
         toast.success(`Theme set to ${value}`);
     };
 
-    const handleChangePassword = () => {
+    const handleChangePassword = async () => {
         if (!currentPassword || !newPassword || !confirmPassword) {
             toast.error("Please fill in all password fields");
             return;
@@ -180,10 +181,26 @@ const Settings = () => {
             toast.error("Password must be at least 8 characters");
             return;
         }
-        toast.success("Password updated successfully");
-        setCurrentPassword("");
-        setNewPassword("");
-        setConfirmPassword("");
+        if (currentPassword === newPassword) {
+            toast.error("New password must be different");
+            return;
+        }
+
+        setIsChangingPassword(true);
+        try {
+            await changeMyPassword({
+                current_password: currentPassword,
+                new_password: newPassword,
+            });
+            toast.success("Password updated successfully");
+            setCurrentPassword("");
+            setNewPassword("");
+            setConfirmPassword("");
+        } catch (error) {
+            toast.error(error?.message || "Could not update password");
+        } finally {
+            setIsChangingPassword(false);
+        }
     };
 
     const handleLanguageChange = (value) => {
@@ -309,8 +326,8 @@ const Settings = () => {
                         </div>
                     </div>
                     <div className="flex justify-end">
-                        <Button size="sm" onClick={handleChangePassword}>
-                            Update Password
+                        <Button size="sm" onClick={handleChangePassword} disabled={isChangingPassword}>
+                            {isChangingPassword ? "Updating..." : "Update Password"}
                         </Button>
                     </div>
                 </SectionCard>

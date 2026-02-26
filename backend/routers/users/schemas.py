@@ -18,3 +18,8 @@ class RegisterUserResponse(BaseModel):
 class UpdateMeRequest(BaseModel):
     email: str | None = None
     display_name: str | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
