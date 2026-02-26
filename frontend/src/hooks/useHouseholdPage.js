@@ -5,6 +5,7 @@ import {
     createHousehold,
     removeHouseholdMember,
     leaveHousehold,
+    updateHouseholdMemberRole,
 } from "@/hooks/useHouseHold";
 import { acceptHouseholdInvite, getUserFromLocalStorage } from "@/lib/utils";
 
@@ -20,6 +21,7 @@ export function useHouseholdPage() {
     const [inviteByHousehold, setInviteByHousehold] = useState({});
     const [leaveConfirmHouseholdId, setLeaveConfirmHouseholdId] = useState(null);
     const [leavingHouseholdId, setLeavingHouseholdId] = useState(null);
+    const [updatingRoleKey, setUpdatingRoleKey] = useState(null);
 
     // Create modal
     const [isCreatingUI, setIsCreatingUI] = useState(false);
@@ -159,6 +161,21 @@ export function useHouseholdPage() {
         }
     };
 
+    const handleUpdateMemberRole = async (householdId, userId, role) => {
+        const key = memberKey(householdId, userId);
+        setUpdatingRoleKey(key);
+
+        try {
+            await updateHouseholdMemberRole(householdId, userId, role);
+            await refetch();
+        } catch (err) {
+            alert(err?.message || "Could not update member role.");
+            throw err;
+        } finally {
+            setUpdatingRoleKey(null);
+        }
+    };
+
     // Sorted members helper (you first, then alphabetical by display name)
     const householdsWithSortedMembers = useMemo(() => {
         return (households || []).map((h) => {
@@ -194,6 +211,7 @@ export function useHouseholdPage() {
         leaveConfirmHouseholdId,
         setLeaveConfirmHouseholdId,
         leavingHouseholdId,
+        updatingRoleKey,
 
         // create modal
         isCreatingUI,
@@ -216,6 +234,7 @@ export function useHouseholdPage() {
         handleCopyInvite,
         handleRemoveMember,
         handleLeave,
+        handleUpdateMemberRole,
 
         refetch,
     };

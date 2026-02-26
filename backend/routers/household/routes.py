@@ -17,6 +17,7 @@ from .schemas import (
     MyHouseholdsResponse,
     RemoveHouseholdMemberRequest,
     TransferOwnershipRequest,
+    UpdateHouseholdMemberRoleRequest,
 )
 from .service import (
     accept_invite,
@@ -28,6 +29,7 @@ from .service import (
     list_household_members,
     remove_household_member,
     transfer_household_ownership,
+    update_household_member_role,
 )
 
 router = APIRouter(prefix="/api/household", tags=["household"])
@@ -82,6 +84,14 @@ def remove_household_member_route(
 ):
     remove_household_member(payload, current_user)
     return
+
+
+@router.put("/members/role", response_model=HouseholdMember)
+def update_household_member_role_route(
+    payload: UpdateHouseholdMemberRoleRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    return update_household_member_role(payload, current_user)
 
 
 @router.post("/leave", status_code=status.HTTP_204_NO_CONTENT)

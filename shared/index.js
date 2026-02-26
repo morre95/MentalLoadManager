@@ -27,6 +27,7 @@ export {
   leaveHousehold,
   normalizeHousehold,
   removeHouseholdMember,
+  updateHouseholdMemberRole,
 } from "./households.js";
 
 export { fetchAnalyticsSummary } from "./analytics.js";

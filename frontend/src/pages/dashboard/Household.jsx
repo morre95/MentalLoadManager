@@ -23,6 +23,7 @@ export default function Household() {
 
         leaveConfirmHouseholdId,
         setLeaveConfirmHouseholdId,
+        updatingRoleKey,
 
         isCreatingUI,
         setIsCreatingUI,
@@ -42,6 +43,7 @@ export default function Household() {
         handleCopyInvite,
         handleRemoveMember,
         handleLeave,
+        handleUpdateMemberRole,
     } = useHouseholdPage();
 
 
@@ -77,8 +79,9 @@ export default function Household() {
                     const myMembership = (h.members || []).find(
                         (member) => member.username === me?.username
                     );
+                    const myRole = myMembership?.role || "member";
                     const canManageMembers =
-                        myMembership?.role === "owner" || myMembership?.role === "admin";
+                        myRole === "owner" || myRole === "admin";
 
 
                     return (
@@ -179,11 +182,16 @@ export default function Household() {
                                         colors={colors}
                                         me={me}
                                         canManageMembers={canManageMembers}
+                                        myRole={myRole}
                                         confirmKey={confirmKey}
                                         setConfirmKey={setConfirmKey}
                                         removingKey={removingKey}
+                                        updatingRoleKey={updatingRoleKey}
                                         onConfirmRemove={(userId) =>
                                             handleRemoveMember(h.household_id, userId)
+                                        }
+                                        onUpdateRole={(userId, role) =>
+                                            handleUpdateMemberRole(h.household_id, userId, role)
                                         }
                                     />
                                 ))}

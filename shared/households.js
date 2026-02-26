@@ -68,3 +68,15 @@ export async function leaveHousehold(apiClient, householdId) {
     body: JSON.stringify({ household_id: householdId }),
   });
 }
+
+export async function updateHouseholdMemberRole(
+  apiClient,
+  householdId,
+  userId,
+  role
+) {
+  return apiClient.request("/api/household/members/role", {
+    method: "PUT",
+    body: JSON.stringify({ household_id: householdId, user_id: userId, role }),
+  });
+}

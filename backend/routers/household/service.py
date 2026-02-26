@@ -38,6 +38,7 @@ from .schemas import (
     MyHouseholdsResponse,
     RemoveHouseholdMemberRequest,
     TransferOwnershipRequest,
+    UpdateHouseholdMemberRoleRequest,
 )
 from config import settings
 
@@ -400,6 +401,51 @@ def transfer_household_ownership(
         my_membership.role = ROLE_ADMIN
         target_membership.role = ROLE_OWNER
         db.commit()
+
+
+def update_household_member_role(
+    payload: UpdateHouseholdMemberRoleRequest,
+    current_user: UserEmail,
+) -> HouseholdMember:
+    next_role = str(payload.role or "").strip().lower()
+    if next_role not in {ROLE_ADMIN, ROLE_MEMBER}:
+        raise HTTPException(status_code=400, detail="Role must be 'admin' or 'member'")
+
+    session_local = get_session_local()
+
+    with session_local() as db:
+        me = _get_db_user(db, current_user)
+
+        my_membership = find_membership(db, me.user_id, payload.household_id)
+        if not my_membership:
+            raise HTTPException(status_code=403, detail="Not a member of that household")
+        if my_membership.role not in PRIVILEGED_HOUSEHOLD_ROLES:
+            raise HTTPException(
+                status_code=403, detail="Only owners and admins can change member roles"
+            )
+        if payload.user_id == me.user_id:
+            raise HTTPException(status_code=400, detail="You cannot change your own role")
+
+        target_membership = find_membership(db, payload.user_id, payload.household_id)
+        if not target_membership:
+            raise HTTPException(status_code=404, detail="User is not in that household")
+        if target_membership.role == ROLE_OWNER:
+            raise HTTPException(status_code=403, detail="Owner role cannot be changed")
+        if my_membership.role == ROLE_ADMIN and target_membership.role == ROLE_ADMIN:
+            raise HTTPException(
+                status_code=403, detail="Admins cannot change other admins"
+            )
+
+        target_membership.role = next_role
+        db.commit()
+
+        return HouseholdMember(
+            user_id=str(target_membership.user.user_id),
+            username=target_membership.user.username,
+            email=target_membership.user.email,
+            display_name=target_membership.user.display_name,
+            role=target_membership.role,
+        )
 
 
 def _delete_household_if_empty(db, household_id: UUID) -> None:

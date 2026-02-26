@@ -135,5 +135,11 @@ export function removeHouseholdMember(
   userId: string | number
 ): Promise<any>;
 export function leaveHousehold(apiClient: ApiClient, householdId: string | number): Promise<any>;
+export function updateHouseholdMemberRole(
+  apiClient: ApiClient,
+  householdId: string | number,
+  userId: string | number,
+  role: "admin" | "member" | string
+): Promise<any>;
 
 export function fetchMe(apiClient: ApiClient): Promise<any>;

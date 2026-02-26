@@ -74,3 +74,9 @@ class LeaveHouseholdRequest(BaseModel):
 class TransferOwnershipRequest(BaseModel):
     household_id: UUID
     new_owner_user_id: UUID
+
+
+class UpdateHouseholdMemberRoleRequest(BaseModel):
+    household_id: UUID
+    user_id: UUID
+    role: str

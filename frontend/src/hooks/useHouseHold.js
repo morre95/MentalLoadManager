@@ -7,6 +7,7 @@ import {
   flattenHouseholdMembers,
   leaveHousehold as sharedLeaveHousehold,
   removeHouseholdMember as sharedRemoveHouseholdMember,
+  updateHouseholdMemberRole as sharedUpdateHouseholdMemberRole,
 } from "../../../shared/index.js";
 import { clearAuth, getAccessToken } from "@/lib/utils";
 
@@ -84,4 +85,8 @@ export async function removeHouseholdMember(householdId, userId) {
 
 export async function leaveHousehold(householdId) {
   return sharedLeaveHousehold(apiClient, householdId);
+}
+
+export async function updateHouseholdMemberRole(householdId, userId, role) {
+  return sharedUpdateHouseholdMemberRole(apiClient, householdId, userId, role);
 }
