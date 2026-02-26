@@ -33,4 +33,4 @@ export {
 export { fetchAnalyticsSummary } from "./analytics.js";
 
 
-export { fetchMe } from "./users.js";
+export { fetchMe, updateMe } from "./users.js";

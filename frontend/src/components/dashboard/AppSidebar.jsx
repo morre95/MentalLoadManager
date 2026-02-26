@@ -12,6 +12,7 @@ import {
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 
 import {
   clearAuth,
@@ -54,9 +55,19 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const user = getUserFromLocalStorage();
+  const [user, setUser] = useState(() => getUserFromLocalStorage());
   const fullName = user.display_name || user.username || "User";
   const initials = getInitials(fullName);
+
+  useEffect(() => {
+    const syncUser = () => setUser(getUserFromLocalStorage());
+    window.addEventListener("user:changed", syncUser);
+    window.addEventListener("storage", syncUser);
+    return () => {
+      window.removeEventListener("user:changed", syncUser);
+      window.removeEventListener("storage", syncUser);
+    };
+  }, []);
 
   const handleSignOut = () => {
     clearAuth();

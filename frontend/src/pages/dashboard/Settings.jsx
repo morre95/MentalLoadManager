@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Settings as SettingsIcon,
@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { toast } from "@/components/ui/sonner";
+import { fetchMe, getUserFromLocalStorage, updateMe } from "@/lib/utils";
 
 const defaultCategories = ["Shopping", "Cleaning", "Admin", "Health", "Maintenance", "Planning", "Other"];
 
@@ -92,6 +93,9 @@ const Settings = () => {
     const [newCategory, setNewCategory] = useState("");
     const [language, setLanguage] = useState("en");
     const [theme, setTheme] = useState("light");
+    const [displayName, setDisplayName] = useState("");
+    const [profileEmail, setProfileEmail] = useState("");
+    const [isSavingProfile, setIsSavingProfile] = useState(false);
 
     const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
@@ -110,6 +114,30 @@ const Settings = () => {
     // Privacy
     const [profileVisible, setProfileVisible] = useState(true);
     const [activityVisible, setActivityVisible] = useState(true);
+
+    useEffect(() => {
+        let active = true;
+
+        const hydrateProfile = async () => {
+            const cached = getUserFromLocalStorage();
+            if (cached && active) {
+                setDisplayName(cached.display_name || "");
+                setProfileEmail(cached.email || "");
+            }
+
+            const me = await fetchMe();
+            if (!active || !me) return;
+
+            setDisplayName(me.display_name || "");
+            setProfileEmail(me.email || "");
+        };
+
+        hydrateProfile();
+
+        return () => {
+            active = false;
+        };
+    }, []);
 
     const handleAddCategory = () => {
         const trimmed = newCategory.trim();
@@ -164,6 +192,27 @@ const Settings = () => {
         toast.success(`Language changed to ${lang?.label}`);
     };
 
+    const handleSaveProfile = async () => {
+        const trimmedDisplayName = displayName.trim();
+        const trimmedEmail = profileEmail.trim();
+
+        setIsSavingProfile(true);
+        try {
+            const updated = await updateMe({
+                display_name: trimmedDisplayName || null,
+                email: trimmedEmail || null,
+            });
+
+            setDisplayName(updated?.display_name || "");
+            setProfileEmail(updated?.email || "");
+            toast.success("Profile saved");
+        } catch (error) {
+            toast.error(error?.message || "Could not save profile");
+        } finally {
+            setIsSavingProfile(false);
+        }
+    };
+
     return (
         <div className="p-4 md:p-6 max-w-3xl mx-auto">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
@@ -181,16 +230,25 @@ const Settings = () => {
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-1.5">
                             <Label className="text-sm text-muted-foreground">Display Name</Label>
-                            <Input defaultValue="Maria" />
+                            <Input
+                                value={displayName}
+                                onChange={(e) => setDisplayName(e.target.value)}
+                                placeholder="Enter display name"
+                            />
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-sm text-muted-foreground">Email</Label>
-                            <Input defaultValue="maria@example.com" type="email" />
+                            <Input
+                                value={profileEmail}
+                                onChange={(e) => setProfileEmail(e.target.value)}
+                                placeholder="you@example.com"
+                                type="email"
+                            />
                         </div>
                     </div>
                     <div className="flex justify-end">
-                        <Button size="sm" onClick={() => toast.success("Profile saved")}>
-                            Save Changes
+                        <Button size="sm" onClick={handleSaveProfile} disabled={isSavingProfile}>
+                            {isSavingProfile ? "Saving..." : "Save Changes"}
                         </Button>
                     </div>
                 </SectionCard>

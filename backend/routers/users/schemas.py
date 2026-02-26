@@ -13,3 +13,8 @@ class RegisterUserResponse(BaseModel):
     username: str
     email: str | None = None
     display_name: str | None = None
+
+
+class UpdateMeRequest(BaseModel):
+    email: str | None = None
+    display_name: str | None = None

@@ -10,6 +10,7 @@ import {
   fetchKanbanTasks as sharedFetchKanbanTasks,
   fetchMe as sharedFetchMe,
   getApiBaseUrl,
+  updateMe as sharedUpdateMe,
   updateKanbanTaskDescription as sharedUpdateKanbanTaskDescription,
   updateKanbanTaskAssignee as sharedUpdateKanbanTaskAssignee,
   updateKanbanTaskCategory as sharedUpdateKanbanTaskCategory,
@@ -72,10 +73,24 @@ export function getUserFromLocalStorage() {
 
 export function saveUserToLocalStorage(user) {
   if (!user) return;
-  if (user.username) localStorage.setItem("username", user.username);
-  if (user.email) localStorage.setItem("email", user.email);
-  if (user.display_name) {
+  if (user.username != null) {
+    localStorage.setItem("username", user.username);
+  }
+
+  if (user.email != null && user.email !== "") {
+    localStorage.setItem("email", user.email);
+  } else {
+    localStorage.removeItem("email");
+  }
+
+  if (user.display_name != null && user.display_name !== "") {
     localStorage.setItem("display_name", user.display_name);
+  } else {
+    localStorage.removeItem("display_name");
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("user:changed"));
   }
 }
 
@@ -113,6 +128,14 @@ export const fetchMe = async () => {
 
 export async function apiFetch(path, options = {}) {
   return apiClient.request(path, options);
+}
+
+export async function updateMe(payload) {
+  const data = await sharedUpdateMe(apiClient, payload);
+  if (data?.username) {
+    saveUserToLocalStorage(data);
+  }
+  return data;
 }
 
 export async function fetchKanbanTasks(householdId) {
