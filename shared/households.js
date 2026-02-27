@@ -80,3 +80,17 @@ export async function updateHouseholdMemberRole(
     body: JSON.stringify({ household_id: householdId, user_id: userId, role }),
   });
 }
+
+export async function transferHouseholdOwnership(
+  apiClient,
+  householdId,
+  newOwnerUserId
+) {
+  return apiClient.request("/api/household/transfer-ownership", {
+    method: "POST",
+    body: JSON.stringify({
+      household_id: householdId,
+      new_owner_user_id: newOwnerUserId,
+    }),
+  });
+}

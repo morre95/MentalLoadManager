@@ -3,6 +3,38 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+
+const AlertTransferDialog = ({ open, onCancel, onTransfer, transferToUser }) => {
+  if (!transferToUser) return null;
+  const transferToName =
+    transferToUser.display_name || transferToUser.username || "this user";
+
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onCancel()}>
+      <DialogContent className="max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>Do you want to transfer your ownership to {transferToName}</DialogTitle>
+        </DialogHeader>
+
+        <div className="mt-2 flex items-center justify-end gap-2">
+          <Button variant="outline" onClick={onTransfer}>
+            Yes Transfer to {transferToName}
+          </Button>
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function MemberCard({
   member,
@@ -18,7 +50,9 @@ export default function MemberCard({
   updatingRoleKey,
   onConfirmRemove,
   onUpdateRole,
+  onTransferOwnership,
 }) {
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
   const name = member.display_name || member.username || "User";
   const initials = getInitials(name);
   const role = (member.role || "member").toLowerCase();
@@ -67,11 +101,26 @@ export default function MemberCard({
   }, [isRoleEditorOpen]);
 
   const handleSaveRole = async () => {
+    if (nextRole === "transfer") {
+      setIsTransferDialogOpen(true);
+      return;
+    }
+
     if (!onUpdateRole || nextRole === role) {
       setIsRoleEditorOpen(false);
       return;
     }
+
     await onUpdateRole(member.user_id, nextRole);
+    setIsRoleEditorOpen(false);
+  };
+
+  const handleConfirmTransfer = async () => {
+    if (!onTransferOwnership) return;
+
+    await onTransferOwnership(member.user_id);
+    setIsTransferDialogOpen(false);
+    setNextRole(role);
     setIsRoleEditorOpen(false);
   };
 
@@ -104,6 +153,9 @@ export default function MemberCard({
           >
             <option value="admin">Admin</option>
             <option value="member">Member</option>
+            {myRole === "owner" && (
+              <option value="transfer">Transfer ownership</option>
+            )}
           </select>
 
           <div className="flex gap-2">
@@ -111,7 +163,10 @@ export default function MemberCard({
               size="sm"
               className="h-7 px-2 text-xs"
               onClick={handleSaveRole}
-              disabled={isUpdatingRole || nextRole === role}
+              disabled={
+                isUpdatingRole ||
+                (nextRole === role && nextRole !== "transfer")
+              }
             >
               {isUpdatingRole ? "Saving…" : "Save"}
             </Button>
@@ -182,6 +237,16 @@ export default function MemberCard({
           </Button>
         </div>
       )}
+
+      <AlertTransferDialog
+        open={isTransferDialogOpen}
+        onCancel={() => {
+          setIsTransferDialogOpen(false);
+          setNextRole(role);
+        }}
+        onTransfer={handleConfirmTransfer}
+        transferToUser={member}
+      />
     </div>
   );
 }

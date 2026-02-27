@@ -43,6 +43,7 @@ export default function Household() {
         handleCopyInvite,
         handleRemoveMember,
         handleLeave,
+        handleTransferOwnership,
         handleUpdateMemberRole,
     } = useHouseholdPage();
 
@@ -192,6 +193,9 @@ export default function Household() {
                                         }
                                         onUpdateRole={(userId, role) =>
                                             handleUpdateMemberRole(h.household_id, userId, role)
+                                        }
+                                        onTransferOwnership={(userId) =>
+                                            handleTransferOwnership(h.household_id, userId)
                                         }
                                     />
                                 ))}

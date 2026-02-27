@@ -5,6 +5,7 @@ import {
     createHousehold,
     removeHouseholdMember,
     leaveHousehold,
+    transferHouseholdOwnership,
     updateHouseholdMemberRole,
 } from "@/hooks/useHouseHold";
 import { acceptHouseholdInvite, getUserFromLocalStorage } from "@/lib/utils";
@@ -53,7 +54,7 @@ export function useHouseholdPage() {
             const url = new URL(v);
             const code = url.searchParams.get("code");
             if (code) return code.trim();
-        } catch (err) {
+        } catch {
             //ignore, not a url - will move on to return just code
         }
         return v;
@@ -176,6 +177,21 @@ export function useHouseholdPage() {
         }
     };
 
+    const handleTransferOwnership = async (householdId, newOwnerUserId) => {
+        const key = memberKey(householdId, newOwnerUserId);
+        setUpdatingRoleKey(key);
+
+        try {
+            await transferHouseholdOwnership(householdId, newOwnerUserId);
+            await refetch();
+        } catch (err) {
+            alert(err?.message || "Could not transfer ownership.");
+            throw err;
+        } finally {
+            setUpdatingRoleKey(null);
+        }
+    };
+
     // Sorted members helper (you first, then alphabetical by display name)
     const householdsWithSortedMembers = useMemo(() => {
         return (households || []).map((h) => {
@@ -234,6 +250,7 @@ export function useHouseholdPage() {
         handleCopyInvite,
         handleRemoveMember,
         handleLeave,
+        handleTransferOwnership,
         handleUpdateMemberRole,
 
         refetch,
