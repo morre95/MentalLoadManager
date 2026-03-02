@@ -1,18 +1,18 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CreateTaskRequest(BaseModel):
     household_id: UUID
-    name: str
-    status: str = "todo"
-    description: str | None = None
-    priority: str | None = None
+    name: str = Field(min_length=1, max_length=200)
+    status: str = Field(default="todo", max_length=20)
+    description: str | None = Field(default=None, max_length=2000)
+    priority: str | None = Field(default=None, max_length=20)
     due_date: datetime | None = None
     category_id: UUID | None = None
-    category_name: str | None = None
+    category_name: str | None = Field(default=None, max_length=100)
     assigns_to: UUID | None = None
     started_at: datetime | None = None
     complete_date: datetime | None = None
@@ -63,7 +63,7 @@ class KanbanAssigneesResponse(BaseModel):
 
 
 class UpdateTaskStatusRequest(BaseModel):
-    status: str
+    status: str = Field(max_length=20)
 
 
 class UpdateTaskStatusResponse(BaseModel):
@@ -75,7 +75,7 @@ class UpdateTaskStatusResponse(BaseModel):
 
 
 class UpdateTaskPriorityRequest(BaseModel):
-    priority: str
+    priority: str = Field(max_length=20)
 
 
 class UpdateTaskPriorityResponse(BaseModel):
@@ -106,7 +106,7 @@ class UpdateTaskAssigneeResponse(BaseModel):
 
 
 class UpdateTaskCategoryRequest(BaseModel):
-    category_name: str | None = None
+    category_name: str | None = Field(default=None, max_length=100)
 
 
 class UpdateTaskCategoryResponse(BaseModel):
@@ -117,7 +117,7 @@ class UpdateTaskCategoryResponse(BaseModel):
 
 
 class UpdateTaskDescriptionRequest(BaseModel):
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=2000)
 
 
 class UpdateTaskDescriptionResponse(BaseModel):
@@ -127,7 +127,7 @@ class UpdateTaskDescriptionResponse(BaseModel):
 
 
 class UpdateTaskNameRequest(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=200)
 
 
 class UpdateTaskNameResponse(BaseModel):
@@ -142,7 +142,7 @@ class DeleteTaskResponse(BaseModel):
 
 
 class ReorderTasksRequest(BaseModel):
-    status: str
+    status: str = Field(max_length=20)
     ordered_task_ids: list[str]
 
 

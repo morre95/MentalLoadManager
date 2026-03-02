@@ -1,11 +1,11 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class RegisterUserRequest(BaseModel):
-    username: str
-    password: str
-    email: str | None = None
-    display_name: str | None = None
+    username: str = Field(min_length=1, max_length=50)
+    password: str = Field(min_length=1, max_length=128)
+    email: str | None = Field(default=None, max_length=254)
+    display_name: str | None = Field(default=None, max_length=100)
 
 
 class RegisterUserResponse(BaseModel):
@@ -16,10 +16,10 @@ class RegisterUserResponse(BaseModel):
 
 
 class UpdateMeRequest(BaseModel):
-    email: str | None = None
-    display_name: str | None = None
+    email: str | None = Field(default=None, max_length=254)
+    display_name: str | None = Field(default=None, max_length=100)
 
 
 class ChangePasswordRequest(BaseModel):
-    current_password: str
-    new_password: str
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=1, max_length=128)
