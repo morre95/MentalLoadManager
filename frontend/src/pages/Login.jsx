@@ -110,7 +110,7 @@ const Login = () => {
       body.set("username", identifier);
       body.set("password", password);
 
-      const loginRes = await fetch(`${API_BASE_URL}/api/passwrod/login`, {
+      const loginRes = await fetch(`${API_BASE_URL}/api/password/login`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body,

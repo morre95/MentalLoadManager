@@ -50,7 +50,7 @@ export default function LoginScreen() {
       body.set('username', username.trim());
       body.set('password', password);
 
-      const response = await fetch(`${mobileApiBaseUrl}/api/passwrod/login`, {
+      const response = await fetch(`${mobileApiBaseUrl}/api/password/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',

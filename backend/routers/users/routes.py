@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 
 from helpers import get_current_user
+from limiter import limiter
 from models import UserEmail
 
 from .schemas import (
@@ -22,7 +23,8 @@ router = APIRouter(
     response_model=RegisterUserResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def register_user_route(payload: RegisterUserRequest):
+@limiter.limit("5/minute")
+def register_user_route(request: Request, payload: RegisterUserRequest):
     return register_user(payload)
 
 

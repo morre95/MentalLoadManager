@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.security import OAuth2PasswordRequestForm
 
 from helpers import get_current_user
+from limiter import limiter
 from models import User
 
 from .schemas import Token
@@ -19,6 +20,7 @@ def test_calendar(user: User = Depends(get_current_user)):
 
 
 @router.post("/api/token")
-@router.post("/api/passwrod/login", response_model=Token)
-def login_route(form: OAuth2PasswordRequestForm = Depends()):
+@router.post("/api/password/login", response_model=Token)
+@limiter.limit("10/minute")
+def login_route(request: Request, form: OAuth2PasswordRequestForm = Depends()):
     return login(form)

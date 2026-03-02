@@ -55,7 +55,7 @@ function Test() {
       body.set("username", username);
       body.set("password", password);
 
-      const res = await fetch(`${API_BASE_URL}/api/passwrod/login`, {
+      const res = await fetch(`${API_BASE_URL}/api/password/login`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body,

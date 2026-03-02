@@ -2,9 +2,13 @@ from contextlib import asynccontextmanager
 import random
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from routers import all_routers
 from config import settings
 from helpers import setup_db_and_tables
+from limiter import limiter
 
 
 @asynccontextmanager
@@ -14,6 +18,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 raw_origins = settings.CORS_ALLOW_ORIGINS
 
