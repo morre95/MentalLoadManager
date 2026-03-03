@@ -31,7 +31,8 @@ export {
   updateHouseholdMemberRole,
 } from "./households.js";
 
-export { fetchAnalyticsSummary } from "./analytics.js";
+export { fetchAnalyticsSummary, normalizeAnalyticsSummary} from "./analytics.js";
 
+export { fetchCalendarMonth, fetchCalendarRange} from "./calendar.js";
 
 export { changeMyPassword, fetchMe, updateMe } from "./users.js";
