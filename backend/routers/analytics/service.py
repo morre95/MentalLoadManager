@@ -23,6 +23,7 @@ from .repository import (
     get_default_household_for_user,
     get_user_by_username,
     has_membership,
+    count_done_in_range,
 )
 from .schemas import (
     AnalyticsSummaryResponse,
@@ -163,7 +164,17 @@ def get_analytics_summary(
         start_of_week = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
         start_of_week = start_of_week - timedelta(days=start_of_week.weekday())
 
-        done_this_week = count_done_this_week(db, hid, COMPLETED_STATUSES, start_of_week)
+        # Previous week range
+        start_of_prev_week = start_of_week - timedelta(days=7)
+        
+        
+        done_this_week = count_done_in_range(
+            db, hid, COMPLETED_STATUSES, start_of_week, now
+        )
+        
+        done_prev_week = count_done_in_range(
+            db, hid, COMPLETED_STATUSES, start_of_prev_week, start_of_week
+        )
         open_tasks = count_open_tasks(db, hid, OPEN_STATUSES)
         overdue_tasks = count_overdue_tasks(db, hid, OPEN_STATUSES, now)
 
@@ -188,30 +199,38 @@ def get_analytics_summary(
             StatItem(
                 title="Done This Week",
                 value=str(done_this_week),
+                previousValue=str(done_prev_week),
                 change="",
                 trend="up",
                 icon="CheckCircle2",
+                description="Tasks completed since last week.",
             ),
             StatItem(
                 title="Open Tasks Remaining",
                 value=str(open_tasks),
+                previousValue=None,
                 change="",
                 trend="info",
                 icon="TrendingUp",
+                description="Tasks currently in todo or in_progress.",
             ),
             StatItem(
                 title="Overdue Tasks",
                 value=str(overdue_tasks),
+                previousValue=None,
                 change="",
                 trend="down",
                 icon="TrendingDown",
+                description="Open tasks with a due date before now.",
             ),
             StatItem(
                 title="Load Balance Score",
                 value=load_balance_value,
+                previousValue=None,
                 change="",
                 trend="info",
                 icon="Users",
+                description="How evenly open tasks are distributed across members.",
             ),
         ]
 

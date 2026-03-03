@@ -1,12 +1,15 @@
+from typing import Optional
 from pydantic import BaseModel
 
 
 class StatItem(BaseModel):
     title: str
     value: str
+    previousValue: Optional[str] = None
     change: str
     trend: str
     icon: str
+    description: Optional[str] = None
 
 
 class WeeklyPoint(BaseModel):

@@ -219,3 +219,26 @@ def fetch_open_assignee_counts(
         )
         .group_by(Tasks.assigns_to)
     ).all()
+    
+def count_done_in_range(
+    db: Session,
+    household_id: UUID,
+    completed_statuses: tuple[str, ...],
+    start: datetime,
+    end: datetime,
+) -> int:
+    return (
+        db.scalar(
+            select(func.count())
+            .select_from(Tasks)
+            .where(
+                Tasks.household_id == household_id,
+                Tasks.status.in_(completed_statuses),
+                Tasks.complete_date.is_not(None),
+                Tasks.complete_date >= start,
+                Tasks.complete_date < end,
+            )
+        )
+        or 0
+    )
+

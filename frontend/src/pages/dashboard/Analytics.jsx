@@ -27,12 +27,7 @@ import {
     SelectItem,
     SelectValue,
 } from "@/components/ui/select";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import { NoHouseholdState } from "@/components/ui/noHouseHoldState";
 import { getDisplayNameFromUsername } from "@/lib/utils";
@@ -64,16 +59,17 @@ Helpers
 ----------------------------- */
 
 function safeNumber(n) {
-    const x = Number(n);
-    return Number.isFinite(x) ? x : null;
-}
+    if (n === null || n === undefined) return null;
+    if (typeof n === "number") return Number.isFinite(n) ? n : null;
 
-function pctChange(current, prev) {
-    const c = safeNumber(current);
-    const p = safeNumber(prev);
-    if (c === null || p === null) return null;
-    if (p === 0) return c === 0 ? 0 : null;
-    return ((c - p) / p) * 100;
+    const s = String(n).trim();
+    if (!s) return null;
+
+    // Remove common formatting: spaces, commas, percent signs
+    const cleaned = s.replace(/\s/g, "").replace(/,/g, "").replace(/%/g, "");
+
+    const x = Number(cleaned);
+    return Number.isFinite(x) ? x : null;
 }
 
 function formatPct(p) {
@@ -311,8 +307,13 @@ const Analytics = () => {
             "hsl(var(--sky))",
             "hsl(var(--lavender))",
             "hsl(var(--sand))",
+            // Additional distinct colors from your theme
+            "hsl(var(--status-todo))",
+            "hsl(var(--status-doing))",
+            "hsl(var(--status-done))",
+
+            // fallback extra
             "hsl(var(--primary))",
-            "hsl(var(--accent))",
         ],
         []
     );
@@ -548,50 +549,47 @@ const Analytics = () => {
             }
             downloadTextFile(filename, csv, "text/csv");
         },
-        [
-            timeframeLabel,
-            selectedHouseholdName,
-            weeklyData,
-            categoryData,
-            loadTrendData,
-            completionData,
-            radarData,
-        ]
+        [timeframeLabel, selectedHouseholdName, weeklyData, categoryData, loadTrendData, completionData, radarData]
     );
 
-    // ---- Stats: add comparison + descriptions
+    // ✅ Stats: compute changeText + trend HERE (not in analytics.js)
     const enrichedStats = useMemo(() => {
         const list = Array.isArray(stats) ? stats : [];
+
         return list.map((s) => {
-            const current = s && s.value;
-            const prev = s && (s.previousValue ?? s.prevValue ?? s.previous);
+            const current = s?.value;
+            const prev = s?.previousValue ?? s?.prevValue ?? s?.previous;
 
-            const computedPct = pctChange(current, prev);
-            const changeText = (s && s.change) || (computedPct === null ? null : formatPct(computedPct));
-            const trend =
-                (s && s.trend) ||
-                (computedPct === null ? "flat" : computedPct > 0 ? "up" : computedPct < 0 ? "down" : "flat");
+            const c = safeNumber(current);
+            const p = safeNumber(prev);
 
-            const description =
-                (s && s.description) ||
-                (s && s.title && s.title.toLowerCase().includes("task")
-                    ? "Total number of tasks visible in the selected timeframe."
-                    : s && s.title && s.title.toLowerCase().includes("completion")
-                        ? "Completed vs pending for the selected timeframe."
-                        : "Key metric calculated for the selected timeframe.");
+            let changeText = null;
+            let trend = "flat";
 
-            const compareLabel =
-                prev === null || prev === undefined ? null : "vs previous period";
+            if (c !== null && p !== null) {
+                if (p === 0 && c > 0) {
+                    changeText = "New";
+                    trend = "up";
+                } else if (p === 0 && c === 0) {
+                    changeText = null;
+                    trend = "flat";
+                } else {
+                    const pct = ((c - p) / p) * 100;
+                    changeText = formatPct(pct);
+                    trend = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
+                }
+            }
 
             return {
                 ...s,
-                _trend: trend,
+                _current: c,
+                _previous: p,
                 _changeText: changeText,
-                _description: description,
-                _compareLabel: compareLabel,
+                _trend: trend, // <- this is the comparison trend
             };
         });
     }, [stats]);
+
 
     // Guard states
     if (!Array.isArray(households) || households.length === 0) {
@@ -610,7 +608,9 @@ const Analytics = () => {
         return (
             <div className="p-6 space-y-3">
                 <p className="text-destructive font-medium">Failed to load analytics</p>
-                <p className="text-sm text-muted-foreground">{(error && error.message) || "Unknown error"}</p>
+                <p className="text-sm text-muted-foreground">
+                    {(error && error.message) || "Unknown error"}
+                </p>
                 <Button variant="outline" onClick={() => load(timeframe)}>
                     Retry
                 </Button>
@@ -709,14 +709,7 @@ const Analytics = () => {
                         height={360}
                     >
                         <PieChart>
-                            <Pie
-                                data={categoryPieData}
-                                innerRadius={70}
-                                outerRadius={110}
-                                dataKey="value"
-                                nameKey="name"
-                                paddingAngle={2}
-                            >
+                            <Pie data={categoryPieData} innerRadius={70} outerRadius={110} dataKey="value" nameKey="name" paddingAngle={2}>
                                 {categoryPieData.map((entry, index) => (
                                     <Cell
                                         key={`cat-expanded-${index}-${entry && entry.name}`}
@@ -744,13 +737,7 @@ const Analytics = () => {
                             <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                             <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                             <Tooltip contentStyle={tooltipStyle} />
-                            <Area
-                                type="monotone"
-                                dataKey="load"
-                                stroke="hsl(var(--primary))"
-                                fill="hsl(var(--primary) / 0.2)"
-                                strokeWidth={2}
-                            />
+                            <Area type="monotone" dataKey="load" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.2)" strokeWidth={2} />
                         </AreaChart>
                     </ChartFrame>
                 );
@@ -769,9 +756,7 @@ const Analytics = () => {
                             <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                             <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                             <Tooltip contentStyle={tooltipStyle} />
-                            <Legend content={({ payload }) => (
-                                <ChartLegend payload={payload} layout="grid" itemType="line" />
-                            )} />
+                            <Legend content={({ payload }) => <ChartLegend payload={payload} layout="grid" itemType="line" />} />
                             <Line dataKey="completed" stroke="hsl(var(--sage))" type="monotone" strokeWidth={2} />
                             <Line dataKey="pending" stroke="hsl(var(--terracotta))" type="monotone" strokeWidth={2} />
                         </LineChart>
@@ -972,8 +957,8 @@ const Analytics = () => {
                                     {stat._changeText ? (
                                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${pillClass}`}>
                                             {stat._changeText}
-                                            {stat._compareLabel ? (
-                                                <span className="ml-1 opacity-80">{stat._compareLabel}</span>
+                                            {stat.compareLabel ? (
+                                                <span className="ml-1 opacity-80">{stat.compareLabel}</span>
                                             ) : null}
                                         </span>
                                     ) : null}
@@ -981,7 +966,16 @@ const Analytics = () => {
 
                                 <div>
                                     <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                                    <p className="text-xs text-muted-foreground mt-1">{stat._description}</p>
+
+                                    {stat.previousValue !== null && stat.previousValue !== undefined ? (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Prev: <span className="text-foreground">{stat.previousValue}</span>
+                                        </p>
+                                    ) : null}
+
+                                    {stat.description ? (
+                                        <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
+                                    ) : null}
                                 </div>
                             </CardContent>
                         </Card>
@@ -1061,14 +1055,7 @@ const Analytics = () => {
                                 emptyHint={chartMetaById.get("category").emptyHint}
                             >
                                 <PieChart>
-                                    <Pie
-                                        data={categoryPieData}
-                                        innerRadius={60}
-                                        outerRadius={90}
-                                        dataKey="value"
-                                        nameKey="name"
-                                        paddingAngle={2}
-                                    >
+                                    <Pie data={categoryPieData} innerRadius={60} outerRadius={90} dataKey="value" nameKey="name" paddingAngle={2}>
                                         {categoryPieData.map((entry, index) => (
                                             <Cell
                                                 key={`cat-${index}-${entry && entry.name}`}
@@ -1090,9 +1077,7 @@ const Analytics = () => {
                         <CardHeader className="flex flex-row items-start justify-between gap-3">
                             <div className="space-y-1">
                                 <CardTitle>Mental Load Trend</CardTitle>
-                                <p className="text-sm text-muted-foreground">
-                                    Overall load score over time (monthly).
-                                </p>
+                                <p className="text-sm text-muted-foreground">Overall load score over time (monthly).</p>
                             </div>
                             <CardActions chartId="load-trend" title="Mental Load Trend" />
                         </CardHeader>
@@ -1108,13 +1093,7 @@ const Analytics = () => {
                                     <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                                     <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                                     <Tooltip contentStyle={tooltipStyle} />
-                                    <Area
-                                        type="monotone"
-                                        dataKey="load"
-                                        stroke="hsl(var(--primary))"
-                                        fill="hsl(var(--primary) / 0.2)"
-                                        strokeWidth={2}
-                                    />
+                                    <Area type="monotone" dataKey="load" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.2)" strokeWidth={2} />
                                 </AreaChart>
                             </ChartFrame>
                         </CardContent>
@@ -1145,9 +1124,7 @@ const Analytics = () => {
                                     <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                                     <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                                     <Tooltip contentStyle={tooltipStyle} />
-                                    <Legend content={({ payload }) => (
-                                        <ChartLegend payload={payload} layout="grid" itemType="line" />
-                                    )} />
+                                    <Legend content={({ payload }) => <ChartLegend payload={payload} layout="grid" itemType="line" />} />
                                     <Line dataKey="completed" stroke="hsl(var(--sage))" type="monotone" strokeWidth={2} />
                                     <Line dataKey="pending" stroke="hsl(var(--terracotta))" type="monotone" strokeWidth={2} />
                                 </LineChart>
