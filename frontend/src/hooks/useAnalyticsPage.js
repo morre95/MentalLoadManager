@@ -302,7 +302,7 @@ export function useAnalyticsPage() {
         handleToggleChart,
         handleDownloadChartData,
 
-        // helpers you already use in charts
+        // helpers
         getDisplayNameFromUsername,
         SERIES_COLORS,
         timeframeOptions: TIMEFRAME_OPTIONS,
