@@ -5,11 +5,12 @@ import {
     PolarAngleAxis,
     Radar,
     Tooltip,
-    Legend,
 } from "recharts";
 
 import ChartFrame from "@/components/analytics/ChartFrame";
 import ChartLegend from "@/components/analytics/ChartLegend";
+import PeopleLegend from "@/components/analytics/PeopleLegend";
+
 
 const tooltipStyle = {
     backgroundColor: "hsl(var(--card))",
@@ -27,9 +28,11 @@ export default function RadarChart({
     height = 256,
     outerRadius = "68%",
     cy = "44%",
-    legendLayout = "grid",
 }) {
+        const isEmpty = !data || data.length === 0;
+
     return (
+        <div className="min-w-0">
         <ChartFrame
             isEmpty={!data || data.length === 0}
             emptyTitle={meta?.emptyTitle}
@@ -59,8 +62,17 @@ export default function RadarChart({
                 ))}
 
                 <Tooltip contentStyle={tooltipStyle} />
-                <Legend content={({ payload }) => <ChartLegend payload={payload} layout={legendLayout} />} />
             </RChart>
         </ChartFrame>
+
+        {/* ✅ external legend (pushes layout down, no overlap) */}
+                    {!isEmpty ? (
+                        <PeopleLegend
+                            people={sortedPeople}
+                            getLabel={(p) => getDisplayNameFromUsername(p, labels)}
+                            getColor={(p) => personColorMap[p] || "hsl(var(--muted-foreground))"}
+                        />
+                    ) : null}
+        </div>
     );
 }
