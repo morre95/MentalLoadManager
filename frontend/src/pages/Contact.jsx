@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, MessageSquare, Send, Loader2 } from "lucide-react";
+import { Mail, Send, Loader2 } from "lucide-react";
 
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
