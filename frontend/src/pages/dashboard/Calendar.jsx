@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -61,6 +61,7 @@ const Calendar = () => {
     const weekStart = startOfWeek(currentWeek);
     const weekEnd = endOfWeek(currentWeek);
     const daysInWeek = eachDayOfInterval({ start: weekStart, end: weekEnd });
+    const calendarRef = useRef(null);
 
 
     // Load month events whenever currentMonth changes
@@ -311,9 +312,29 @@ const Calendar = () => {
                                         <p className="text-sm text-muted-foreground">Nothing due this week.</p>
                                     ) : (
                                         upcomingThisWeek.slice(0, 6).map((event) => (
-                                            <div
+                                            <motion.div
                                                 key={event.id}
-                                                className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                                                role="button"
+                                                tabIndex={0}
+                                                whileHover={{ scale: 1.02 }}
+                                                whileTap={{ scale: 0.98 }}
+                                                onClick={() => {
+                                                    setSelectedDate(event.date);
+                                                    setCurrentWeek(event.date);
+                                                    setCurrentMonth(event.date);
+                                                    //setView("week");
+                                                    // scroll happens in step 2 below
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter" || e.key === " ") {
+                                                        e.preventDefault();
+                                                        setSelectedDate(event.date);
+                                                        setCurrentWeek(event.date);
+                                                        setCurrentMonth(event.date);
+                                                        setView("week");
+                                                    }
+                                                }}
+                                                className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
                                             >
                                                 <div
                                                     className="w-2 h-2 rounded-full flex-shrink-0"
@@ -327,7 +348,7 @@ const Calendar = () => {
                                                         {event.householdName ? ` • ${event.householdName}` : ""}
                                                     </p>
                                                 </div>
-                                            </div>
+                                            </motion.div>
                                         ))
                                     )}
                                 </div>
