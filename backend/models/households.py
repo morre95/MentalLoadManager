@@ -66,3 +66,6 @@ class Households(Base):
     ai_summaries: Mapped[list[AISummaries]] = relationship(
         "AISummaries", back_populates="household", cascade="all, delete-orphan"
     )
+
+    def __repr__(self) -> str:
+        return f"Household(id={self.household_id!r}, name={self.name!r})"

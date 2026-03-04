@@ -4,7 +4,15 @@ from typing import TYPE_CHECKING
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text, text
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -87,3 +95,6 @@ class Tasks(Base):
     attachments: Mapped[list[TaskAttachment]] = relationship(
         "TaskAttachment", back_populates="task", cascade="all, delete-orphan"
     )
+
+    def __repr__(self) -> str:
+        return f"Task(id={self.task_id!r}, name={self.name!r})"

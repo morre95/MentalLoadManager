@@ -72,3 +72,6 @@ class UserDB(Base):
     reminders: Mapped[list[Reminders]] = relationship(
         "Reminders", back_populates="user", cascade="all, delete-orphan"
     )
+
+    def __repr__(self) -> str:
+        return f"User(id={self.user_id!r}, name={self.display_name!r}, lastLogin={self.last_login!r})"
