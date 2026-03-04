@@ -8,6 +8,7 @@ from .households import Households
 from .invitations import Invitations
 from .monthly_reports import MonthlyReports
 from .oauth_accounts import OAuthAccounts
+from .password_refresh_token import PasswordRefreshToken
 from .preferences import Preferences
 from .reminders import Reminders
 from .task_attachment import TaskAttachment
@@ -31,6 +32,7 @@ __all__ = [
     "UsersHouseholds",
     "Preferences",
     "OAuthAccounts",
+    "PasswordRefreshToken",
     "CalendarConnections",
     "Categories",
     "Tasks",

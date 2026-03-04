@@ -3,6 +3,7 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
+from uuid import UUID, uuid4
 
 import jwt
 import requests
@@ -10,6 +11,7 @@ from fastapi import HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select
 
 from helpers import (
     ALGORITHM,
@@ -18,12 +20,14 @@ from helpers import (
     create_access_token,
     get_session_local,
 )
-from models import Token
+from models import PasswordRefreshToken, Token, UserDB
 
 from .repository import find_user, get_google_oauth_account, get_user_by_username
+from .schemas import RefreshTokenRequest
 from config import settings
 
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.JWT_EXPIRE_MINUTES or 1440  # 1440 min = 24h
+REFRESH_TOKEN_EXPIRE_DAYS = 30
 FRONTEND_URL = (settings.FRONTEND_URL or "http://localhost:5173").rstrip("/")
 BACKEND_URL = (settings.BACKEND_URL or "").rstrip("/")
 REDIRECT_URIS_BY_PROVIDER = {
@@ -145,6 +149,72 @@ def require_env(name: str) -> str:
             detail=f"Missing environment variable: {name}",
         )
     return value
+
+
+def _refresh_token_hash(token_value: str) -> str:
+    digest = hashlib.sha256()
+    digest.update(SECRET_KEY.encode("utf-8"))
+    digest.update(b":")
+    digest.update(token_value.encode("utf-8"))
+    return digest.hexdigest()
+
+
+def _build_refresh_token_value(token_id: UUID) -> str:
+    return f"{token_id}.{secrets.token_urlsafe(64)}"
+
+
+def _parse_refresh_token_id(refresh_token: str) -> UUID | None:
+    try:
+        token_id_raw = str(refresh_token).split(".", 1)[0]
+        return UUID(token_id_raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _resolve_client_ip(request: Request) -> str | None:
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        ip = forwarded_for.split(",")[0].strip()
+        if ip:
+            return ip[:64]
+    if request.client and request.client.host:
+        return request.client.host[:64]
+    return None
+
+
+def _issue_password_refresh_token(
+    db,
+    *,
+    user_id: UUID,
+    family_id: UUID,
+    request: Request,
+) -> tuple[PasswordRefreshToken, str]:
+    record = PasswordRefreshToken(
+        user_id=user_id,
+        family_id=family_id,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+        created_ip=_resolve_client_ip(request),
+        created_user_agent=(request.headers.get("user-agent") or "")[:512] or None,
+    )
+    db.add(record)
+    db.flush()
+
+    raw_refresh_token = _build_refresh_token_value(record.token_id)
+    record.token_hash = _refresh_token_hash(raw_refresh_token)
+    return record, raw_refresh_token
+
+
+def _revoke_refresh_token_family(db, *, user_id: UUID, family_id: UUID) -> None:
+    rows = db.scalars(
+        select(PasswordRefreshToken).where(
+            PasswordRefreshToken.user_id == user_id,
+            PasswordRefreshToken.family_id == family_id,
+            PasswordRefreshToken.revoked_at.is_(None),
+        )
+    ).all()
+    now_utc = datetime.now(timezone.utc)
+    for row in rows:
+        row.revoked_at = now_utc
 
 
 def upsert_google_user(user_data: dict) -> str:
@@ -335,7 +405,7 @@ def create_calendar_event(access_token, username):
     return response.json()
 
 
-def login(form: OAuth2PasswordRequestForm) -> Token:
+def login(form: OAuth2PasswordRequestForm, request: Request) -> Token:
     try:
         user = authenticate_user(form.username, form.password)
     except RuntimeError as exc:
@@ -350,12 +420,139 @@ def login(form: OAuth2PasswordRequestForm) -> Token:
             detail="Incorrect username or password",
         )
 
-    token_subject = str(user.user_id) if user.user_id else user.username
+    if not user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not issue session for user",
+        )
+
+    token_subject = str(user.user_id)
     access_token = create_access_token(
         subject=token_subject,
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
-    return Token(access_token=access_token, token_type="bearer")
+
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        _, raw_refresh_token = _issue_password_refresh_token(
+            db,
+            user_id=user.user_id,
+            family_id=uuid4(),
+            request=request,
+        )
+        db.commit()
+
+    return Token(
+        access_token=access_token,
+        token_type="bearer",
+        refresh_token=raw_refresh_token,
+    )
+
+
+def refresh_password_session(payload: RefreshTokenRequest, request: Request) -> Token:
+    incoming_refresh_token = (payload.refresh_token or "").strip()
+    if not incoming_refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Refresh token is required",
+        )
+
+    token_id = _parse_refresh_token_id(incoming_refresh_token)
+    if token_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+        )
+
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    now_utc = datetime.now(timezone.utc)
+    incoming_hash = _refresh_token_hash(incoming_refresh_token)
+
+    with session_local() as db:
+        token_row = db.scalar(
+            select(PasswordRefreshToken).where(
+                PasswordRefreshToken.token_id == token_id
+            )
+        )
+        if token_row is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token",
+            )
+
+        if not secrets.compare_digest(token_row.token_hash, incoming_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token",
+            )
+
+        if token_row.revoked_at is not None:
+            # Reuse detection: if a rotated token is replayed, revoke the whole family.
+            if token_row.replaced_by_token_id is not None:
+                _revoke_refresh_token_family(
+                    db,
+                    user_id=token_row.user_id,
+                    family_id=token_row.family_id,
+                )
+                db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token is no longer valid",
+            )
+
+        if token_row.expires_at <= now_utc:
+            token_row.revoked_at = now_utc
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token has expired",
+            )
+
+        user = db.scalar(select(UserDB).where(UserDB.user_id == token_row.user_id))
+        if user is None:
+            token_row.revoked_at = now_utc
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+            )
+
+        new_row, new_refresh_token = _issue_password_refresh_token(
+            db,
+            user_id=user.user_id,
+            family_id=token_row.family_id,
+            request=request,
+        )
+
+        token_row.revoked_at = now_utc
+        token_row.last_used_at = now_utc
+        token_row.replaced_by_token_id = new_row.token_id
+
+        access_token = create_access_token(
+            subject=str(user.user_id),
+            expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        )
+        db.commit()
+
+    return Token(
+        access_token=access_token,
+        token_type="bearer",
+        refresh_token=new_refresh_token,
+    )
 
 
 def login_google(request: Request):

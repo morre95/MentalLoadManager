@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from .calendar_connections import CalendarConnections
     from .invitations import Invitations
     from .oauth_accounts import OAuthAccounts
+    from .password_refresh_token import PasswordRefreshToken
     from .preferences import Preferences
     from .reminders import Reminders
     from .tasks import Tasks
@@ -53,6 +54,9 @@ class UserDB(Base):
     )
     oauth_accounts: Mapped[list[OAuthAccounts]] = relationship(
         "OAuthAccounts", back_populates="user", cascade="all, delete-orphan"
+    )
+    password_refresh_tokens: Mapped[list[PasswordRefreshToken]] = relationship(
+        "PasswordRefreshToken", cascade="all, delete-orphan"
     )
     calendar_connections: Mapped[list[CalendarConnections]] = relationship(
         "CalendarConnections", back_populates="user", cascade="all, delete-orphan"
