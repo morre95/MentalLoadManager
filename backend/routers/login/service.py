@@ -627,6 +627,8 @@ def refresh_password_session(payload: RefreshTokenRequest, request: Request) -> 
                 family_id=token_row.family_id,
                 request=request,
             )
+            # Ensure the replacement token row exists before setting FK on token_row.
+            db.flush()
 
             token_row.revoked_at = now_utc
             token_row.last_used_at = now_utc
