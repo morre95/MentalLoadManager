@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { addDays, subDays } from "date-fns";
 import {
     format,
     startOfMonth,
@@ -38,7 +39,7 @@ const Calendar = () => {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [currentWeek, setCurrentWeek] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
-    const [view, setView] = useState("month"); // "month" | "week"
+    const [view, setView] = useState("month"); // "month" | "week" | "day"
 
     const {
         monthEvents,
@@ -77,6 +78,13 @@ const Calendar = () => {
         loadWeekRange(weekStartKey, weekEndKey);
     }, [weekStartKey, weekEndKey, loadWeekRange]);
 
+    useEffect(() => {
+        if (view === "day") {
+            setCurrentWeek(selectedDate);
+            setCurrentMonth(selectedDate);
+        }
+    }, [view, selectedDate]);
+
     // Helper: events for a day from month cache
     const getEventsForDate = (date) => {
         const key = format(date, "yyyy-MM-dd");
@@ -87,18 +95,29 @@ const Calendar = () => {
 
     const navigateBack = () => {
         if (view === "month") setCurrentMonth(subMonths(currentMonth, 1));
-        else setCurrentWeek(subWeeks(currentWeek, 1));
+        else if (view === "week") setCurrentWeek(subWeeks(currentWeek, 1));
+        else setSelectedDate(subDays(selectedDate, 1));
     };
 
     const navigateForward = () => {
         if (view === "month") setCurrentMonth(addMonths(currentMonth, 1));
-        else setCurrentWeek(addWeeks(currentWeek, 1));
+        else if (view === "week") setCurrentWeek(addWeeks(currentWeek, 1));
+        else setSelectedDate(addDays(selectedDate, 1));
+    };
+
+    const goToToday = () => {
+        const now = new Date();
+        setCurrentMonth(now);
+        setCurrentWeek(now);
+        setSelectedDate(now);
     };
 
     const headerTitle =
         view === "month"
             ? format(currentMonth, "MMMM yyyy")
-            : `${format(weekStart, "MMM d")} – ${format(weekEnd, "MMM d, yyyy")}`;
+            : view === "week"
+                ? `${format(weekStart, "MMM d")} – ${format(weekEnd, "MMM d, yyyy")}`
+                : format(selectedDate, "EEEE, MMM d, yyyy");
 
     const todayStart = startOfDay(new Date());
 
@@ -130,7 +149,7 @@ const Calendar = () => {
                 </span>
 
                 {view === "week" && dayEvents.length > 0 && (
-                    <div className="mt-1 space-y-1 w-full">
+                    <div className="mt-2 space-y-2 w-full">
                         {dayEvents.map((event) => (
                             <div
                                 key={event.id}
@@ -214,16 +233,37 @@ const Calendar = () => {
                                     <h2 className="font-display text-lg md:text-xl font-semibold text-foreground">
                                         {headerTitle}
                                     </h2>
-                                    <Tabs value={view} onValueChange={(v) => setView(v)}>
-                                        <TabsList className="h-8">
-                                            <TabsTrigger value="month" className="text-xs px-3">
-                                                Month
-                                            </TabsTrigger>
-                                            <TabsTrigger value="week" className="text-xs px-3">
-                                                Week
-                                            </TabsTrigger>
-                                        </TabsList>
-                                    </Tabs>
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="outline" size="sm" onClick={goToToday}>
+                                            Today
+                                        </Button>
+
+                                        <Tabs
+                                            value={view}
+                                            onValueChange={(v) => {
+                                                setView(v);
+                                                // when switching to Day, ensure we show selectedDate (or today)
+                                                if (v === "day") {
+                                                    const d = selectedDate ?? new Date();
+                                                    setSelectedDate(d);
+                                                    setCurrentWeek(d);
+                                                    setCurrentMonth(d);
+                                                }
+                                            }}
+                                        >
+                                            <TabsList className="h-8">
+                                                <TabsTrigger value="month" className="text-xs px-3">
+                                                    Month
+                                                </TabsTrigger>
+                                                <TabsTrigger value="week" className="text-xs px-3">
+                                                    Week
+                                                </TabsTrigger>
+                                                <TabsTrigger value="day" className="text-xs px-3">
+                                                    Day
+                                                </TabsTrigger>
+                                            </TabsList>
+                                        </Tabs>
+                                    </div>
                                 </div>
 
                                 <Button variant="ghost" size="icon" onClick={navigateForward}>
@@ -249,9 +289,13 @@ const Calendar = () => {
                                     ))}
                                     {daysInMonth.map((day) => renderDayCell(day, isSameMonth(day, currentMonth)))}
                                 </div>
-                            ) : (
-                                <div className="grid grid-cols-7 gap-1">
+                            ) : view === "week" ? (
+                                <div className="grid grid-cols-7 gap-1 auto-rows-fr min-h-[420px]">
                                     {daysInWeek.map((day) => renderDayCell(day))}
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-1 auto-rows-fr min-h-[420px]">
+                                    {renderDayCell(selectedDate, true)}
                                 </div>
                             )}
                         </CardContent>

@@ -9,7 +9,6 @@
 #TODO: "Fix download data in expanded analytics charts, currently it does not work and dont download anything"
 
 # CALENDAR
-#TODO: "Click “Upcoming” → auto-focus that day"
 #TODO: "Click on event → open details (same as when clicking from task list)"
 #TODO: "Add a subtle “Today” button"
 #TODO: "Show number badge instead of amount of dots"
