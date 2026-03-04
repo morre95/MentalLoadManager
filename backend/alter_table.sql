@@ -5,6 +5,8 @@ ALTER TABLE tasks
 ADD CONSTRAINT tasks_status_check
 CHECK (status IN ('todo', 'in_progress', 'done', 'on_hold', 'archive'));
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- Ensure usernames remain unique (case-insensitive).
 -- If this fails, first resolve duplicate usernames:
 -- SELECT LOWER(username), COUNT(*) FROM users GROUP BY LOWER(username) HAVING COUNT(*) > 1;

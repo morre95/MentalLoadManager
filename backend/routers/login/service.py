@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
@@ -10,7 +11,7 @@ import requests
 from fastapi import HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import select
 
 from helpers import (
@@ -28,6 +29,7 @@ from config import settings
 
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.JWT_EXPIRE_MINUTES or 1440  # 1440 min = 24h
 REFRESH_TOKEN_EXPIRE_DAYS = 30
+logger = logging.getLogger(__name__)
 FRONTEND_URL = (settings.FRONTEND_URL or "http://localhost:5173").rstrip("/")
 BACKEND_URL = (settings.BACKEND_URL or "").rstrip("/")
 REDIRECT_URIS_BY_PROVIDER = {
@@ -189,18 +191,20 @@ def _issue_password_refresh_token(
     family_id: UUID,
     request: Request,
 ) -> tuple[PasswordRefreshToken, str]:
+    token_id = uuid4()
+    raw_refresh_token = _build_refresh_token_value(token_id)
+    token_hash = _refresh_token_hash(raw_refresh_token)
+
     record = PasswordRefreshToken(
+        token_id=token_id,
         user_id=user_id,
         family_id=family_id,
+        token_hash=token_hash,
         expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
         created_ip=_resolve_client_ip(request),
         created_user_agent=(request.headers.get("user-agent") or "")[:512] or None,
     )
     db.add(record)
-    db.flush()
-
-    raw_refresh_token = _build_refresh_token_value(record.token_id)
-    record.token_hash = _refresh_token_hash(raw_refresh_token)
     return record, raw_refresh_token
 
 
@@ -413,6 +417,18 @@ def login(form: OAuth2PasswordRequestForm, request: Request) -> Token:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         ) from exc
+    except SQLAlchemyError as exc:
+        logger.exception("Login query failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Login query failed: {exc}",
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Unexpected login failure: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected login failure: {exc}",
+        ) from exc
 
     if not user:
         raise HTTPException(
@@ -440,14 +456,20 @@ def login(form: OAuth2PasswordRequestForm, request: Request) -> Token:
             detail=str(exc),
         ) from exc
 
-    with session_local() as db:
-        _, raw_refresh_token = _issue_password_refresh_token(
-            db,
-            user_id=user.user_id,
-            family_id=uuid4(),
-            request=request,
-        )
-        db.commit()
+    try:
+        with session_local() as db:
+            _, raw_refresh_token = _issue_password_refresh_token(
+                db,
+                user_id=user.user_id,
+                family_id=uuid4(),
+                request=request,
+            )
+            db.commit()
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to issue refresh token: {exc}",
+        ) from exc
 
     return Token(
         access_token=access_token,
@@ -482,71 +504,77 @@ def refresh_password_session(payload: RefreshTokenRequest, request: Request) -> 
     now_utc = datetime.now(timezone.utc)
     incoming_hash = _refresh_token_hash(incoming_refresh_token)
 
-    with session_local() as db:
-        token_row = db.scalar(
-            select(PasswordRefreshToken).where(
-                PasswordRefreshToken.token_id == token_id
-            )
-        )
-        if token_row is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid refresh token",
-            )
-
-        if not secrets.compare_digest(token_row.token_hash, incoming_hash):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid refresh token",
-            )
-
-        if token_row.revoked_at is not None:
-            # Reuse detection: if a rotated token is replayed, revoke the whole family.
-            if token_row.replaced_by_token_id is not None:
-                _revoke_refresh_token_family(
-                    db,
-                    user_id=token_row.user_id,
-                    family_id=token_row.family_id,
+    try:
+        with session_local() as db:
+            token_row = db.scalar(
+                select(PasswordRefreshToken).where(
+                    PasswordRefreshToken.token_id == token_id
                 )
+            )
+            if token_row is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid refresh token",
+                )
+
+            if not secrets.compare_digest(token_row.token_hash, incoming_hash):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid refresh token",
+                )
+
+            if token_row.revoked_at is not None:
+                # Reuse detection: if a rotated token is replayed, revoke the whole family.
+                if token_row.replaced_by_token_id is not None:
+                    _revoke_refresh_token_family(
+                        db,
+                        user_id=token_row.user_id,
+                        family_id=token_row.family_id,
+                    )
+                    db.commit()
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Refresh token is no longer valid",
+                )
+
+            if token_row.expires_at <= now_utc:
+                token_row.revoked_at = now_utc
                 db.commit()
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Refresh token is no longer valid",
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Refresh token has expired",
+                )
+
+            user = db.scalar(select(UserDB).where(UserDB.user_id == token_row.user_id))
+            if user is None:
+                token_row.revoked_at = now_utc
+                db.commit()
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="User not found",
+                )
+
+            new_row, new_refresh_token = _issue_password_refresh_token(
+                db,
+                user_id=user.user_id,
+                family_id=token_row.family_id,
+                request=request,
             )
 
-        if token_row.expires_at <= now_utc:
             token_row.revoked_at = now_utc
-            db.commit()
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Refresh token has expired",
+            token_row.last_used_at = now_utc
+            token_row.replaced_by_token_id = new_row.token_id
+
+            access_token = create_access_token(
+                subject=str(user.user_id),
+                expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
             )
-
-        user = db.scalar(select(UserDB).where(UserDB.user_id == token_row.user_id))
-        if user is None:
-            token_row.revoked_at = now_utc
             db.commit()
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
-            )
-
-        new_row, new_refresh_token = _issue_password_refresh_token(
-            db,
-            user_id=user.user_id,
-            family_id=token_row.family_id,
-            request=request,
-        )
-
-        token_row.revoked_at = now_utc
-        token_row.last_used_at = now_utc
-        token_row.replaced_by_token_id = new_row.token_id
-
-        access_token = create_access_token(
-            subject=str(user.user_id),
-            expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
-        )
-        db.commit()
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Refresh token operation failed: {exc}",
+        ) from exc
 
     return Token(
         access_token=access_token,
