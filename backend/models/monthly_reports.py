@@ -38,3 +38,6 @@ class MonthlyReports(Base):
     household: Mapped[Households] = relationship(
         "Households", back_populates="monthly_reports"
     )
+
+    def __repr__(self) -> str:
+        return f"MonthlyReport(id={self.monthly_report_id!r}, household_id={self.household_id!r}, month_start={self.month_start!r}, month_end={self.month_end!r})"

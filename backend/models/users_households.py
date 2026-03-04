@@ -47,3 +47,6 @@ class UsersHouseholds(Base):
 
     user: Mapped[UserDB] = relationship("UserDB", back_populates="households")
     household: Mapped[Households] = relationship("Households", back_populates="users")
+
+    def __repr__(self) -> str:
+        return f"UsersHouseholds(user_id={self.user_id!r}, household_id={self.household_id!r}, role={self.role!r})"

@@ -36,3 +36,6 @@ class Categories(Base):
         "Households", back_populates="categories"
     )
     tasks: Mapped[list[Tasks]] = relationship("Tasks", back_populates="category")
+
+    def __repr__(self) -> str:
+        return f"Category(id={self.category_id!r}, name={self.name!r}, household_id={self.household_id!r})"

@@ -31,3 +31,6 @@ class ContactMessages(Base):
         DateTime(timezone=True),
         server_default=text("NOW()"),
     )
+
+    def __repr__(self) -> str:
+        return f"ContactMessage(id={self.contact_message_id!r}, name={self.name!r}, email={self.email!r})"

@@ -35,3 +35,6 @@ class AISummaries(Base):
     household: Mapped[Households] = relationship(
         "Households", back_populates="ai_summaries"
     )
+
+    def __repr__(self) -> str:
+        return f"AISummary(id={self.ai_summary_id!r}, household_id={self.household_id!r}, week_start={self.week_start!r}, model={self.model!r})"

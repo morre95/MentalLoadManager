@@ -33,3 +33,6 @@ class Preferences(Base):
     timezone: Mapped[str | None] = mapped_column(Text, server_default=text("'UTC'"))
 
     user: Mapped[UserDB] = relationship("UserDB", back_populates="preference")
+
+    def __repr__(self) -> str:
+        return f"Preferences(user_id={self.user_id!r}, timezone={self.timezone!r})"

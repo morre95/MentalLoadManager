@@ -42,3 +42,6 @@ class OAuthAccounts(Base):
     )
 
     user: Mapped[UserDB] = relationship("UserDB", back_populates="oauth_accounts")
+
+    def __repr__(self) -> str:
+        return f"OAuthAccount(id={self.oauth_accounts_id!r}, user_id={self.user_id!r}, provider={self.provider!r}, email={self.email!r})"

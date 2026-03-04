@@ -27,3 +27,6 @@ class UserTask(Base):
 
     user: Mapped[UserDB] = relationship("UserDB", back_populates="user_tasks")
     task: Mapped[Tasks] = relationship("Tasks", back_populates="users")
+
+    def __repr__(self) -> str:
+        return f"UserTask(user_id={self.user_id!r}, task_id={self.task_id!r})"

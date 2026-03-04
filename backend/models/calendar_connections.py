@@ -46,3 +46,6 @@ class CalendarConnections(Base):
     task_links: Mapped[list[TaskCalendarLinks]] = relationship(
         "TaskCalendarLinks", back_populates="connection", cascade="all, delete-orphan"
     )
+
+    def __repr__(self) -> str:
+        return f"CalendarConnection(id={self.calendar_id!r}, user_id={self.user_id!r}, provider={self.provider!r}, is_enabled={self.is_enabled!r})"

@@ -43,3 +43,6 @@ class Reminders(Base):
         "Households", back_populates="reminders"
     )
     user: Mapped[UserDB] = relationship("UserDB", back_populates="reminders")
+
+    def __repr__(self) -> str:
+        return f"Reminder(id={self.reminder_id!r}, user_id={self.user_id!r}, minutes_before_due={self.minutes_before_due!r}, active={self.active!r})"

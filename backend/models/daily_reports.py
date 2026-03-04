@@ -37,3 +37,6 @@ class DailyReports(Base):
     household: Mapped[Households] = relationship(
         "Households", back_populates="daily_reports"
     )
+
+    def __repr__(self) -> str:
+        return f"DailyReport(id={self.daily_report_id!r}, household_id={self.household_id!r}, date={self.date!r})"

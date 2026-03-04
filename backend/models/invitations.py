@@ -46,3 +46,6 @@ class Invitations(Base):
     created_by_user: Mapped[UserDB | None] = relationship(
         "UserDB", back_populates="created_invitations"
     )
+
+    def __repr__(self) -> str:
+        return f"Invitation(id={self.invitation_id!r}, code={self.code!r}, expires_at={self.expires_at!r})"

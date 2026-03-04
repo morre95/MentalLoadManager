@@ -49,3 +49,6 @@ class TaskCalendarLinks(Base):
     connection: Mapped[CalendarConnections] = relationship(
         "CalendarConnections", back_populates="task_links"
     )
+
+    def __repr__(self) -> str:
+        return f"TaskCalendarLink(id={self.task_link_id!r}, task_id={self.task_id!r}, sync_status={self.sync_status!r})"

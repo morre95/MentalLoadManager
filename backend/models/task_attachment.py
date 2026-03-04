@@ -32,3 +32,6 @@ class TaskAttachment(Base):
     type: Mapped[str | None] = mapped_column(String(50))
 
     task: Mapped[Tasks] = relationship("Tasks", back_populates="attachments")
+
+    def __repr__(self) -> str:
+        return f"TaskAttachment(id={self.task_attachment_id!r}, task_id={self.task_id!r}, type={self.type!r})"

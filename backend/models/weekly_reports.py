@@ -38,3 +38,6 @@ class WeeklyReports(Base):
     household: Mapped[Households] = relationship(
         "Households", back_populates="weekly_reports"
     )
+
+    def __repr__(self) -> str:
+        return f"WeeklyReport(id={self.weekly_report_id!r}, household_id={self.household_id!r}, week_start={self.week_start!r}, week_end={self.week_end!r})"
