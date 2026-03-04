@@ -96,12 +96,14 @@ export function createApiClient(options = {}) {
     let { response, body } = await send();
 
     if (response.status === 401 && !isRefreshRequest) {
+      let refreshedAccessToken;
       try {
-        const refreshedAccessToken = await refreshAccessToken(baseUrl);
-        ({ response, body } = await send(refreshedAccessToken));
-      } catch {
+        refreshedAccessToken = await refreshAccessToken(baseUrl);
+      } catch (err) {
         onUnauthorized();
+        throw err;
       }
+      ({ response, body } = await send(refreshedAccessToken));
     }
 
     if (!response.ok) {
