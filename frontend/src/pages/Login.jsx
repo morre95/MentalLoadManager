@@ -62,8 +62,8 @@ const Login = () => {
     }
   }, [navigate]);
 
-  const finishLogin = async (accessToken) => {
-    setAuthToken(accessToken);
+  const finishLogin = async (accessToken, refreshToken = null) => {
+    setAuthToken(accessToken, refreshToken);
     window.dispatchEvent(new Event("auth:changed"));
 
     await fetchMe();
@@ -122,7 +122,7 @@ const Login = () => {
       }
 
       const loginData = await loginRes.json();
-      await finishLogin(loginData.access_token);
+      await finishLogin(loginData.access_token, loginData.refresh_token || null);
     } catch (err) {
       setAuthError(err?.message || (isSignUp ? "Registration failed" : "Login failed"));
     } finally {

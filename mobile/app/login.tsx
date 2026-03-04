@@ -12,7 +12,7 @@ import {
 import { Redirect, router } from 'expo-router';
 
 import { mobileApiBaseUrl } from '@/lib/api';
-import { setAccessToken, useAuthToken } from '@/lib/auth';
+import { setAuthTokens, useAuthToken } from '@/lib/auth';
 
 const COLORS = {
   bg: '#f7f6f2',
@@ -68,7 +68,10 @@ export default function LoginScreen() {
         throw new Error('No access token returned from backend.');
       }
 
-      setAccessToken(data.access_token);
+      setAuthTokens({
+        accessToken: data.access_token,
+        refreshToken: data?.refresh_token || null,
+      });
       router.replace('/(tabs)');
     } catch (err: any) {
       setError(err?.message || 'Login failed');

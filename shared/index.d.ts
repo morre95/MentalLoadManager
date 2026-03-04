@@ -9,7 +9,13 @@ export function getApiBaseUrl(options?: {
 
 export function createApiClient(options?: {
   getAccessToken?: () => string | null | Promise<string | null>;
+  getRefreshToken?: () => string | null | Promise<string | null>;
+  setAuthTokens?: (tokens: {
+    accessToken?: string | null;
+    refreshToken?: string | null;
+  }) => void | Promise<void>;
   onUnauthorized?: () => void;
+  refreshPath?: string;
   envOptions?: {
     env?: Record<string, string | undefined>;
     locationHref?: string;

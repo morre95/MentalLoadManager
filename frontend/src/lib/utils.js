@@ -35,19 +35,41 @@ export function getAccessToken() {
   return localStorage.getItem("access_token");
 }
 
+export function getRefreshToken() {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("refresh_token");
+}
+
 function getHouseholdIdFromStoredValue(value) {
   const householdId = value?.household_id ?? value?.id ?? value;
   return householdId ? String(householdId) : null;
 }
 
-export function setAuthToken(token) {
+export function setAuthToken(token, refreshToken = null) {
   localStorage.setItem("access_token", token);
+  if (refreshToken) {
+    localStorage.setItem("refresh_token", refreshToken);
+  } else {
+    localStorage.removeItem("refresh_token");
+  }
   localStorage.removeItem("token");
   localStorage.removeItem("auth_token");
 }
 
+export async function setAuthTokens(tokens) {
+  const accessToken = tokens?.accessToken;
+  if (accessToken) {
+    localStorage.setItem("access_token", accessToken);
+  }
+
+  if (tokens?.refreshToken) {
+    localStorage.setItem("refresh_token", tokens.refreshToken);
+  }
+}
+
 export function clearAuth() {
   localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
   localStorage.removeItem("token");
   localStorage.removeItem("auth_token");
   localStorage.removeItem("username");
@@ -97,6 +119,8 @@ export function saveUserToLocalStorage(user) {
 
 const apiClient = createApiClient({
   getAccessToken,
+  getRefreshToken,
+  setAuthTokens,
   onUnauthorized: clearAuth,
   envOptions: {
     locationHref: typeof window !== "undefined" ? window.location?.href : "",

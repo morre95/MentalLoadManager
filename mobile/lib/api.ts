@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import { createApiClient } from '../../shared/index.js';
-import { clearAccessToken, getAccessToken } from '@/lib/auth';
+import { clearAccessToken, getAccessToken, getRefreshToken, setAuthTokens } from '@/lib/auth';
 
 function resolveMobileApiBaseUrl() {
   const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -20,6 +20,8 @@ export const mobileApiBaseUrl = resolveMobileApiBaseUrl();
 
 export const mobileApiClient = createApiClient({
   getAccessToken,
+  getRefreshToken,
+  setAuthTokens,
   onUnauthorized: clearAccessToken,
   envOptions: {
     env: {
