@@ -34,8 +34,9 @@ const Login = () => {
     if (hash) {
       const params = new URLSearchParams(hash);
       const hashToken = params.get("access_token");
+      const hashRefreshToken = params.get("refresh_token");
       if (hashToken) {
-        setAuthToken(hashToken);
+        setAuthToken(hashToken, hashRefreshToken || null);
         window.dispatchEvent(new Event("auth:changed"));
 
         // Clean URL

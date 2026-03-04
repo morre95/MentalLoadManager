@@ -42,9 +42,10 @@ const App = () => {
 
     const params = new URLSearchParams(hash);
     const token = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
     if (!token) return;
 
-    setAuthToken(token);
+    setAuthToken(token, refreshToken || null);
 
     // Clean URL
     window.history.replaceState(

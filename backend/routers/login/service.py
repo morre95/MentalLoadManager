@@ -115,7 +115,7 @@ def oauth_redirect_uri(request: Request, provider: str) -> str:
     return str(request.url_for(f"callback_{provider}"))
 
 
-def issue_login_redirect(username: str) -> RedirectResponse:
+def issue_login_redirect(username: str, request: Request) -> RedirectResponse:
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
@@ -124,23 +124,41 @@ def issue_login_redirect(username: str) -> RedirectResponse:
             detail=str(exc),
         ) from exc
 
-    with session_local() as db:
-        user = get_user_by_username(db, username)
-        if user is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not issue login token for user",
+    try:
+        with session_local() as db:
+            user = get_user_by_username(db, username)
+            if user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Could not issue login token for user",
+                )
+
+            token_subject = str(user.user_id)
+            access_token = create_access_token(
+                subject=token_subject,
+                expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
             )
+            _, raw_refresh_token = _issue_password_refresh_token(
+                db,
+                user_id=user.user_id,
+                family_id=uuid4(),
+                request=request,
+            )
+            db.commit()
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to issue refresh token: {exc}",
+        ) from exc
 
-        token_subject = str(user.user_id)
-
-    access_token = create_access_token(
-        subject=token_subject,
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    params = urlencode(
+        {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "refresh_token": raw_refresh_token,
+        }
     )
-    return RedirectResponse(
-        url=f"{FRONTEND_URL}/login#access_token={access_token}&token_type=bearer"
-    )
+    return RedirectResponse(url=f"{FRONTEND_URL}/login#{params}")
 
 
 def require_env(name: str) -> str:
@@ -664,7 +682,7 @@ def callback_google(request: Request, code: str = Query(...), state: str = Query
         expires_at=expires_at,
     )
 
-    return issue_login_redirect(username)
+    return issue_login_redirect(username, request)
 
 
 def login_facebook(request: Request):
@@ -714,7 +732,7 @@ def callback_facebook(
         raise HTTPException(status_code=400, detail="Facebook user info fetch failed")
     user_data = user_res.json()
     username = user_data.get("email") or f"facebook:{user_data.get('id', 'unknown')}"
-    return issue_login_redirect(username)
+    return issue_login_redirect(username, request)
 
 
 def login_instagram(request: Request):
@@ -767,4 +785,4 @@ def callback_instagram(
     username = (
         f"instagram:{user_data.get('username') or user_data.get('id', 'unknown')}"
     )
-    return issue_login_redirect(username)
+    return issue_login_redirect(username, request)
