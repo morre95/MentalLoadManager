@@ -1,8 +1,23 @@
+import React from "react";
 import { motion } from "framer-motion";
 import { Rocket } from "lucide-react";
 
+const STAR_COUNT = 15;
+
+function createStars() {
+    return Array.from({ length: STAR_COUNT }, () => ({
+        top: `${Math.random() * 70}%`,
+        left: `${Math.random() * 100}%`,
+        duration: 1 + Math.random() * 2,
+        delay: Math.random(),
+    }));
+}
+
 const RocketTracker = ({ current, target, name }) => {
     const percentage = Math.min((current / target) * 100, 100);
+
+    // ✅ Random values generated once per mount (pure render)
+    const stars = React.useMemo(() => createStars(), []);
 
     return (
         <div className="flex flex-col items-center">
@@ -11,19 +26,16 @@ const RocketTracker = ({ current, target, name }) => {
             <div className="relative w-32 h-48">
                 <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-[hsl(240,30%,15%)] via-[hsl(260,40%,25%)] to-terracotta/30" />
 
-                {[...Array(15)].map((_, i) => (
+                {stars.map((s, i) => (
                     <motion.div
                         key={i}
                         className="absolute w-1 h-1 bg-white rounded-full"
-                        style={{
-                            top: `${Math.random() * 70}%`,
-                            left: `${Math.random() * 100}%`,
-                        }}
+                        style={{ top: s.top, left: s.left }}
                         animate={{ opacity: [0.3, 1, 0.3] }}
                         transition={{
                             repeat: Infinity,
-                            duration: 1 + Math.random() * 2,
-                            delay: Math.random(),
+                            duration: s.duration,
+                            delay: s.delay,
                         }}
                     />
                 ))}
@@ -74,6 +86,7 @@ const RocketTracker = ({ current, target, name }) => {
                 <p className="text-sm text-muted-foreground">
                     of ${target.toLocaleString()} revenue
                 </p>
+
                 {percentage >= 100 && (
                     <motion.p
                         className="text-xs font-medium text-sage mt-1"

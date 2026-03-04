@@ -26,14 +26,28 @@ const Navbar = () => {
   };
 
   useEffect(() => {
-    // run once on mount
-    refreshUser();
+    let alive = true;
+
+    const safeRefresh = async () => {
+      if (!alive) return;
+      await refreshUser();
+    };
+
+    // run once on mount (async, not sync inside effect body)
+    queueMicrotask(() => {
+      void safeRefresh();
+    });
 
     // listen to custom auth event
-    const handler = () => refreshUser();
+    const handler = () => {
+      void safeRefresh();
+    };
     window.addEventListener("auth:changed", handler);
 
-    return () => window.removeEventListener("auth:changed", handler);
+    return () => {
+      alive = false;
+      window.removeEventListener("auth:changed", handler);
+    };
   }, []);
 
   const loggedIn = isUserLoggedIn();

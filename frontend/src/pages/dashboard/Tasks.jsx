@@ -263,7 +263,7 @@ const Tasks = () => {
   const { tasks, setTasks, loading, error } = useTaskboardTasks(selectedHouseholdFilter);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
+  const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [activeId, setActiveId] = useState(null);
   const [dragStartColumn, setDragStartColumn] = useState(null);
   const [dragSnapshot, setDragSnapshot] = useState(null);
@@ -273,6 +273,10 @@ const Tasks = () => {
   const visibleColumns = showArchive
     ? columns
     : columns.filter((column) => column.id !== ARCHIVE_COLUMN_ID);
+
+  const selectedTask = selectedTaskId
+    ? tasks.find((t) => t.id === selectedTaskId) || null
+    : null;
 
   const toggleExpandedColumn = (columnId) => {
     setExpandedColumns((prev) => ({
@@ -284,11 +288,13 @@ const Tasks = () => {
   useEffect(() => {
     if (!selectedHouseholdFilter) return;
     if (!Array.isArray(households) || households.length === 0) return;
+
     const exists = households.some(
       (household) => String(household.household_id) === selectedHouseholdFilter
     );
+
     if (!exists) {
-      setSelectedHouseholdId(ALL_HOUSEHOLDS_VALUE);
+      queueMicrotask(() => setSelectedHouseholdId(ALL_HOUSEHOLDS_VALUE));
     }
   }, [selectedHouseholdFilter, households]);
 
@@ -300,16 +306,6 @@ const Tasks = () => {
     if (!selectedHousehold) return;
     localStorage.setItem("household", JSON.stringify(selectedHousehold));
   }, [selectedHouseholdFilter, households]);
-
-  useEffect(() => {
-    if (!selectedTask) return;
-    const updatedTask = tasks.find((task) => task.id === selectedTask.id);
-    if (!updatedTask) {
-      setSelectedTask(null);
-      return;
-    }
-    setSelectedTask(updatedTask);
-  }, [tasks, selectedTask]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -361,7 +357,6 @@ const Tasks = () => {
     if (!currentTask || !nextStatus) return;
 
     const rollbackTasks = tasks;
-    const rollbackSelectedTask = selectedTask;
     setSyncError(null);
 
     handleUpdateTaskDetails(taskId, { status: nextStatus });
@@ -370,7 +365,6 @@ const Tasks = () => {
       await updateKanbanTaskStatus(taskId, toApiStatus(nextStatus));
     } catch (e) {
       setTasks(rollbackTasks);
-      setSelectedTask(rollbackSelectedTask);
       setSyncError(e);
     }
   };
@@ -399,12 +393,10 @@ const Tasks = () => {
     setTasks((prev) =>
       prev.map((task) => (task.id === taskId ? { ...task, ...updates } : task))
     );
-    setSelectedTask((prev) => (prev && prev.id === taskId ? { ...prev, ...updates } : prev));
   };
 
   const handleUpdateTaskPriority = async (taskId, nextPriority) => {
     const rollbackTasks = tasks;
-    const rollbackSelectedTask = selectedTask;
     setSyncError(null);
 
     handleUpdateTaskDetails(taskId, { priority: nextPriority });
@@ -413,14 +405,12 @@ const Tasks = () => {
       await updateKanbanTaskPriority(taskId, nextPriority);
     } catch (e) {
       setTasks(rollbackTasks);
-      setSelectedTask(rollbackSelectedTask);
       setSyncError(e);
     }
   };
 
   const handleUpdateTaskDueDate = async (taskId, dueDateInputValue) => {
     const rollbackTasks = tasks;
-    const rollbackSelectedTask = selectedTask;
     setSyncError(null);
 
     const nextDueDate = dueDateInputValue
@@ -436,14 +426,12 @@ const Tasks = () => {
       await updateKanbanTaskDueDate(taskId, dueDateIso);
     } catch (e) {
       setTasks(rollbackTasks);
-      setSelectedTask(rollbackSelectedTask);
       setSyncError(e);
     }
   };
 
   const handleUpdateTaskDescription = async (taskId, nextDescription) => {
     const rollbackTasks = tasks;
-    const rollbackSelectedTask = selectedTask;
     setSyncError(null);
 
     handleUpdateTaskDetails(taskId, { description: nextDescription || "" });
@@ -452,14 +440,12 @@ const Tasks = () => {
       await updateKanbanTaskDescription(taskId, nextDescription || null);
     } catch (e) {
       setTasks(rollbackTasks);
-      setSelectedTask(rollbackSelectedTask);
       setSyncError(e);
     }
   };
 
   const handleUpdateTaskTitle = async (taskId, nextTitle) => {
     const rollbackTasks = tasks;
-    const rollbackSelectedTask = selectedTask;
     setSyncError(null);
 
     handleUpdateTaskDetails(taskId, { title: nextTitle });
@@ -468,14 +454,12 @@ const Tasks = () => {
       await updateKanbanTaskName(taskId, nextTitle);
     } catch (e) {
       setTasks(rollbackTasks);
-      setSelectedTask(rollbackSelectedTask);
       setSyncError(e);
     }
   };
 
   const handleUpdateTaskAssignee = async (taskId, assigneeId, assigneeLabel) => {
     const rollbackTasks = tasks;
-    const rollbackSelectedTask = selectedTask;
     setSyncError(null);
 
     handleUpdateTaskDetails(taskId, {
@@ -487,14 +471,12 @@ const Tasks = () => {
       await updateKanbanTaskAssignee(taskId, assigneeId || null);
     } catch (e) {
       setTasks(rollbackTasks);
-      setSelectedTask(rollbackSelectedTask);
       setSyncError(e);
     }
   };
 
   const handleUpdateTaskCategory = async (taskId, nextCategory) => {
     const rollbackTasks = tasks;
-    const rollbackSelectedTask = selectedTask;
     setSyncError(null);
 
     handleUpdateTaskDetails(taskId, { category: nextCategory || "Other" });
@@ -503,24 +485,21 @@ const Tasks = () => {
       await updateKanbanTaskCategory(taskId, nextCategory || null);
     } catch (e) {
       setTasks(rollbackTasks);
-      setSelectedTask(rollbackSelectedTask);
       setSyncError(e);
     }
   };
 
   const handleDeleteTask = async (taskId) => {
     const rollbackTasks = tasks;
-    const rollbackSelectedTask = selectedTask;
     setSyncError(null);
 
     setTasks((prev) => prev.filter((task) => task.id !== taskId));
-    setSelectedTask(null);
+    setSelectedTaskId(null);
 
     try {
       await deleteKanbanTask(taskId);
     } catch (e) {
       setTasks(rollbackTasks);
-      setSelectedTask(rollbackSelectedTask);
       setSyncError(e);
     }
   };
@@ -645,7 +624,7 @@ const Tasks = () => {
             <p className="text-sm text-muted-foreground mt-2">Loading tasks…</p>
           ) : null}
           {error?.status === 401 ? (
-            <p classNare="text-sm text-red-600 mt-2">
+            <p className="text-sm text-red-600 mt-2">
               Your session has expired. Please log in again.
             </p>
           ) : error ? (
@@ -704,7 +683,7 @@ const Tasks = () => {
               isExpanded={Boolean(expandedColumns[col.id])}
               onToggleExpand={() => toggleExpandedColumn(col.id)}
               onToggleStatus={handleToggleStatus}
-              onClickTask={setSelectedTask}
+              onClickTask={(task) => setSelectedTaskId(task?.id ?? null)}
               onAddTask={col.id === "todo" ? () => setIsAddDialogOpen(true) : undefined}
               showArchiveButton={col.id === "done"}
               isArchiveVisible={showArchive}
@@ -728,9 +707,9 @@ const Tasks = () => {
 
       <TaskDetailDialog
         task={selectedTask}
-        open={!!selectedTask}
+        open={!!selectedTaskId && !!selectedTask}
         households={households}
-        onOpenChange={(open) => !open && setSelectedTask(null)}
+        onOpenChange={(open) => !open && setSelectedTaskId(null)}
         onUpdateTask={handleUpdateTaskDetails}
         onUpdateTaskStatus={handleUpdateTaskStatus}
         onUpdateTaskPriority={handleUpdateTaskPriority}

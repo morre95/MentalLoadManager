@@ -4,7 +4,7 @@ import { Droplet } from "lucide-react";
 const WaterBottleTracker = ({ current, target, name }) => {
     const percentage = Math.min((current / target) * 100, 100);
 
-    const segments = Array.from({ length: target }, (_, i) => i < current);
+    //const _segments = Array.from({ length: target }, (_, i) => i < current);
 
     return (
         <div className="flex flex-col items-center">

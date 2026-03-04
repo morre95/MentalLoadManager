@@ -12,7 +12,7 @@ export default function ChartLegend({
     const isPeopleMode = mode === "people";
     const total = payload?.length || 0;
 
-    const { displayPayload, gridColumns, hasOverflow, overflowCount } = useMemo(() => {
+    const { displayPayload, gridColumns, overflowCount } = useMemo(() => {
         if (!payload || payload.length === 0) {
             return { displayPayload: [], gridColumns: 2, hasOverflow: false, overflowCount: 0 };
         }

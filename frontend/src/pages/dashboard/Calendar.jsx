@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,6 @@ const Calendar = () => {
     const [view, setView] = useState("month"); // "month" | "week" | "day"
 
     const {
-        monthEvents,
         weekEvents,
         eventsByDayKey,
         loadingMonth,
@@ -61,8 +60,6 @@ const Calendar = () => {
     const weekStart = startOfWeek(currentWeek);
     const weekEnd = endOfWeek(currentWeek);
     const daysInWeek = eachDayOfInterval({ start: weekStart, end: weekEnd });
-    const calendarRef = useRef(null);
-
 
     // Load month events whenever currentMonth changes
     useEffect(() => {
@@ -78,10 +75,12 @@ const Calendar = () => {
     }, [weekStartKey, weekEndKey, loadWeekRange]);
 
     useEffect(() => {
-        if (view === "day") {
+        if (view !== "day") return;
+
+        queueMicrotask(() => {
             setCurrentWeek(selectedDate);
             setCurrentMonth(selectedDate);
-        }
+        });
     }, [view, selectedDate]);
 
     // Helper: events for a day from month cache
