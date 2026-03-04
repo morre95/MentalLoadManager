@@ -78,19 +78,23 @@ def oauth_redirect_uri(request: Request, provider: str) -> str:
 
 
 def issue_login_redirect(username: str) -> RedirectResponse:
-    token_subject = username
-
-    # Issue new JWTs with immutable user_id when we can resolve the account.
     try:
         session_local = get_session_local()
-    except RuntimeError:
-        session_local = None
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
 
-    if session_local is not None:
-        with session_local() as db:
-            user = get_user_by_username(db, username)
-            if user is not None:
-                token_subject = str(user.user_id)
+    with session_local() as db:
+        user = get_user_by_username(db, username)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not issue login token for user",
+            )
+
+        token_subject = str(user.user_id)
 
     access_token = create_access_token(
         subject=token_subject,

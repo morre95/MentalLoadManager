@@ -93,22 +93,13 @@ def _resolve_user_from_token_subject(db, subject: str | None) -> UserDB | None:
     if not subject:
         return None
 
-    # New tokens store the immutable user_id in `sub`.
+    # JWT subject must be the immutable user_id.
     try:
         subject_uuid = UUID(str(subject))
     except (TypeError, ValueError):
-        subject_uuid = None
-
-    if subject_uuid is not None:
-        user = db.scalar(select(UserDB).where(UserDB.user_id == subject_uuid))
-        if user:
-            return user
-
-    # Backward compatibility for legacy tokens where `sub` was username.
-    normalized_subject = str(subject).strip().lower()
-    if not normalized_subject:
         return None
-    return db.scalar(select(UserDB).where(func.lower(UserDB.username) == normalized_subject))
+
+    return db.scalar(select(UserDB).where(UserDB.user_id == subject_uuid))
 
 
 def get_user_id_from_token(
