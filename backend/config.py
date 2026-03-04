@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     OPENROUTER_WEEKLY_SUMMARY_FALLBACK_MODELS: str
 
     CORS_ALLOW_ORIGINS: str = ""
+    SESSION_SECRET: str = ""
+    SESSION_COOKIE_SECURE: bool = False
+    SESSION_COOKIE_SAMESITE: str = "lax"
+    SESSION_COOKIE_MAX_AGE_SECONDS: int = 600
 
     model_config = SettingsConfigDict(env_file=".env")
 

@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from routers import all_routers
 from config import settings
 from helpers import setup_db_and_tables
@@ -21,6 +22,13 @@ app = FastAPI(lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SESSION_SECRET or settings.JWT_SECRET,
+    https_only=settings.SESSION_COOKIE_SECURE,
+    same_site=settings.SESSION_COOKIE_SAMESITE,
+    max_age=settings.SESSION_COOKIE_MAX_AGE_SECONDS,
+)
 
 raw_origins = settings.CORS_ALLOW_ORIGINS
 

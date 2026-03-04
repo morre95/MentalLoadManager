@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
@@ -38,20 +40,50 @@ SETTINGS_VALUES_BY_NAME = {
 }
 
 
-def create_oauth_state(provider: str) -> str:
+def _oauth_state_session_key(provider: str) -> str:
+    return f"oauth_state_nonce:{provider}"
+
+
+def _oauth_pkce_verifier_session_key(provider: str) -> str:
+    return f"oauth_pkce_verifier:{provider}"
+
+
+def _create_pkce_pair() -> tuple[str, str]:
+    verifier = secrets.token_urlsafe(64)
+    challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode("utf-8")).digest())
+        .rstrip(b"=")
+        .decode("ascii")
+    )
+    return verifier, challenge
+
+
+def create_oauth_state(request: Request, provider: str) -> str:
+    nonce = secrets.token_urlsafe(16)
+    request.session[_oauth_state_session_key(provider)] = nonce
     payload = {
         "provider": provider,
-        "nonce": secrets.token_urlsafe(16),
+        "nonce": nonce,
         "exp": datetime.now(timezone.utc) + timedelta(minutes=10),
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def decode_oauth_state(state: str, expected_provider: str) -> None:
+def decode_oauth_state(request: Request, state: str, expected_provider: str) -> None:
     try:
         payload = jwt.decode(state, SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("provider") != expected_provider:
             raise ValueError("Provider mismatch")
+        state_nonce = payload.get("nonce")
+        expected_nonce = request.session.pop(
+            _oauth_state_session_key(expected_provider), None
+        )
+        if (
+            not isinstance(state_nonce, str)
+            or not isinstance(expected_nonce, str)
+            or not secrets.compare_digest(state_nonce, expected_nonce)
+        ):
+            raise ValueError("State nonce mismatch")
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -328,7 +360,9 @@ def login(form: OAuth2PasswordRequestForm) -> Token:
 
 def login_google(request: Request):
     client_id = require_env("GOOGLE_CLIENT_ID")
-    state = create_oauth_state("google")
+    state = create_oauth_state(request, "google")
+    code_verifier, code_challenge = _create_pkce_pair()
+    request.session[_oauth_pkce_verifier_session_key("google")] = code_verifier
     params = urlencode(
         {
             "client_id": client_id,
@@ -338,6 +372,8 @@ def login_google(request: Request):
             "state": state,
             "access_type": "offline",
             "prompt": "consent",
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
         }
     )
     return RedirectResponse(
@@ -346,9 +382,14 @@ def login_google(request: Request):
 
 
 def callback_google(request: Request, code: str = Query(...), state: str = Query(...)):
-    decode_oauth_state(state, "google")
+    decode_oauth_state(request, state, "google")
     client_id = require_env("GOOGLE_CLIENT_ID")
     client_secret = require_env("GOOGLE_CLIENT_SECRET")
+    code_verifier = request.session.pop(
+        _oauth_pkce_verifier_session_key("google"), None
+    )
+    if not code_verifier:
+        raise HTTPException(status_code=400, detail="Google PKCE verifier missing")
 
     token_res = requests.post(
         "https://oauth2.googleapis.com/token",
@@ -358,6 +399,7 @@ def callback_google(request: Request, code: str = Query(...), state: str = Query
             "code": code,
             "grant_type": "authorization_code",
             "redirect_uri": oauth_redirect_uri(request, "google"),
+            "code_verifier": code_verifier,
         },
         timeout=15,
     )
@@ -402,7 +444,7 @@ def callback_google(request: Request, code: str = Query(...), state: str = Query
 
 def login_facebook(request: Request):
     client_id = require_env("FACEBOOK_CLIENT_ID")
-    state = create_oauth_state("facebook")
+    state = create_oauth_state(request, "facebook")
     params = urlencode(
         {
             "client_id": client_id,
@@ -418,7 +460,7 @@ def login_facebook(request: Request):
 def callback_facebook(
     request: Request, code: str = Query(...), state: str = Query(...)
 ):
-    decode_oauth_state(state, "facebook")
+    decode_oauth_state(request, state, "facebook")
     client_id = require_env("FACEBOOK_CLIENT_ID")
     client_secret = require_env("FACEBOOK_CLIENT_SECRET")
 
@@ -452,7 +494,7 @@ def callback_facebook(
 
 def login_instagram(request: Request):
     client_id = require_env("INSTAGRAM_CLIENT_ID")
-    state = create_oauth_state("instagram")
+    state = create_oauth_state(request, "instagram")
     params = urlencode(
         {
             "client_id": client_id,
@@ -468,7 +510,7 @@ def login_instagram(request: Request):
 def callback_instagram(
     request: Request, code: str = Query(...), state: str = Query(...)
 ):
-    decode_oauth_state(state, "instagram")
+    decode_oauth_state(request, state, "instagram")
     client_id = require_env("INSTAGRAM_CLIENT_ID")
     client_secret = require_env("INSTAGRAM_CLIENT_SECRET")
 
