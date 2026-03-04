@@ -1,10 +1,12 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { createApiClient, fetchCalendarMonth, fetchCalendarRange } from "../../../shared";
-import { clearAuth, getAccessToken } from "@/lib/utils";
+import { clearAuth, getAccessToken, getRefreshToken, setAuthTokens } from "@/lib/utils";
 import { parseISO, format } from "date-fns";
 
 const apiClient = createApiClient({
     getAccessToken,
+    getRefreshToken,
+    setAuthTokens,
     onUnauthorized: clearAuth,
     envOptions: {
         locationHref: typeof window !== "undefined" ? window.location?.href : "",

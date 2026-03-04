@@ -1,5 +1,7 @@
 import { getApiBaseUrl } from "./env.js";
 
+const refreshPromisesByKey = new Map();
+
 export function createApiClient(options = {}) {
   const getToken = options.getAccessToken || (() => null);
   const getRefreshToken = options.getRefreshToken || (() => null);
@@ -12,8 +14,6 @@ export function createApiClient(options = {}) {
     "/api/token/refresh",
   ]);
 
-  let refreshInFlight = null;
-
   async function parseResponseBody(response) {
     const contentType = response.headers.get("content-type") || "";
     return contentType.includes("application/json")
@@ -22,11 +22,13 @@ export function createApiClient(options = {}) {
   }
 
   async function refreshAccessToken(baseUrl) {
-    if (refreshInFlight) {
-      return refreshInFlight;
+    const refreshKey = `${baseUrl}::${refreshPath}`;
+    const inFlight = refreshPromisesByKey.get(refreshKey);
+    if (inFlight) {
+      return inFlight;
     }
 
-    refreshInFlight = (async () => {
+    const refreshPromise = (async () => {
       const refreshToken = await getRefreshToken();
       if (!refreshToken) {
         throw new Error("No refresh token available");
@@ -57,10 +59,11 @@ export function createApiClient(options = {}) {
 
       return body.access_token;
     })().finally(() => {
-      refreshInFlight = null;
+      refreshPromisesByKey.delete(refreshKey);
     });
 
-    return refreshInFlight;
+    refreshPromisesByKey.set(refreshKey, refreshPromise);
+    return refreshPromise;
   }
 
   async function request(path, requestOptions = {}) {

@@ -2,7 +2,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useHousehold } from "@/hooks/useHouseHold";
 import { createApiClient, fetchAnalyticsSummary } from "../../../shared";
-import { getDisplayNameFromUsername } from "@/lib/utils";
+import {
+    clearAuth,
+    getAccessToken,
+    getDisplayNameFromUsername,
+    getRefreshToken,
+    setAuthTokens,
+} from "@/lib/utils";
 
 import { CHARTS, DEFAULT_ACTIVE_CHART_IDS, TIMEFRAME_OPTIONS } from "@/lib/analytics_constants";
 import { downloadTextFile, formatPct, safeNumber, toCsv } from "@/lib/analytics_utils";
@@ -92,8 +98,13 @@ export function useAnalyticsPage() {
 
     const apiClient = useMemo(() => {
         return createApiClient({
-            getAccessToken: () => localStorage.getItem("access_token"),
-            onUnauthorized: () => { },
+            getAccessToken,
+            getRefreshToken,
+            setAuthTokens,
+            onUnauthorized: clearAuth,
+            envOptions: {
+                locationHref: typeof window !== "undefined" ? window.location?.href : "",
+            },
         });
     }, []);
 

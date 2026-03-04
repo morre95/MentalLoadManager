@@ -4,10 +4,12 @@ import {
   fetchHouseholds,
   flattenHouseholdMembers,
 } from "../../../shared/index.js";
-import { clearAuth, getAccessToken } from "@/lib/utils";
+import { clearAuth, getAccessToken, getRefreshToken, setAuthTokens } from "@/lib/utils";
 
 const apiClient = createApiClient({
   getAccessToken,
+  getRefreshToken,
+  setAuthTokens,
   onUnauthorized: clearAuth,
   envOptions: {
     locationHref: typeof window !== "undefined" ? window.location?.href : "",
