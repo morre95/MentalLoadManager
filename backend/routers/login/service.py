@@ -27,9 +27,11 @@ from .repository import find_user, get_google_oauth_account, get_user_by_usernam
 from .schemas import RefreshTokenRequest
 from config import settings
 
-ACCESS_TOKEN_EXPIRE_MINUTES = settings.JWT_EXPIRE_MINUTES or 1440  # 1440 min = 24h
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.JWT_EXPIRE_MINUTES or 30  # 1440 min = 24h
 REFRESH_TOKEN_EXPIRE_DAYS = 30
+
 logger = logging.getLogger(__name__)
+
 FRONTEND_URL = (settings.FRONTEND_URL or "http://localhost:5173").rstrip("/")
 BACKEND_URL = (settings.BACKEND_URL or "").rstrip("/")
 REDIRECT_URIS_BY_PROVIDER = {
@@ -218,7 +220,8 @@ def _issue_password_refresh_token(
         user_id=user_id,
         family_id=family_id,
         token_hash=token_hash,
-        expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+        expires_at=datetime.now(timezone.utc)
+        + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
         created_ip=_resolve_client_ip(request),
         created_user_agent=(request.headers.get("user-agent") or "")[:512] or None,
     )
@@ -499,6 +502,9 @@ def login(form: OAuth2PasswordRequestForm, request: Request) -> Token:
 def refresh_password_session(payload: RefreshTokenRequest, request: Request) -> Token:
     incoming_refresh_token = (payload.refresh_token or "").strip()
     if not incoming_refresh_token:
+        logger.warning(
+            "refresh_password_session: missing refresh token in request payload"
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Refresh token is required",
@@ -506,6 +512,9 @@ def refresh_password_session(payload: RefreshTokenRequest, request: Request) -> 
 
     token_id = _parse_refresh_token_id(incoming_refresh_token)
     if token_id is None:
+        logger.warning(
+            "refresh_password_session: invalid refresh token format (unable to parse token id)"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
@@ -514,6 +523,10 @@ def refresh_password_session(payload: RefreshTokenRequest, request: Request) -> 
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception(
+            "refresh_password_session: failed to get DB session factory for token_id=%s",
+            token_id,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
@@ -530,12 +543,21 @@ def refresh_password_session(payload: RefreshTokenRequest, request: Request) -> 
                 )
             )
             if token_row is None:
+                logger.warning(
+                    "refresh_password_session: token row not found for token_id=%s",
+                    token_id,
+                )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid refresh token",
                 )
 
             if not secrets.compare_digest(token_row.token_hash, incoming_hash):
+                logger.warning(
+                    "refresh_password_session: token hash mismatch for token_id=%s user_id=%s",
+                    token_id,
+                    token_row.user_id,
+                )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid refresh token",
@@ -550,6 +572,20 @@ def refresh_password_session(payload: RefreshTokenRequest, request: Request) -> 
                         family_id=token_row.family_id,
                     )
                     db.commit()
+                    logger.warning(
+                        "refresh_password_session: revoked replayed token and family token_id=%s user_id=%s family_id=%s replaced_by_token_id=%s",
+                        token_id,
+                        token_row.user_id,
+                        token_row.family_id,
+                        token_row.replaced_by_token_id,
+                    )
+                else:
+                    logger.warning(
+                        "refresh_password_session: token already revoked token_id=%s user_id=%s family_id=%s",
+                        token_id,
+                        token_row.user_id,
+                        token_row.family_id,
+                    )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Refresh token is no longer valid",
@@ -558,6 +594,13 @@ def refresh_password_session(payload: RefreshTokenRequest, request: Request) -> 
             if token_row.expires_at <= now_utc:
                 token_row.revoked_at = now_utc
                 db.commit()
+                logger.warning(
+                    "refresh_password_session: expired token used token_id=%s user_id=%s family_id=%s expires_at=%s",
+                    token_id,
+                    token_row.user_id,
+                    token_row.family_id,
+                    token_row.expires_at,
+                )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Refresh token has expired",
@@ -567,6 +610,12 @@ def refresh_password_session(payload: RefreshTokenRequest, request: Request) -> 
             if user is None:
                 token_row.revoked_at = now_utc
                 db.commit()
+                logger.warning(
+                    "refresh_password_session: token user not found token_id=%s user_id=%s family_id=%s",
+                    token_id,
+                    token_row.user_id,
+                    token_row.family_id,
+                )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="User not found",
@@ -589,6 +638,10 @@ def refresh_password_session(payload: RefreshTokenRequest, request: Request) -> 
             )
             db.commit()
     except SQLAlchemyError as exc:
+        logger.exception(
+            "refresh_password_session: SQL operation failed for token_id=%s",
+            token_id,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Refresh token operation failed: {exc}",

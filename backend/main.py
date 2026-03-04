@@ -1,6 +1,9 @@
 from contextlib import asynccontextmanager
 import random
+from typing import Literal, cast
 from fastapi import FastAPI
+from fastapi import Request
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -13,20 +16,34 @@ from limiter import limiter
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_: FastAPI):
     setup_db_and_tables()
     yield
 
 
 app = FastAPI(lifespan=lifespan, debug=True)
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+def _rate_limit_handler(request: Request, exc: Exception) -> Response:
+    if isinstance(exc, RateLimitExceeded):
+        return _rate_limit_exceeded_handler(request, exc)
+    raise exc
+
+
+app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
 app.add_middleware(SlowAPIMiddleware)
+
+same_site_raw = settings.SESSION_COOKIE_SAMESITE.strip().lower()
+if same_site_raw not in {"lax", "strict", "none"}:
+    same_site_raw = "lax"
+same_site = cast(Literal["lax", "strict", "none"], same_site_raw)
+
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SESSION_SECRET or settings.JWT_SECRET,
     https_only=settings.SESSION_COOKIE_SECURE,
-    same_site=settings.SESSION_COOKIE_SAMESITE,
+    same_site=same_site,
     max_age=settings.SESSION_COOKIE_MAX_AGE_SECONDS,
 )
 
