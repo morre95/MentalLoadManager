@@ -218,6 +218,7 @@ CREATE TABLE IF NOT EXISTS contact_messages (
 
 CREATE INDEX IF NOT EXISTS idx_tasks_group_due ON tasks(household_id, due_date);
 CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assigns_to);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_lower ON users (LOWER(username));
 CREATE INDEX IF NOT EXISTS idx_links_connection ON task_calendar_links(connection_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_category ON tasks(category_id);
 

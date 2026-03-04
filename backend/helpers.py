@@ -78,7 +78,7 @@ def authenticate_user(username: str, password: str) -> User | None:
             if verify_password(password, user.password):
                 user.last_login = datetime.now(timezone.utc)
                 db.commit()
-                return User(username=user.username)
+                return User(username=user.username, user_id=user.user_id)
 
         return None
 
@@ -87,6 +87,28 @@ def create_access_token(subject: str, expires_delta: timedelta) -> str:
     expire = datetime.now(timezone.utc) + expires_delta
     payload = {"sub": subject, "exp": expire}
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def _resolve_user_from_token_subject(db, subject: str | None) -> UserDB | None:
+    if not subject:
+        return None
+
+    # New tokens store the immutable user_id in `sub`.
+    try:
+        subject_uuid = UUID(str(subject))
+    except (TypeError, ValueError):
+        subject_uuid = None
+
+    if subject_uuid is not None:
+        user = db.scalar(select(UserDB).where(UserDB.user_id == subject_uuid))
+        if user:
+            return user
+
+    # Backward compatibility for legacy tokens where `sub` was username.
+    normalized_subject = str(subject).strip().lower()
+    if not normalized_subject:
+        return None
+    return db.scalar(select(UserDB).where(func.lower(UserDB.username) == normalized_subject))
 
 
 def get_user_id_from_token(
@@ -99,8 +121,8 @@ def get_user_id_from_token(
         return None
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
-        if not username:
+        subject = payload.get("sub")
+        if not subject:
             return None
     except (InvalidTokenError, ValueError):
         return None
@@ -111,15 +133,15 @@ def get_user_id_from_token(
         return None
 
     with session_local() as db:
-        user = db.scalar(select(UserDB).where(UserDB.username == username))
+        user = _resolve_user_from_token_subject(db, subject)
         return user.user_id if user else None
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)) -> UserEmail:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
-        if not username:
+        subject = payload.get("sub")
+        if not subject:
             raise ValueError("Missing subject")
     except (InvalidTokenError, ValueError):
         raise HTTPException(
@@ -136,7 +158,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> UserEmail:
         ) from exc
 
     with session_local() as db:
-        user = db.scalar(select(UserDB).where(UserDB.username == username))
+        user = _resolve_user_from_token_subject(db, subject)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -144,5 +166,8 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> UserEmail:
                 headers={"WWW-Authenticate": "Bearer"},
             )
         return UserEmail(
-            username=user.username, email=user.email, display_name=user.display_name
+            username=user.username,
+            user_id=user.user_id,
+            email=user.email,
+            display_name=user.display_name,
         )

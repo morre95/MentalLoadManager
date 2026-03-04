@@ -78,8 +78,22 @@ def oauth_redirect_uri(request: Request, provider: str) -> str:
 
 
 def issue_login_redirect(username: str) -> RedirectResponse:
+    token_subject = username
+
+    # Issue new JWTs with immutable user_id when we can resolve the account.
+    try:
+        session_local = get_session_local()
+    except RuntimeError:
+        session_local = None
+
+    if session_local is not None:
+        with session_local() as db:
+            user = get_user_by_username(db, username)
+            if user is not None:
+                token_subject = str(user.user_id)
+
     access_token = create_access_token(
-        subject=username,
+        subject=token_subject,
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     return RedirectResponse(
@@ -300,8 +314,9 @@ def login(form: OAuth2PasswordRequestForm) -> Token:
             detail="Incorrect username or password",
         )
 
+    token_subject = str(user.user_id) if user.user_id else user.username
     access_token = create_access_token(
-        subject=user.username,
+        subject=token_subject,
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     return Token(access_token=access_token, token_type="bearer")
