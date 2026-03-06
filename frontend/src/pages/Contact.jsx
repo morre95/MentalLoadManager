@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 import { GET_API_BASE_URL } from "@/components/ui/base_url";
-import { getAccessToken, isUserLoggedIn } from "@/lib/utils";
+import { isUserLoggedIn } from "@/lib/utils";
+import { getToken} from "@/lib/auth";
 
 const API_BASE_URL = GET_API_BASE_URL();
 
@@ -34,7 +35,7 @@ const Contact = () => {
     setError(null);
 
     try {
-      const token = getAccessToken();
+      const token = getToken();
 
       const headers = {
         "Content-Type": "application/json",
