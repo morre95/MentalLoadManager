@@ -31,6 +31,13 @@ function formatDueDate(iso) {
   return date.toLocaleDateString();
 }
 
+function toDateInputValue(iso) {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
+
 export function toApiTaskStatus(status) {
   if (status === "in-progress") return "in_progress";
   if (status === "on-hold") return "on_hold";
@@ -49,6 +56,7 @@ export function mapApiTaskToUi(task) {
     priority: normalizePriority(task),
     assigneeId: task.assignee_user_id ? String(task.assignee_user_id) : undefined,
     assigneeLabel,
+    dueDateValue: toDateInputValue(task.due_date),
     dueDate: formatDueDate(task.due_date),
     category: task.category_name || "Other",
   };

@@ -26,6 +26,19 @@ import {
 } from "date-fns";
 
 import { useCalendarPage } from "@/hooks/useCalendarPage";
+import TaskDetailDialog from "@/components/tasks/TaskDetailDialog";
+import { useTaskboardTasks } from "@/hooks/useTaskboardTasks";
+import { useHousehold } from "@/hooks/useHouseHold";
+import {
+    deleteKanbanTask,
+    updateKanbanTaskAssignee,
+    updateKanbanTaskCategory,
+    updateKanbanTaskDescription,
+    updateKanbanTaskDueDate,
+    updateKanbanTaskName,
+    updateKanbanTaskPriority,
+    updateKanbanTaskStatus,
+} from "@/lib/utils";
 
 const eventColorClasses = {
     sage: "bg-sage-light text-sage border-sage/30",
@@ -33,6 +46,17 @@ const eventColorClasses = {
     lavender: "bg-lavender-light text-lavender border-lavender/30",
     sky: "bg-sky-light text-sky border-sky/30",
 };
+
+function toApiStatus(status) {
+    if (status === "in-progress") return "in_progress";
+    if (status === "on-hold") return "on_hold";
+    return status;
+}
+
+function toDisplayDueDate(dateInputValue) {
+    if (!dateInputValue) return undefined;
+    return new Date(`${dateInputValue}T00:00:00`).toLocaleDateString();
+}
 
 const Calendar = () => {
     const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -51,6 +75,12 @@ const Calendar = () => {
         loadMonth,
         loadWeekRange,
     } = useCalendarPage();
+    const { households } = useHousehold();
+    const { tasks, setTasks } = useTaskboardTasks(null);
+    const [selectedTaskId, setSelectedTaskId] = useState(null);
+    const [draggedTaskId, setDraggedTaskId] = useState(null);
+    const [dragOverDayKey, setDragOverDayKey] = useState(null);
+    const [syncError, setSyncError] = useState(null);
 
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
@@ -61,6 +91,54 @@ const Calendar = () => {
     const weekStart = startOfWeek(currentWeek);
     const weekEnd = endOfWeek(currentWeek);
     const daysInWeek = eachDayOfInterval({ start: weekStart, end: weekEnd });
+    const selectedTask = selectedTaskId
+        ? tasks.find((task) => String(task.id) === String(selectedTaskId)) || null
+        : null;
+
+    const refreshCalendarData = async () => {
+        await Promise.all([
+            loadMonth(currentMonth, { force: true }),
+            loadWeekRange(weekStart, weekEnd, { force: true }),
+        ]);
+    };
+
+    const handleUpdateTaskDetails = (taskId, updates) => {
+        setTasks((prev) =>
+            prev.map((task) => (String(task.id) === String(taskId) ? { ...task, ...updates } : task))
+        );
+    };
+
+    const findTaskByEvent = (event) => {
+        return tasks.find((task) => String(task.id) === String(event?.id)) || null;
+    };
+
+    const openTaskDialogFromEvent = (event) => {
+        const task = findTaskByEvent(event);
+        if (!task) return;
+        setSelectedTaskId(task.id);
+        setSyncError(null);
+    };
+
+    const moveTaskToDate = async (taskId, targetDate) => {
+        const rollbackTasks = tasks;
+        setSyncError(null);
+
+        handleUpdateTaskDetails(taskId, {
+            dueDateValue: targetDate,
+            dueDate: toDisplayDueDate(targetDate),
+        });
+
+        try {
+            const dueDateIso = targetDate
+                ? new Date(`${targetDate}T00:00:00`).toISOString()
+                : null;
+            await updateKanbanTaskDueDate(taskId, dueDateIso);
+            await refreshCalendarData();
+        } catch (error) {
+            setTasks(rollbackTasks);
+            setSyncError(error);
+        }
+    };
 
     useEffect(() => {
         loadMonth(currentMonth).catch(() => { });
@@ -87,6 +165,146 @@ const Calendar = () => {
         }
 
         return monthEventsByDayKey.get(key) || [];
+    };
+
+    const handleUpdateTaskStatus = async (taskId, nextStatus) => {
+        const rollbackTasks = tasks;
+        setSyncError(null);
+        handleUpdateTaskDetails(taskId, { status: nextStatus });
+
+        try {
+            await updateKanbanTaskStatus(taskId, toApiStatus(nextStatus));
+            await refreshCalendarData();
+        } catch (error) {
+            setTasks(rollbackTasks);
+            setSyncError(error);
+        }
+    };
+
+    const handleUpdateTaskPriority = async (taskId, nextPriority) => {
+        const rollbackTasks = tasks;
+        setSyncError(null);
+        handleUpdateTaskDetails(taskId, { priority: nextPriority });
+
+        try {
+            await updateKanbanTaskPriority(taskId, nextPriority);
+        } catch (error) {
+            setTasks(rollbackTasks);
+            setSyncError(error);
+        }
+    };
+
+    const handleUpdateTaskDueDate = async (taskId, dueDateInputValue) => {
+        await moveTaskToDate(taskId, dueDateInputValue || null);
+    };
+
+    const handleUpdateTaskDescription = async (taskId, nextDescription) => {
+        const rollbackTasks = tasks;
+        setSyncError(null);
+        handleUpdateTaskDetails(taskId, { description: nextDescription || "" });
+
+        try {
+            await updateKanbanTaskDescription(taskId, nextDescription || null);
+        } catch (error) {
+            setTasks(rollbackTasks);
+            setSyncError(error);
+        }
+    };
+
+    const handleUpdateTaskTitle = async (taskId, nextTitle) => {
+        const rollbackTasks = tasks;
+        setSyncError(null);
+        handleUpdateTaskDetails(taskId, { title: nextTitle });
+
+        try {
+            await updateKanbanTaskName(taskId, nextTitle);
+            await refreshCalendarData();
+        } catch (error) {
+            setTasks(rollbackTasks);
+            setSyncError(error);
+        }
+    };
+
+    const handleUpdateTaskAssignee = async (taskId, assigneeId, assigneeLabel) => {
+        const rollbackTasks = tasks;
+        setSyncError(null);
+        handleUpdateTaskDetails(taskId, {
+            assigneeId: assigneeId || undefined,
+            assigneeLabel: assigneeLabel || "Unassigned",
+        });
+
+        try {
+            await updateKanbanTaskAssignee(taskId, assigneeId || null);
+        } catch (error) {
+            setTasks(rollbackTasks);
+            setSyncError(error);
+        }
+    };
+
+    const handleUpdateTaskCategory = async (taskId, nextCategory) => {
+        const rollbackTasks = tasks;
+        setSyncError(null);
+        handleUpdateTaskDetails(taskId, { category: nextCategory || "Other" });
+
+        try {
+            await updateKanbanTaskCategory(taskId, nextCategory || null);
+        } catch (error) {
+            setTasks(rollbackTasks);
+            setSyncError(error);
+        }
+    };
+
+    const handleDeleteTask = async (taskId) => {
+        const rollbackTasks = tasks;
+        setSyncError(null);
+        setTasks((prev) => prev.filter((task) => String(task.id) !== String(taskId)));
+        setSelectedTaskId(null);
+
+        try {
+            await deleteKanbanTask(taskId);
+            await refreshCalendarData();
+        } catch (error) {
+            setTasks(rollbackTasks);
+            setSyncError(error);
+        }
+    };
+
+    const handleTaskDragStart = (dragEvent, event) => {
+        const task = findTaskByEvent(event);
+        if (!task) return;
+
+        const taskId = String(task.id);
+        dragEvent.dataTransfer.setData("text/task-id", taskId);
+        dragEvent.dataTransfer.effectAllowed = "move";
+        setDraggedTaskId(taskId);
+    };
+
+    const handleTaskDragEnd = () => {
+        setDraggedTaskId(null);
+        setDragOverDayKey(null);
+    };
+
+    const handleDayDragOver = (dragEvent, day) => {
+        if (!draggedTaskId) return;
+        dragEvent.preventDefault();
+        setDragOverDayKey(format(day, "yyyy-MM-dd"));
+    };
+
+    const handleDayDrop = async (dragEvent, day) => {
+        dragEvent.preventDefault();
+        const dropTaskId = dragEvent.dataTransfer.getData("text/task-id") || draggedTaskId;
+        const nextDate = format(day, "yyyy-MM-dd");
+
+        setDragOverDayKey(null);
+        setDraggedTaskId(null);
+
+        if (!dropTaskId) return;
+
+        const targetTask = tasks.find((task) => String(task.id) === String(dropTaskId));
+        if (!targetTask) return;
+        if (targetTask.dueDateValue === nextDate) return;
+
+        await moveTaskToDate(dropTaskId, nextDate);
     };
 
     const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : [];
@@ -146,11 +364,19 @@ const Calendar = () => {
         const isSelected = selectedDate && isSameDay(day, selectedDate);
         const isCurrentDay = isToday(day);
         const isOverdueDay = dayEvents.length > 0 && isBefore(startOfDay(day), todayStart);
+        const dayKey = format(day, "yyyy-MM-dd");
+        const isDragTarget = draggedTaskId && dragOverDayKey === dayKey;
 
         return (
             <motion.button
                 key={day.toISOString()}
                 onClick={() => setSelectedDate(day)}
+                onDragOver={(dragEvent) => handleDayDragOver(dragEvent, day)}
+                onDragEnter={(dragEvent) => handleDayDragOver(dragEvent, day)}
+                onDragLeave={() => {
+                    if (dragOverDayKey === dayKey) setDragOverDayKey(null);
+                }}
+                onDrop={(dragEvent) => handleDayDrop(dragEvent, day)}
                 className={`p-1 rounded-lg relative transition-colors ${view === "month" ? "aspect-square" : "min-h-[100px] flex flex-col items-start"
                     } ${isSelected
                         ? "bg-primary text-primary-foreground"
@@ -158,6 +384,7 @@ const Calendar = () => {
                             ? "bg-sage-light"
                             : "hover:bg-muted"
                     } ${!isInRange ? "opacity-40" : ""} ${!isSelected && isOverdueDay ? "ring-1 ring-terracotta/40" : ""
+                    } ${isDragTarget ? "ring-2 ring-primary/60 bg-primary/10" : ""
                     }`}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -171,6 +398,13 @@ const Calendar = () => {
                         {dayEvents.map((event) => (
                             <div
                                 key={event.id}
+                                draggable
+                                onDragStart={(dragEvent) => handleTaskDragStart(dragEvent, event)}
+                                onDragEnd={handleTaskDragEnd}
+                                onClick={(mouseEvent) => {
+                                    mouseEvent.stopPropagation();
+                                    openTaskDialogFromEvent(event);
+                                }}
                                 className={`text-xs px-1.5 py-0.5 rounded truncate ${isSelected
                                         ? "bg-primary-foreground/20 text-primary-foreground"
                                         : eventColorClasses[event.color]
@@ -188,6 +422,13 @@ const Calendar = () => {
                         {dayEvents.slice(0, 3).map((event) => (
                             <div
                                 key={event.id}
+                                draggable
+                                onDragStart={(dragEvent) => handleTaskDragStart(dragEvent, event)}
+                                onDragEnd={handleTaskDragEnd}
+                                onClick={(mouseEvent) => {
+                                    mouseEvent.stopPropagation();
+                                    openTaskDialogFromEvent(event);
+                                }}
                                 className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-primary-foreground" : ""}`}
                                 style={{ backgroundColor: isSelected ? undefined : `hsl(var(--${event.color}))` }}
                                 title={event.householdName}
@@ -225,6 +466,11 @@ const Calendar = () => {
                     {!monthError && weekError ? (
                         <p className="text-sm text-destructive mt-2">
                             {weekError?.message || "Failed to load selected week"}
+                        </p>
+                    ) : null}
+                    {syncError ? (
+                        <p className="text-sm text-destructive mt-2">
+                            {syncError?.message || "Couldn't sync task update. Changes were reverted."}
                         </p>
                     ) : null}
                 </div>
@@ -340,8 +586,20 @@ const Calendar = () => {
                                                 key={event.id}
                                                 initial={{ opacity: 0, x: 10 }}
                                                 animate={{ opacity: 1, x: 0 }}
+                                                role="button"
+                                                tabIndex={0}
+                                                draggable
+                                                onDragStart={(dragEvent) => handleTaskDragStart(dragEvent, event)}
+                                                onDragEnd={handleTaskDragEnd}
+                                                onClick={() => openTaskDialogFromEvent(event)}
+                                                onKeyDown={(keyboardEvent) => {
+                                                    if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                                                        keyboardEvent.preventDefault();
+                                                        openTaskDialogFromEvent(event);
+                                                    }
+                                                }}
                                                 className={`p-3 rounded-lg border ${eventColorClasses[event.color]} ${overdue ? "ring-1 ring-terracotta/40" : ""
-                                                    }`}
+                                                    } cursor-pointer`}
                                             >
                                                 <div className="flex items-center justify-between gap-3">
                                                     <div className="min-w-0">
@@ -382,13 +640,17 @@ const Calendar = () => {
                                                 key={event.id}
                                                 role="button"
                                                 tabIndex={0}
+                                                draggable
                                                 whileHover={{ scale: 1.02 }}
                                                 whileTap={{ scale: 0.98 }}
+                                                onDragStart={(dragEvent) => handleTaskDragStart(dragEvent, event)}
+                                                onDragEnd={handleTaskDragEnd}
                                                 onClick={() => {
                                                     setSelectedDate(event.date);
                                                     setCurrentWeek(event.date);
                                                     setCurrentMonth(event.date);
                                                     setView("week");
+                                                    openTaskDialogFromEvent(event);
                                                 }}
                                                 onKeyDown={(keyboardEvent) => {
                                                     if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
@@ -397,6 +659,7 @@ const Calendar = () => {
                                                         setCurrentWeek(event.date);
                                                         setCurrentMonth(event.date);
                                                         setView("week");
+                                                        openTaskDialogFromEvent(event);
                                                     }
                                                 }}
                                                 className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
@@ -422,6 +685,22 @@ const Calendar = () => {
                     </Card>
                 </motion.div>
             </div>
+
+            <TaskDetailDialog
+                task={selectedTask}
+                open={!!selectedTaskId && !!selectedTask}
+                households={households}
+                onOpenChange={(open) => !open && setSelectedTaskId(null)}
+                onUpdateTask={handleUpdateTaskDetails}
+                onUpdateTaskStatus={handleUpdateTaskStatus}
+                onUpdateTaskPriority={handleUpdateTaskPriority}
+                onUpdateTaskDueDate={handleUpdateTaskDueDate}
+                onUpdateTaskDescription={handleUpdateTaskDescription}
+                onUpdateTaskTitle={handleUpdateTaskTitle}
+                onUpdateTaskAssignee={handleUpdateTaskAssignee}
+                onUpdateTaskCategory={handleUpdateTaskCategory}
+                onDeleteTask={handleDeleteTask}
+            />
         </div>
     );
 };
