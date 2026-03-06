@@ -38,4 +38,10 @@ export { fetchAnalyticsSummary, normalizeAnalyticsSummary} from "./analytics.js"
 
 export { fetchCalendarMonth, fetchCalendarRange} from "./calendar.js";
 
-export { changeMyPassword, fetchMe, updateMe } from "./users.js";
+export {
+  changeMyPassword,
+  fetchMe,
+  fetchNotificationSettings,
+  updateMe,
+  updateNotificationSettings,
+} from "./users.js";

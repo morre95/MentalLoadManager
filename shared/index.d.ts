@@ -178,3 +178,31 @@ export function updateHouseholdMemberRole(
 ): Promise<any>;
 
 export function fetchMe(apiClient: ApiClient): Promise<any>;
+export function updateMe(apiClient: ApiClient, payload: {
+  email?: string | null;
+  display_name?: string | null;
+}): Promise<any>;
+export function changeMyPassword(apiClient: ApiClient, payload: {
+  current_password: string;
+  new_password: string;
+}): Promise<any>;
+export function fetchNotificationSettings(apiClient: ApiClient): Promise<{
+  email_notifications: boolean;
+  task_reminders: boolean;
+  goal_milestones: boolean;
+  household_updates: boolean;
+  weekly_analytics_email: boolean;
+}>;
+export function updateNotificationSettings(apiClient: ApiClient, payload: {
+  email_notifications: boolean;
+  task_reminders: boolean;
+  goal_milestones: boolean;
+  household_updates: boolean;
+  weekly_analytics_email: boolean;
+}): Promise<{
+  email_notifications: boolean;
+  task_reminders: boolean;
+  goal_milestones: boolean;
+  household_updates: boolean;
+  weekly_analytics_email: boolean;
+}>;

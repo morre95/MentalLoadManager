@@ -42,7 +42,13 @@ import {
 
 import { toast } from "@/components/ui/sonner";
 import { getUserFromLocalStorage } from "@/lib/auth";
-import { changeMyPassword, fetchMe, updateMe } from "@/lib/utils";
+import {
+  changeMyPassword,
+  fetchMe,
+  fetchNotificationSettings,
+  updateMe,
+  updateNotificationSettings,
+} from "@/lib/utils";
 
 const defaultCategories = ["Shopping", "Cleaning", "Admin", "Health", "Maintenance", "Planning", "Other"];
 
@@ -106,12 +112,12 @@ const Settings = () => {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Notification preferences
-  const [pushNotifications, setPushNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [weeklyAnalytics, setWeeklyAnalytics] = useState(true);
   const [taskReminders, setTaskReminders] = useState(true);
   const [goalMilestones, setGoalMilestones] = useState(true);
   const [householdUpdates, setHouseholdUpdates] = useState(false);
+  const [isSavingNotificationSettings, setIsSavingNotificationSettings] = useState(false);
 
   // Privacy
   const [profileVisible, setProfileVisible] = useState(true);
@@ -128,10 +134,23 @@ const Settings = () => {
       }
 
       const me = await fetchMe();
-      if (!active || !me) return;
+      if (active && me) {
+        setDisplayName(me.display_name || "");
+        setProfileEmail(me.email || "");
+      }
 
-      setDisplayName(me.display_name || "");
-      setProfileEmail(me.email || "");
+      try {
+        const settings = await fetchNotificationSettings();
+        if (!active || !settings) return;
+
+        setEmailNotifications(Boolean(settings.email_notifications));
+        setTaskReminders(Boolean(settings.task_reminders));
+        setGoalMilestones(Boolean(settings.goal_milestones));
+        setHouseholdUpdates(Boolean(settings.household_updates));
+        setWeeklyAnalytics(Boolean(settings.weekly_analytics_email));
+      } catch {
+        // Keep local defaults when settings are unavailable.
+      }
     };
 
     hydrateProfile();
@@ -228,6 +247,30 @@ const Settings = () => {
       toast.error(error?.message || "Could not save profile");
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  const handleSaveNotificationSettings = async () => {
+    setIsSavingNotificationSettings(true);
+    try {
+      const updated = await updateNotificationSettings({
+        email_notifications: emailNotifications,
+        task_reminders: taskReminders,
+        goal_milestones: goalMilestones,
+        household_updates: householdUpdates,
+        weekly_analytics_email: weeklyAnalytics,
+      });
+
+      setEmailNotifications(Boolean(updated?.email_notifications));
+      setTaskReminders(Boolean(updated?.task_reminders));
+      setGoalMilestones(Boolean(updated?.goal_milestones));
+      setHouseholdUpdates(Boolean(updated?.household_updates));
+      setWeeklyAnalytics(Boolean(updated?.weekly_analytics_email));
+      toast.success("Notification settings saved");
+    } catch (error) {
+      toast.error(error?.message || "Could not save notification settings");
+    } finally {
+      setIsSavingNotificationSettings(false);
     }
   };
 
@@ -414,9 +457,6 @@ const Settings = () => {
         <SectionCard delay={0.25}>
           <SectionHeader icon={Bell} title="Notifications" description="Control what alerts you receive" />
           <Separator />
-          <SettingRow label="Push notifications" description="Get notified on your device">
-            <Switch checked={pushNotifications} onCheckedChange={setPushNotifications} />
-          </SettingRow>
           <SettingRow label="Email notifications" description="Receive updates via email">
             <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} />
           </SettingRow>
@@ -433,6 +473,15 @@ const Settings = () => {
           <SettingRow label="Weekly analytics email" description="Summary of your household's progress every Monday">
             <Switch checked={weeklyAnalytics} onCheckedChange={setWeeklyAnalytics} />
           </SettingRow>
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              onClick={handleSaveNotificationSettings}
+              disabled={isSavingNotificationSettings}
+            >
+              {isSavingNotificationSettings ? "Saving..." : "Save Notification Settings"}
+            </Button>
+          </div>
         </SectionCard>
 
         {/* Task Categories */}
