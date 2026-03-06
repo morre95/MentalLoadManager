@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from uuid import UUID
+from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint, text
+
+from sqlalchemy import ForeignKey, String, UniqueConstraint, text, DateTime
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
