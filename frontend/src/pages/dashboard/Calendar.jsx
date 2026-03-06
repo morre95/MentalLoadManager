@@ -38,19 +38,20 @@ const Calendar = () => {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [currentWeek, setCurrentWeek] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
-    const [view, setView] = useState("month"); // "month" | "week" | "day"
+    const [view, setView] = useState("month");
 
     const {
         weekEvents,
-        eventsByDayKey,
+        monthEventsByDayKey,
+        rangeEventsByDayKey,
         loadingMonth,
         loadingWeek,
-        error,
+        monthError,
+        weekError,
         loadMonth,
         loadWeekRange,
     } = useCalendarPage();
 
-    // Month + week boundaries
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
     const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
@@ -61,18 +62,13 @@ const Calendar = () => {
     const weekEnd = endOfWeek(currentWeek);
     const daysInWeek = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
-    // Load month events whenever currentMonth changes
     useEffect(() => {
-        loadMonth(currentMonth);
+        loadMonth(currentMonth).catch(() => { });
     }, [currentMonth, loadMonth]);
 
-    // Load “Upcoming this week” based on currentWeek (robust across months)
-    const weekStartKey = format(weekStart, "yyyy-MM-dd");
-    const weekEndKey = format(weekEnd, "yyyy-MM-dd");
-
     useEffect(() => {
-        loadWeekRange(weekStartKey, weekEndKey);
-    }, [weekStartKey, weekEndKey, loadWeekRange]);
+        loadWeekRange(weekStart, weekEnd).catch(() => { });
+    }, [weekStart, weekEnd, loadWeekRange]);
 
     useEffect(() => {
         if (view !== "day") return;
@@ -83,24 +79,50 @@ const Calendar = () => {
         });
     }, [view, selectedDate]);
 
-    // Helper: events for a day from month cache
     const getEventsForDate = (date) => {
         const key = format(date, "yyyy-MM-dd");
-        return eventsByDayKey.get(key) || [];
+
+        if (view === "week" || view === "day") {
+            return rangeEventsByDayKey.get(key) || [];
+        }
+
+        return monthEventsByDayKey.get(key) || [];
     };
 
     const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : [];
 
     const navigateBack = () => {
-        if (view === "month") setCurrentMonth(subMonths(currentMonth, 1));
-        else if (view === "week") setCurrentWeek(subWeeks(currentWeek, 1));
-        else setSelectedDate(subDays(selectedDate, 1));
+        if (view === "month") {
+            setCurrentMonth(subMonths(currentMonth, 1));
+            return;
+        }
+
+        if (view === "week") {
+            setCurrentWeek(subWeeks(currentWeek, 1));
+            return;
+        }
+
+        const nextDate = subDays(selectedDate, 1);
+        setSelectedDate(nextDate);
+        setCurrentWeek(nextDate);
+        setCurrentMonth(nextDate);
     };
 
     const navigateForward = () => {
-        if (view === "month") setCurrentMonth(addMonths(currentMonth, 1));
-        else if (view === "week") setCurrentWeek(addWeeks(currentWeek, 1));
-        else setSelectedDate(addDays(selectedDate, 1));
+        if (view === "month") {
+            setCurrentMonth(addMonths(currentMonth, 1));
+            return;
+        }
+
+        if (view === "week") {
+            setCurrentWeek(addWeeks(currentWeek, 1));
+            return;
+        }
+
+        const nextDate = addDays(selectedDate, 1);
+        setSelectedDate(nextDate);
+        setCurrentWeek(nextDate);
+        setCurrentMonth(nextDate);
     };
 
     const goToToday = () => {
@@ -123,8 +145,6 @@ const Calendar = () => {
         const dayEvents = getEventsForDate(day);
         const isSelected = selectedDate && isSameDay(day, selectedDate);
         const isCurrentDay = isToday(day);
-
-        // overdue: any event on this day AND day is before today
         const isOverdueDay = dayEvents.length > 0 && isBefore(startOfDay(day), todayStart);
 
         return (
@@ -146,14 +166,14 @@ const Calendar = () => {
                     {format(day, "d")}
                 </span>
 
-                {view === "week" && dayEvents.length > 0 && (
+                {view === "week" && dayEvents.length > 0 ? (
                     <div className="mt-2 space-y-2 w-full">
                         {dayEvents.map((event) => (
                             <div
                                 key={event.id}
                                 className={`text-xs px-1.5 py-0.5 rounded truncate ${isSelected
-                                    ? "bg-primary-foreground/20 text-primary-foreground"
-                                    : eventColorClasses[event.color]
+                                        ? "bg-primary-foreground/20 text-primary-foreground"
+                                        : eventColorClasses[event.color]
                                     }`}
                                 title={`${event.title} • ${event.householdName}`}
                             >
@@ -161,27 +181,25 @@ const Calendar = () => {
                             </div>
                         ))}
                     </div>
-                )}
+                ) : null}
 
-                {view === "month" && dayEvents.length > 0 && (
+                {view === "month" && dayEvents.length > 0 ? (
                     <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">
-                        {dayEvents.slice(0, 3).map((event, i) => (
+                        {dayEvents.slice(0, 3).map((event) => (
                             <div
-                                key={i}
+                                key={event.id}
                                 className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-primary-foreground" : ""}`}
                                 style={{ backgroundColor: isSelected ? undefined : `hsl(var(--${event.color}))` }}
                                 title={event.householdName}
                             />
                         ))}
                     </div>
-                )}
+                ) : null}
             </motion.button>
         );
     };
 
-    // Upcoming this week: use range endpoint results
     const upcomingThisWeek = useMemo(() => {
-        // weekEvents are already range-filtered; just sort
         return [...weekEvents].sort((a, b) => a.date - b.date);
     }, [weekEvents]);
 
@@ -198,12 +216,17 @@ const Calendar = () => {
                     </h1>
                     <p className="text-muted-foreground mt-1">View scheduled tasks and deadlines</p>
 
-                    {loadingMonth && <p className="text-sm text-muted-foreground mt-2">Loading month…</p>}
-                    {error && (
+                    {loadingMonth ? <p className="text-sm text-muted-foreground mt-2">Loading month…</p> : null}
+                    {monthError ? (
                         <p className="text-sm text-destructive mt-2">
-                            {error?.message || "Failed to load calendar"}
+                            {monthError?.message || "Failed to load calendar month"}
                         </p>
-                    )}
+                    ) : null}
+                    {!monthError && weekError ? (
+                        <p className="text-sm text-destructive mt-2">
+                            {weekError?.message || "Failed to load selected week"}
+                        </p>
+                    ) : null}
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -238,14 +261,14 @@ const Calendar = () => {
 
                                         <Tabs
                                             value={view}
-                                            onValueChange={(v) => {
-                                                setView(v);
-                                                // when switching to Day, ensure we show selectedDate (or today)
-                                                if (v === "day") {
-                                                    const d = selectedDate ?? new Date();
-                                                    setSelectedDate(d);
-                                                    setCurrentWeek(d);
-                                                    setCurrentMonth(d);
+                                            onValueChange={(nextView) => {
+                                                setView(nextView);
+
+                                                if (nextView === "day") {
+                                                    const anchor = selectedDate ?? new Date();
+                                                    setSelectedDate(anchor);
+                                                    setCurrentWeek(anchor);
+                                                    setCurrentMonth(anchor);
                                                 }
                                             }}
                                         >
@@ -311,6 +334,7 @@ const Calendar = () => {
                                 <div className="space-y-3">
                                     {selectedDateEvents.map((event) => {
                                         const overdue = isBefore(startOfDay(event.date), todayStart);
+
                                         return (
                                             <motion.div
                                                 key={event.id}
@@ -329,7 +353,7 @@ const Calendar = () => {
                                                         ) : null}
                                                     </div>
                                                     <Badge variant="outline" className="text-xs capitalize shrink-0">
-                                                        {overdue ? "overdue" : "task"}
+                                                        {overdue ? "overdue" : event.type}
                                                     </Badge>
                                                 </div>
                                             </motion.div>
@@ -364,12 +388,11 @@ const Calendar = () => {
                                                     setSelectedDate(event.date);
                                                     setCurrentWeek(event.date);
                                                     setCurrentMonth(event.date);
-                                                    //setView("week");
-                                                    // scroll happens in step 2 below
+                                                    setView("week");
                                                 }}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === "Enter" || e.key === " ") {
-                                                        e.preventDefault();
+                                                onKeyDown={(keyboardEvent) => {
+                                                    if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                                                        keyboardEvent.preventDefault();
                                                         setSelectedDate(event.date);
                                                         setCurrentWeek(event.date);
                                                         setCurrentMonth(event.date);
@@ -395,7 +418,6 @@ const Calendar = () => {
                                     )}
                                 </div>
                             </div>
-
                         </CardContent>
                     </Card>
                 </motion.div>

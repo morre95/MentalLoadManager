@@ -65,11 +65,11 @@ const columns = [
   { id: "done", title: "Done", colorClass: "bg-status-done", icon: CheckCircle2 },
   { id: "archive", title: "Archive", colorClass: "bg-[hsl(var(--lavender))]", icon: PauseCircle },
 ];
+
 const ARCHIVE_COLUMN_ID = "archive";
 const ALL_HOUSEHOLDS_VALUE = "__all_households__";
 const MAX_VISIBLE_TASKS_PER_COLUMN = 8;
 const TASK_CREATED_EVENT = "kanban-task-created";
-
 
 function toApiStatus(status) {
   if (status === "in-progress") return "in_progress";
@@ -77,7 +77,11 @@ function toApiStatus(status) {
   return status;
 }
 
-// Sortable task card
+function toDisplayDueDate(dateInputValue) {
+  if (!dateInputValue) return undefined;
+  return new Date(`${dateInputValue}T00:00:00`).toLocaleDateString();
+}
+
 const SortableTaskCard = ({ task, onToggleStatus, onClick }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id });
@@ -99,7 +103,7 @@ const SortableTaskCard = ({ task, onToggleStatus, onClick }) => {
         <div className="flex items-start gap-3">
           <div
             className="flex items-center gap-2 pt-0.5 flex-shrink-0"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
           >
             <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing touch-none">
               <GripVertical className="h-4 w-4 text-muted-foreground/50" />
@@ -114,8 +118,8 @@ const SortableTaskCard = ({ task, onToggleStatus, onClick }) => {
             <div className="flex items-center gap-2 flex-wrap">
               <span
                 className={`font-medium truncate ${task.status === "done"
-                  ? "line-through text-muted-foreground"
-                  : "text-foreground"
+                    ? "line-through text-muted-foreground"
+                    : "text-foreground"
                   }`}
               >
                 {task.title}
@@ -129,9 +133,7 @@ const SortableTaskCard = ({ task, onToggleStatus, onClick }) => {
             </div>
 
             {task.description ? (
-              <p className="text-sm text-muted-foreground mt-1 truncate">
-                {task.description}
-              </p>
+              <p className="text-sm text-muted-foreground mt-1 truncate">{task.description}</p>
             ) : null}
 
             <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground flex-wrap">
@@ -140,7 +142,9 @@ const SortableTaskCard = ({ task, onToggleStatus, onClick }) => {
               </span>
               <span className="truncate">{assigneeLabel}</span>
               {task.dueDate ? (
-                <span className={`flex-shrink-0 ${task.dueDate === "Today" ? "text-terracotta font-medium" : ""}`}>
+                <span
+                  className={`flex-shrink-0 ${task.dueDate === "Today" ? "text-terracotta font-medium" : ""}`}
+                >
                   {task.dueDate}
                 </span>
               ) : null}
@@ -152,7 +156,6 @@ const SortableTaskCard = ({ task, onToggleStatus, onClick }) => {
   );
 };
 
-// Overlay card while dragging
 const TaskOverlayCard = ({ task }) => (
   <div className="p-3 rounded-lg border bg-card shadow-xl ring-2 ring-primary/20 w-72">
     <div className="flex items-center gap-2">
@@ -164,7 +167,6 @@ const TaskOverlayCard = ({ task }) => (
   </div>
 );
 
-// Droppable column
 const DroppableColumn = ({
   id,
   title,
@@ -181,10 +183,7 @@ const DroppableColumn = ({
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
   const hasOverflow = tasks.length > MAX_VISIBLE_TASKS_PER_COLUMN;
-  const visibleTasks =
-    hasOverflow && !isExpanded
-      ? tasks.slice(0, MAX_VISIBLE_TASKS_PER_COLUMN)
-      : tasks;
+  const visibleTasks = hasOverflow && !isExpanded ? tasks.slice(0, MAX_VISIBLE_TASKS_PER_COLUMN) : tasks;
   const hiddenCount = tasks.length - visibleTasks.length;
 
   return (
@@ -200,7 +199,7 @@ const DroppableColumn = ({
       </CardHeader>
 
       <CardContent ref={setNodeRef} className="space-y-3 min-h-[60px]">
-        <SortableContext items={visibleTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext items={visibleTasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
           {visibleTasks.map((task) => (
             <SortableTaskCard
               key={task.id}
@@ -257,8 +256,10 @@ const Tasks = () => {
       return ALL_HOUSEHOLDS_VALUE;
     }
   });
+
   const selectedHouseholdFilter =
     selectedHouseholdId === ALL_HOUSEHOLDS_VALUE ? null : selectedHouseholdId;
+
   const { households } = useHousehold();
   const { tasks, setTasks, loading, error } = useTaskboardTasks(selectedHouseholdFilter);
 
@@ -270,12 +271,13 @@ const Tasks = () => {
   const [syncError, setSyncError] = useState(null);
   const [showArchive, setShowArchive] = useState(false);
   const [expandedColumns, setExpandedColumns] = useState({});
+
   const visibleColumns = showArchive
     ? columns
     : columns.filter((column) => column.id !== ARCHIVE_COLUMN_ID);
 
   const selectedTask = selectedTaskId
-    ? tasks.find((t) => t.id === selectedTaskId) || null
+    ? tasks.find((task) => task.id === selectedTaskId) || null
     : null;
 
   const toggleExpandedColumn = (columnId) => {
@@ -300,9 +302,11 @@ const Tasks = () => {
 
   useEffect(() => {
     if (!selectedHouseholdFilter) return;
+
     const selectedHousehold = (households || []).find(
       (household) => String(household.household_id) === selectedHouseholdFilter
     );
+
     if (!selectedHousehold) return;
     localStorage.setItem("household", JSON.stringify(selectedHousehold));
   }, [selectedHouseholdFilter, households]);
@@ -315,23 +319,27 @@ const Tasks = () => {
   const persistTaskStatus = async (taskId, nextStatus, rollbackTasks) => {
     try {
       await updateKanbanTaskStatus(taskId, toApiStatus(nextStatus));
-    } catch (e) {
+    } catch (syncException) {
       if (Array.isArray(rollbackTasks)) {
         setTasks(rollbackTasks);
       }
-      setSyncError(e);
+      setSyncError(syncException);
     }
   };
 
   const persistTaskOrder = async (columnStatus, orderedTaskIds, rollbackTasks) => {
     try {
       await updateKanbanTaskOrder(toApiStatus(columnStatus), orderedTaskIds);
-    } catch (e) {
+    } catch (syncException) {
       if (Array.isArray(rollbackTasks)) {
         setTasks(rollbackTasks);
       }
-      setSyncError(e);
+      setSyncError(syncException);
     }
+  };
+
+  const handleUpdateTaskDetails = (taskId, updates) => {
+    setTasks((prev) => prev.map((task) => (task.id === taskId ? { ...task, ...updates } : task)));
   };
 
   const handleToggleStatus = async (id) => {
@@ -341,14 +349,12 @@ const Tasks = () => {
     const rollbackTasks = tasks;
     const currentStatus = currentTask.status;
     const nextStatus = currentStatus === "done" ? "todo" : "done";
+
     setSyncError(null);
     setTasks((prev) =>
-      prev.map((task) =>
-        task.id === id
-          ? { ...task, status: nextStatus }
-          : task
-      )
+      prev.map((task) => (task.id === id ? { ...task, status: nextStatus } : task))
     );
+
     await persistTaskStatus(id, nextStatus, rollbackTasks);
   };
 
@@ -363,20 +369,23 @@ const Tasks = () => {
 
     try {
       await updateKanbanTaskStatus(taskId, toApiStatus(nextStatus));
-    } catch (e) {
+    } catch (syncException) {
       setTasks(rollbackTasks);
-      setSyncError(e);
+      setSyncError(syncException);
     }
   };
 
-  const handleAddTask = useCallback((newTask) => {
-    const taskHouseholdId = newTask?.householdId ? String(newTask.householdId) : null;
-    const shouldShowInCurrentView =
-      !selectedHouseholdFilter || taskHouseholdId === selectedHouseholdFilter;
+  const handleAddTask = useCallback(
+    (newTask) => {
+      const taskHouseholdId = newTask?.householdId ? String(newTask.householdId) : null;
+      const shouldShowInCurrentView =
+        !selectedHouseholdFilter || taskHouseholdId === selectedHouseholdFilter;
 
-    if (!shouldShowInCurrentView) return;
-    setTasks((prev) => [newTask, ...prev]);
-  }, [selectedHouseholdFilter, setTasks]);
+      if (!shouldShowInCurrentView) return;
+      setTasks((prev) => [newTask, ...prev]);
+    },
+    [selectedHouseholdFilter, setTasks]
+  );
 
   useEffect(() => {
     const handleTaskCreated = (event) => {
@@ -389,12 +398,6 @@ const Tasks = () => {
     return () => window.removeEventListener(TASK_CREATED_EVENT, handleTaskCreated);
   }, [handleAddTask]);
 
-  const handleUpdateTaskDetails = (taskId, updates) => {
-    setTasks((prev) =>
-      prev.map((task) => (task.id === taskId ? { ...task, ...updates } : task))
-    );
-  };
-
   const handleUpdateTaskPriority = async (taskId, nextPriority) => {
     const rollbackTasks = tasks;
     setSyncError(null);
@@ -403,9 +406,9 @@ const Tasks = () => {
 
     try {
       await updateKanbanTaskPriority(taskId, nextPriority);
-    } catch (e) {
+    } catch (syncException) {
       setTasks(rollbackTasks);
-      setSyncError(e);
+      setSyncError(syncException);
     }
   };
 
@@ -413,20 +416,19 @@ const Tasks = () => {
     const rollbackTasks = tasks;
     setSyncError(null);
 
-    const nextDueDate = dueDateInputValue
-      ? new Date(`${dueDateInputValue}T00:00:00`).toLocaleDateString()
-      : undefined;
-
-    handleUpdateTaskDetails(taskId, { dueDate: nextDueDate });
+    handleUpdateTaskDetails(taskId, {
+      dueDateValue: dueDateInputValue || null,
+      dueDate: toDisplayDueDate(dueDateInputValue),
+    });
 
     try {
       const dueDateIso = dueDateInputValue
         ? new Date(`${dueDateInputValue}T00:00:00`).toISOString()
         : null;
       await updateKanbanTaskDueDate(taskId, dueDateIso);
-    } catch (e) {
+    } catch (syncException) {
       setTasks(rollbackTasks);
-      setSyncError(e);
+      setSyncError(syncException);
     }
   };
 
@@ -438,9 +440,9 @@ const Tasks = () => {
 
     try {
       await updateKanbanTaskDescription(taskId, nextDescription || null);
-    } catch (e) {
+    } catch (syncException) {
       setTasks(rollbackTasks);
-      setSyncError(e);
+      setSyncError(syncException);
     }
   };
 
@@ -452,9 +454,9 @@ const Tasks = () => {
 
     try {
       await updateKanbanTaskName(taskId, nextTitle);
-    } catch (e) {
+    } catch (syncException) {
       setTasks(rollbackTasks);
-      setSyncError(e);
+      setSyncError(syncException);
     }
   };
 
@@ -469,9 +471,9 @@ const Tasks = () => {
 
     try {
       await updateKanbanTaskAssignee(taskId, assigneeId || null);
-    } catch (e) {
+    } catch (syncException) {
       setTasks(rollbackTasks);
-      setSyncError(e);
+      setSyncError(syncException);
     }
   };
 
@@ -483,9 +485,9 @@ const Tasks = () => {
 
     try {
       await updateKanbanTaskCategory(taskId, nextCategory || null);
-    } catch (e) {
+    } catch (syncException) {
       setTasks(rollbackTasks);
-      setSyncError(e);
+      setSyncError(syncException);
     }
   };
 
@@ -498,16 +500,15 @@ const Tasks = () => {
 
     try {
       await deleteKanbanTask(taskId);
-    } catch (e) {
+    } catch (syncException) {
       setTasks(rollbackTasks);
-      setSyncError(e);
+      setSyncError(syncException);
     }
   };
 
-
   const findColumnForTask = (taskId) => {
-    const t = tasks.find((x) => x.id === taskId);
-    return t ? t?.status : undefined;
+    const task = tasks.find((item) => item.id === taskId);
+    return task ? task.status : undefined;
   };
 
   const handleDragStart = (event) => {
@@ -525,14 +526,14 @@ const Tasks = () => {
     const activeTaskId = String(active.id);
     const overId = String(over.id);
 
-    const isOverColumn = visibleColumns.some((c) => c.id === overId);
+    const isOverColumn = visibleColumns.some((column) => column.id === overId);
     const targetColumn = isOverColumn ? overId : findColumnForTask(overId);
     if (!targetColumn) return;
 
     const activeColumn = findColumnForTask(activeTaskId);
     if (activeColumn !== targetColumn) {
       setTasks((prev) =>
-        prev.map((t) => (t.id === activeTaskId ? { ...t, status: targetColumn } : t))
+        prev.map((task) => (task.id === activeTaskId ? { ...task, status: targetColumn } : task))
       );
     }
   };
@@ -540,6 +541,7 @@ const Tasks = () => {
   const handleDragEnd = async (event) => {
     const { active, over } = event;
     setActiveId(null);
+
     if (!over) {
       if (Array.isArray(dragSnapshot)) {
         setTasks(dragSnapshot);
@@ -549,62 +551,55 @@ const Tasks = () => {
       return;
     }
 
-    const aId = String(active.id);
-    const oId = String(over.id);
+    const activeIdValue = String(active.id);
+    const overId = String(over.id);
 
-    const isOverColumn = visibleColumns.some((c) => c.id === oId);
-    const targetColumn = isOverColumn ? oId : findColumnForTask(oId);
-
-    const overColumn = isOverColumn ? oId : findColumnForTask(oId);
+    const isOverColumn = visibleColumns.some((column) => column.id === overId);
+    const targetColumn = isOverColumn ? overId : findColumnForTask(overId);
+    const overColumn = isOverColumn ? overId : findColumnForTask(overId);
     const movedAcrossColumns =
       Boolean(dragStartColumn) && Boolean(overColumn) && dragStartColumn !== overColumn;
 
-    // Reorder only when drag started and ended in the same column.
-    if (!movedAcrossColumns && !isOverColumn && aId !== oId) {
-      if (dragStartColumn) {
-        const columnTasks = tasks.filter((t) => t?.status === dragStartColumn);
-        const oldIndex = columnTasks.findIndex((t) => t.id === aId);
-        const newIndex = columnTasks.findIndex((t) => t.id === oId);
-        if (oldIndex !== -1 && newIndex !== -1) {
-          const reorderedColumnTasks = arrayMove(columnTasks, oldIndex, newIndex);
-          const orderedTaskIds = reorderedColumnTasks.map((task) => task.id);
+    if (!movedAcrossColumns && !isOverColumn && activeIdValue !== overId && dragStartColumn) {
+      const columnTasks = tasks.filter((task) => task.status === dragStartColumn);
+      const oldIndex = columnTasks.findIndex((task) => task.id === activeIdValue);
+      const newIndex = columnTasks.findIndex((task) => task.id === overId);
 
-          let reorderCursor = 0;
-          const nextTasks = tasks.map((task) => {
-            if (task?.status !== dragStartColumn) return task;
-            const reorderedTask = reorderedColumnTasks[reorderCursor];
-            reorderCursor += 1;
-            return reorderedTask;
-          });
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reorderedColumnTasks = arrayMove(columnTasks, oldIndex, newIndex);
+        const orderedTaskIds = reorderedColumnTasks.map((task) => task.id);
 
-          setTasks(nextTasks);
-          await persistTaskOrder(dragStartColumn, orderedTaskIds, dragSnapshot);
-        }
+        let reorderCursor = 0;
+        const nextTasks = tasks.map((task) => {
+          if (task.status !== dragStartColumn) return task;
+          const reorderedTask = reorderedColumnTasks[reorderCursor];
+          reorderCursor += 1;
+          return reorderedTask;
+        });
+
+        setTasks(nextTasks);
+        await persistTaskOrder(dragStartColumn, orderedTaskIds, dragSnapshot);
       }
     }
 
     if (movedAcrossColumns && targetColumn) {
-      await persistTaskStatus(aId, targetColumn, dragSnapshot);
+      await persistTaskStatus(activeIdValue, targetColumn, dragSnapshot);
     }
 
     setDragStartColumn(null);
     setDragSnapshot(null);
   };
 
-  const activeTask = tasks.find((t) => t.id === activeId);
+  const activeTask = tasks.find((task) => task.id === activeId);
 
   const getColumnTasks = (status) =>
     status === ARCHIVE_COLUMN_ID
-      ? tasks.filter((t) => t.status === ARCHIVE_COLUMN_ID)
-      : tasks.filter((t) => t.status === status);
-
+      ? tasks.filter((task) => task.status === ARCHIVE_COLUMN_ID)
+      : tasks.filter((task) => task.status === status);
 
   if (!Array.isArray(households) || households.length === 0) {
-    return (
-      <NoHouseholdState />
-    )
+    return <NoHouseholdState />;
   }
-
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -617,27 +612,18 @@ const Tasks = () => {
           <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
             <ListTodo className="h-7 w-7 text-primary" /> Tasks
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Drag tasks between columns to update status
-          </p>
-          {loading ? (
-            <p className="text-sm text-muted-foreground mt-2">Loading tasks…</p>
-          ) : null}
+          <p className="text-muted-foreground mt-1">Drag tasks between columns to update status</p>
+          {loading ? <p className="text-sm text-muted-foreground mt-2">Loading tasks…</p> : null}
           {error?.status === 401 ? (
-            <p className="text-sm text-red-600 mt-2">
-              Your session has expired. Please log in again.
-            </p>
+            <p className="text-sm text-red-600 mt-2">Your session has expired. Please log in again.</p>
           ) : error ? (
-            <p className="text-sm text-red-600 mt-2">
-              Couldn’t load tasks. Check console/network.
-            </p>
+            <p className="text-sm text-red-600 mt-2">Couldn’t load tasks. Check console/network.</p>
           ) : null}
           {syncError ? (
-            <p className="text-sm text-red-600 mt-2">
-              Couldn’t sync task changes. Changes were reverted.
-            </p>
+            <p className="text-sm text-red-600 mt-2">Couldn’t sync task changes. Changes were reverted.</p>
           ) : null}
         </div>
+
         <div className="w-full max-w-[280px]">
           <label htmlFor="tasks-household-filter" className="text-xs text-muted-foreground">
             Household view
@@ -656,7 +642,6 @@ const Tasks = () => {
             ))}
           </select>
         </div>
-
       </Motion.div>
 
       <DndContext
@@ -670,31 +655,28 @@ const Tasks = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className={`grid grid-cols-1 sm:grid-cols-2 ${showArchive ? "lg:grid-cols-4" : "lg:grid-cols-3"
-            } gap-4`}
+          className={`grid grid-cols-1 sm:grid-cols-2 ${showArchive ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-4`}
         >
-          {visibleColumns.map((col) => (
+          {visibleColumns.map((column) => (
             <DroppableColumn
-              key={col.id}
-              id={col.id}
-              title={col.title}
-              colorClass={col.colorClass}
-              tasks={getColumnTasks(col.id)}
-              isExpanded={Boolean(expandedColumns[col.id])}
-              onToggleExpand={() => toggleExpandedColumn(col.id)}
+              key={column.id}
+              id={column.id}
+              title={column.title}
+              colorClass={column.colorClass}
+              tasks={getColumnTasks(column.id)}
+              isExpanded={Boolean(expandedColumns[column.id])}
+              onToggleExpand={() => toggleExpandedColumn(column.id)}
               onToggleStatus={handleToggleStatus}
               onClickTask={(task) => setSelectedTaskId(task?.id ?? null)}
-              onAddTask={col.id === "todo" ? () => setIsAddDialogOpen(true) : undefined}
-              showArchiveButton={col.id === "done"}
+              onAddTask={column.id === "todo" ? () => setIsAddDialogOpen(true) : undefined}
+              showArchiveButton={column.id === "done"}
               isArchiveVisible={showArchive}
               onToggleArchive={() => setShowArchive((prev) => !prev)}
             />
           ))}
         </Motion.div>
 
-        <DragOverlay>
-          {activeTask ? <TaskOverlayCard task={activeTask} /> : null}
-        </DragOverlay>
+        <DragOverlay>{activeTask ? <TaskOverlayCard task={activeTask} /> : null}</DragOverlay>
       </DndContext>
 
       <AddTaskDialog

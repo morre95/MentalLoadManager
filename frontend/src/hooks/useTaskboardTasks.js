@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fetchKanbanTasks, isUserLoggedIn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -9,49 +9,59 @@ export function useTaskboardTasks(householdId) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const loadTasks = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    if (!isUserLoggedIn()) {
+      setTasks([]);
+      setLoading(false);
+      return [];
+    }
+
+    try {
+      const data = await fetchKanbanTasks(householdId || undefined);
+      const uiTasks = Array.isArray(data?.tasks) ? data.tasks : [];
+      setTasks(uiTasks);
+      return uiTasks;
+    } catch (err) {
+      if (err?.status === 401) {
+        navigate("/login", { replace: true });
+        return [];
+      }
+
+      setError(err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [navigate, householdId]);
+
   useEffect(() => {
     let alive = true;
 
-    async function load() {
-      setLoading(true);
-      setError(null);
-
-      if (!isUserLoggedIn()) {
-        if (alive) {
-          setTasks([]);
-          setLoading(false);
-        }
-        return;
-      }
-
+    async function run() {
       try {
-        const data = await fetchKanbanTasks(householdId || undefined);
-        const uiTasks = Array.isArray(data?.tasks) ? data.tasks : [];
-        if (alive) {
-          setTasks(uiTasks);
-        }
-      } catch (err) {
-        if (alive) {
-          if (err?.status === 401) {
-            navigate("/login", { replace: true });
-            return;
-          }
-
-          setError(err);
-        }
-      }
-
-      if (alive) {
-        setLoading(false);
+        const nextTasks = await loadTasks();
+        if (!alive) return;
+        setTasks(nextTasks);
+      } catch {
+        if (!alive) return;
       }
     }
 
-    load();
+    run();
 
     return () => {
       alive = false;
     };
-  }, [navigate, householdId]);
+  }, [loadTasks]);
 
-  return { tasks, setTasks, loading, error };
+  return {
+    tasks,
+    setTasks,
+    loading,
+    error,
+    refreshTasks: loadTasks,
+  };
 }

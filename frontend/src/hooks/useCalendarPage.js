@@ -16,28 +16,46 @@ const apiClient = createApiClient({
 const PALETTE = ["terracotta", "sage", "lavender", "sky"];
 
 function stableHash(str) {
-    let h = 0;
-    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
-    return h;
+    let hash = 0;
+    for (let index = 0; index < str.length; index += 1) {
+        hash = (hash * 31 + str.charCodeAt(index)) >>> 0;
+    }
+    return hash;
 }
 
 function householdColor(householdId) {
     if (!householdId) return "sage";
-    return PALETTE[stableHash(householdId) % PALETTE.length];
+    return PALETTE[stableHash(String(householdId)) % PALETTE.length];
 }
 
-function normalizeUiEvent(e) {
-    const dateObj = e?.date ? parseISO(e.date) : null;
+function normalizeUiEvent(event) {
+    const dateObj = event?.date ? parseISO(event.date) : null;
+
     return {
-        id: e?.id ?? "",
-        title: e?.title ?? "",
-        dateStr: e?.date ?? null, // YYYY-MM-DD
-        date: dateObj, // Date
-        householdId: e?.household_id ?? null,
-        householdName: e?.household_name || "",
-        color: householdColor(e?.household_id),
-        type: "task",
+        id: event?.id ?? "",
+        title: event?.title ?? "",
+        dateStr: event?.date ?? null,
+        date: dateObj,
+        householdId: event?.household_id ?? null,
+        householdName: event?.household_name || "",
+        color: householdColor(event?.household_id),
+        type: event?.type ?? "task",
     };
+}
+
+function buildEventsByDayKey(events) {
+    const map = new Map();
+
+    for (const event of events) {
+        const key = event.dateStr;
+        if (!key) continue;
+
+        const existing = map.get(key) || [];
+        existing.push(event);
+        map.set(key, existing);
+    }
+
+    return map;
 }
 
 export function useCalendarPage() {
@@ -45,21 +63,31 @@ export function useCalendarPage() {
     const [rangePayload, setRangePayload] = useState(null);
     const [loadingMonth, setLoadingMonth] = useState(false);
     const [loadingWeek, setLoadingWeek] = useState(false);
-    const [error, setError] = useState(null);
+    const [monthError, setMonthError] = useState(null);
+    const [weekError, setWeekError] = useState(null);
 
-    // Prevent re-fetching the same week range repeatedly
     const lastWeekRangeKeyRef = useRef(null);
+    const lastMonthKeyRef = useRef(null);
 
-    const loadMonth = useCallback(async (dateObj) => {
+    const loadMonth = useCallback(async (dateObj, options = {}) => {
+        const { force = false } = options;
+        const year = dateObj.getFullYear();
+        const month = dateObj.getMonth() + 1;
+        const key = `${year}-${String(month).padStart(2, "0")}`;
+
+        if (!force && lastMonthKeyRef.current === key) return;
+        lastMonthKeyRef.current = key;
+
         setLoadingMonth(true);
-        setError(null);
+        setMonthError(null);
+
         try {
-            const year = dateObj.getFullYear();
-            const month = dateObj.getMonth() + 1;
             const data = await fetchCalendarMonth(apiClient, year, month);
             setMonthPayload(data);
-        } catch (err) {
-            setError(err);
+            return data;
+        } catch (error) {
+            setMonthError(error);
+            throw error;
         } finally {
             setLoadingMonth(false);
         }
@@ -67,25 +95,28 @@ export function useCalendarPage() {
 
     const loadRange = useCallback(async (fromDateStr, toDateStr) => {
         setLoadingWeek(true);
-        setError(null);
+        setWeekError(null);
+
         try {
             const data = await fetchCalendarRange(apiClient, fromDateStr, toDateStr);
             setRangePayload(data);
-        } catch (err) {
-            setError(err);
+            return data;
+        } catch (error) {
+            setWeekError(error);
+            throw error;
         } finally {
             setLoadingWeek(false);
         }
     }, []);
 
-    // ✅ stable function identity (won’t change every render)
     const loadWeekRange = useCallback(
-        async (weekStart, weekEnd) => {
+        async (weekStart, weekEnd, options = {}) => {
+            const { force = false } = options;
             const from = format(weekStart, "yyyy-MM-dd");
             const to = format(weekEnd, "yyyy-MM-dd");
             const key = `${from}:${to}`;
 
-            if (lastWeekRangeKeyRef.current === key) return; // already loaded this exact range
+            if (!force && lastWeekRangeKeyRef.current === key) return;
             lastWeekRangeKeyRef.current = key;
 
             return loadRange(from, to);
@@ -95,38 +126,30 @@ export function useCalendarPage() {
 
     const monthEvents = useMemo(() => {
         const raw = Array.isArray(monthPayload?.events) ? monthPayload.events : [];
-        return raw.map(normalizeUiEvent).filter((e) => e.date);
+        return raw.map(normalizeUiEvent).filter((event) => event.date);
     }, [monthPayload]);
 
     const rangeEvents = useMemo(() => {
         const raw = Array.isArray(rangePayload?.events) ? rangePayload.events : [];
-        return raw.map(normalizeUiEvent).filter((e) => e.date);
+        return raw.map(normalizeUiEvent).filter((event) => event.date);
     }, [rangePayload]);
 
-    const eventsByDayKey = useMemo(() => {
-        const map = new Map();
-        for (const e of monthEvents) {
-            const k = e.dateStr;
-            if (!k) continue;
-            const list = map.get(k) || [];
-            list.push(e);
-            map.set(k, list);
-        }
-        return map;
-    }, [monthEvents]);
+    const monthEventsByDayKey = useMemo(() => buildEventsByDayKey(monthEvents), [monthEvents]);
+    const rangeEventsByDayKey = useMemo(() => buildEventsByDayKey(rangeEvents), [rangeEvents]);
 
     return {
         monthPayload,
         rangePayload,
-
         monthEvents,
         weekEvents: rangeEvents,
-        eventsByDayKey,
-
+        monthEventsByDayKey,
+        rangeEventsByDayKey,
+        eventsByDayKey: monthEventsByDayKey,
         loadingMonth,
         loadingWeek,
-        error,
-
+        monthError,
+        weekError,
+        error: monthError || weekError,
         loadMonth,
         loadWeekRange,
     };
