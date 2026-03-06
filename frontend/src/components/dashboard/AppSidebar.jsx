@@ -15,10 +15,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import {
-  clearAuth,
-  getUserFromLocalStorage,
   getInitials,
 } from "@/lib/utils";
+import { clearAuth, getUserFromLocalStorage } from "@/lib/auth";
 
 
 import {

@@ -8,7 +8,8 @@ import {
     transferHouseholdOwnership,
     updateHouseholdMemberRole,
 } from "@/hooks/useHouseHold";
-import { acceptHouseholdInvite, getUserFromLocalStorage } from "@/lib/utils";
+import { getUserFromLocalStorage } from "@/lib/auth";
+import { acceptHouseholdInvite } from "@/lib/utils";
 
 
 export function useHouseholdPage() {

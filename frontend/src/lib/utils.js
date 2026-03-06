@@ -1,6 +1,14 @@
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import {
+  clearAuth,
+  getAccessToken,
+  getRefreshToken,
+  getUserFromLocalStorage,
+  saveUserToLocalStorage,
+  setAuthTokens,
+} from "./auth";
+import {
   acceptHouseholdInvite as sharedAcceptHouseholdInvite,
   createKanbanTask as sharedCreateKanbanTask,
   createHouseholdCategory as sharedCreateHouseholdCategory,
@@ -33,92 +41,11 @@ export function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
 
-export function getAccessToken() {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("access_token");
-}
-
-export function getRefreshToken() {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("refresh_token");
-}
-
 function getHouseholdIdFromStoredValue(value) {
   const householdId = value?.household_id ?? value?.id ?? value;
   return householdId ? String(householdId) : null;
 }
 
-export function setAuthToken(token, refreshToken = null) {
-  localStorage.setItem("access_token", token);
-  if (refreshToken) {
-    localStorage.setItem("refresh_token", refreshToken);
-  } else {
-    localStorage.removeItem("refresh_token");
-  }
-  localStorage.removeItem("token");
-  localStorage.removeItem("auth_token");
-}
-
-export async function setAuthTokens(tokens) {
-  const accessToken = tokens?.accessToken;
-  if (accessToken) {
-    localStorage.setItem("access_token", accessToken);
-  }
-
-  if (tokens?.refreshToken) {
-    localStorage.setItem("refresh_token", tokens.refreshToken);
-  }
-}
-
-export function clearAuth() {
-  localStorage.removeItem("access_token");
-  localStorage.removeItem("refresh_token");
-  localStorage.removeItem("token");
-  localStorage.removeItem("auth_token");
-  localStorage.removeItem("username");
-  localStorage.removeItem("email");
-  localStorage.removeItem("household_members");
-  localStorage.removeItem("households");
-  localStorage.removeItem("household");
-  localStorage.removeItem("display_name");
-}
-
-export function isUserLoggedIn() {
-  return Boolean(getAccessToken());
-}
-
-export function getUserFromLocalStorage() {
-  if (typeof window === "undefined") return null;
-
-  return {
-    username: localStorage.getItem("username"),
-    email: localStorage.getItem("email"),
-    display_name: localStorage.getItem("display_name"),
-  };
-}
-
-export function saveUserToLocalStorage(user) {
-  if (!user) return;
-  if (user.username != null) {
-    localStorage.setItem("username", user.username);
-  }
-
-  if (user.email != null && user.email !== "") {
-    localStorage.setItem("email", user.email);
-  } else {
-    localStorage.removeItem("email");
-  }
-
-  if (user.display_name != null && user.display_name !== "") {
-    localStorage.setItem("display_name", user.display_name);
-  } else {
-    localStorage.removeItem("display_name");
-  }
-
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("user:changed"));
-  }
-}
 
 export const apiClient = createApiClient({
   getAccessToken,

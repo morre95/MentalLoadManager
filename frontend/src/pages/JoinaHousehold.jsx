@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { acceptHouseholdInvite, isUserLoggedIn } from "@/lib/utils";
+import { isUserLoggedIn } from "@/lib/auth";
+import { acceptHouseholdInvite } from "@/lib/utils";
 
 function useQuery() {
     return new URLSearchParams(useLocation().search);

@@ -32,6 +32,10 @@ class Categories(Base):
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
 
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=text("NOW()")
+    )
+
     household: Mapped[Households] = relationship(
         "Households", back_populates="categories"
     )

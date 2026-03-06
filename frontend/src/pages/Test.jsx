@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 import { GET_API_BASE_URL } from "../components/ui/base_url";
 
 import {
-  getToken,
-  setToken,
-  clearToken,
+  getAccessToken,
+  setAuthToken,
+  clearAuth,
   readTokenFromHashAndCleanUrl,
 } from "../lib/auth";
 
@@ -35,12 +35,12 @@ function Test() {
   useEffect(() => {
     const hashToken = readTokenFromHashAndCleanUrl();
     if (hashToken) {
-      setToken(hashToken);
+      setAuthToken(hashToken);
       setTokenState(hashToken);
       return;
     }
 
-    const stored = getToken();
+    const stored = getAccessToken();
     if (stored) setTokenState(stored);
   }, []);
 
@@ -67,7 +67,7 @@ function Test() {
       }
 
       const data = await res.json();
-      setToken(data.access_token);
+      setAuthToken(data.access_token);
       setTokenState(data.access_token);
       return data.access_token;
     } catch (err) {
@@ -84,7 +84,7 @@ function Test() {
   };
 
   const fetchMe = async (overrideToken) => {
-    const t = overrideToken || token || getToken();
+    const t = overrideToken || token || getAccessToken();
     if (!t) {
       setAuthError("No token available. Login first.");
       return;
@@ -121,9 +121,7 @@ function Test() {
   };
 
   const logout = () => {
-    clearToken();
-    localStorage.removeItem("username");
-    localStorage.removeItem("email");
+    clearAuth();
     setTokenState(null);
     setCurrentUser(null);
     setAuthError(null);

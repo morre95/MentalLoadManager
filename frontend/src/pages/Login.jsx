@@ -9,7 +9,8 @@ import { Separator } from "@/components/ui/separator";
 import { Link, useNavigate } from "react-router-dom";
 
 import { GET_API_BASE_URL } from "@/components/ui/base_url";
-import { setAuthToken, fetchMe } from "@/lib/utils";
+import { setAuthToken } from "@/lib/auth";
+import { fetchMe } from "@/lib/utils";
 
 const API_BASE_URL = GET_API_BASE_URL();
 

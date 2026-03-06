@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { fetchKanbanTasks, isUserLoggedIn } from "@/lib/utils";
+import { isUserLoggedIn } from "@/lib/auth";
+import { fetchKanbanTasks } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 export function useTaskboardTasks(householdId) {
