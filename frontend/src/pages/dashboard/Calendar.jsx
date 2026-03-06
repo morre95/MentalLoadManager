@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,7 @@ const eventColorClasses = {
     sky: "bg-sky-light text-sky border-sky/30",
     "status-todo": "bg-status-todo/15 text-status-todo border-status-todo/30",
 };
+const ALL_HOUSEHOLDS_FILTER = "__all_households__";
 
 function toApiStatus(status) {
     if (status === "in-progress") return "in_progress";
@@ -83,6 +84,7 @@ const Calendar = () => {
     const [draggedTaskId, setDraggedTaskId] = useState(null);
     const [dragOverDayKey, setDragOverDayKey] = useState(null);
     const [syncError, setSyncError] = useState(null);
+    const [selectedHouseholdFilter, setSelectedHouseholdFilter] = useState(ALL_HOUSEHOLDS_FILTER);
 
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
@@ -159,14 +161,28 @@ const Calendar = () => {
         });
     }, [view, selectedDate]);
 
+    const activeHouseholdFilter = useMemo(() => {
+        if (selectedHouseholdFilter === ALL_HOUSEHOLDS_FILTER) return ALL_HOUSEHOLDS_FILTER;
+        const exists = (households || []).some((household) => {
+            const householdId = household?.household_id ?? household?.id;
+            return String(householdId) === selectedHouseholdFilter;
+        });
+        return exists ? selectedHouseholdFilter : ALL_HOUSEHOLDS_FILTER;
+    }, [households, selectedHouseholdFilter]);
+
+    const isEventVisibleForFilter = useCallback((event) => {
+        if (activeHouseholdFilter === ALL_HOUSEHOLDS_FILTER) return true;
+        return String(event?.householdId || "") === activeHouseholdFilter;
+    }, [activeHouseholdFilter]);
+
     const getEventsForDate = (date) => {
         const key = format(date, "yyyy-MM-dd");
+        const sourceEvents =
+            view === "week" || view === "day"
+                ? rangeEventsByDayKey.get(key) || []
+                : monthEventsByDayKey.get(key) || [];
 
-        if (view === "week" || view === "day") {
-            return rangeEventsByDayKey.get(key) || [];
-        }
-
-        return monthEventsByDayKey.get(key) || [];
+        return sourceEvents.filter(isEventVisibleForFilter);
     };
 
     const handleUpdateTaskStatus = async (taskId, nextStatus) => {
@@ -390,8 +406,9 @@ const Calendar = () => {
                             : "hover:bg-muted"
                     } ${!isInRange ? "opacity-40" : ""} ${isDragTarget ? "ring-2 ring-primary/60 bg-primary/10" : ""
                     }`}
-                whileHover={{ scale: 1.02 }}
+                whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
             >
                 <span className={`text-sm font-medium ${!isInRange ? "text-muted-foreground/50" : ""}`}>
                     {format(day, "d")}
@@ -457,8 +474,27 @@ const Calendar = () => {
     };
 
     const upcomingThisWeek = useMemo(() => {
-        return [...weekEvents].sort((a, b) => a.date - b.date);
-    }, [weekEvents]);
+        return [...weekEvents]
+            .filter(isEventVisibleForFilter)
+            .sort((a, b) => a.date - b.date);
+    }, [weekEvents, isEventVisibleForFilter]);
+    const weeklyInsight = useMemo(() => {
+        const count = upcomingThisWeek.length;
+        if (count === 0) {
+            return "You have no tasks due this week.";
+        }
+
+        const dayCounts = new Map();
+        for (const event of upcomingThisWeek) {
+            const key = format(event.date, "EEEE");
+            dayCounts.set(key, (dayCounts.get(key) || 0) + 1);
+        }
+
+        const busiest = Array.from(dayCounts.entries()).sort((a, b) => b[1] - a[1])[0];
+        const busiestDay = busiest?.[0] || "this week";
+
+        return `You have ${count} task${count === 1 ? "" : "s"} due this week. ${busiestDay} is your busiest day.`;
+    }, [upcomingThisWeek]);
     const overdueEvents = useMemo(() => {
         const allMonthEvents = [];
         monthEventsByDayKey.forEach((events) => {
@@ -466,9 +502,18 @@ const Calendar = () => {
         });
 
         return allMonthEvents
+            .filter(isEventVisibleForFilter)
             .filter((event) => isBefore(startOfDay(event.date), todayStart))
             .sort((a, b) => a.date - b.date);
-    }, [monthEventsByDayKey, todayStart]);
+    }, [monthEventsByDayKey, todayStart, isEventVisibleForFilter]);
+    const weeklyLoadCount = upcomingThisWeek.length;
+    const weeklyLoadColorClass =
+        weeklyLoadCount <= 3
+            ? "bg-sage"
+            : weeklyLoadCount <= 6
+                ? "bg-status-todo"
+                : "bg-terracotta";
+    const weeklyLoadFillPercent = Math.min(100, Math.round((weeklyLoadCount / 10) * 100));
     const householdLegend = useMemo(() => {
         const list = Array.isArray(households) ? households : [];
         const used = new Set();
@@ -534,20 +579,51 @@ const Calendar = () => {
 
             {householdLegend.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setSelectedHouseholdFilter(ALL_HOUSEHOLDS_FILTER)}
+                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs transition-colors ${
+                            activeHouseholdFilter === ALL_HOUSEHOLDS_FILTER
+                                ? "border-primary bg-primary/10 text-foreground"
+                                : "border-border bg-card text-foreground hover:bg-muted"
+                        }`}
+                    >
+                        <span className="h-2.5 w-2.5 rounded-full bg-foreground/70" />
+                        <span>All</span>
+                    </button>
                     {householdLegend.map((household) => (
-                        <div
+                        <button
                             key={household.id}
-                            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs"
+                            type="button"
+                            onClick={() => setSelectedHouseholdFilter(household.id)}
+                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs transition-colors ${
+                                activeHouseholdFilter === household.id
+                                    ? "border-primary bg-primary/10 text-foreground"
+                                    : "border-border bg-card text-foreground hover:bg-muted"
+                            }`}
                         >
                             <span
                                 className="h-2.5 w-2.5 rounded-full"
                                 style={{ backgroundColor: `hsl(var(--${household.color}))` }}
                             />
                             <span className="text-foreground">{household.name}</span>
-                        </div>
+                        </button>
                     ))}
                 </div>
             ) : null}
+
+            <div className="rounded-xl border border-border bg-card px-4 py-3">
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                    <span className="text-foreground font-medium">This week load:</span>
+                    <div className="h-2.5 w-40 rounded-full bg-muted overflow-hidden">
+                        <div
+                            className={`h-full transition-all duration-300 ${weeklyLoadColorClass}`}
+                            style={{ width: `${weeklyLoadFillPercent}%` }}
+                        />
+                    </div>
+                    <span className="text-muted-foreground">{weeklyLoadCount} tasks</span>
+                </div>
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <motion.div
@@ -694,6 +770,10 @@ const Calendar = () => {
                                     <p className="text-muted-foreground">No tasks due</p>
                                 </div>
                             )}
+
+                            <div className="mt-6">
+                                <p className="text-sm text-muted-foreground">{weeklyInsight}</p>
+                            </div>
 
                             <div className="mt-6">
                                 <h4 className="font-medium text-foreground mb-3">Overdue</h4>
