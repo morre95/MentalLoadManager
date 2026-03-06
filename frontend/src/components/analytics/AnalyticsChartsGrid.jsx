@@ -7,6 +7,7 @@ import CategoryChart from "@/components/analytics/charts/CategoryChart";
 import LoadTrendChart from "@/components/analytics/charts/LoadTrendChart";
 import CompletionChart from "@/components/analytics/charts/CompletionChart";
 import RadarChart from "@/components/analytics/charts/RadarChart";
+import MomentumChart from "@/components/analytics/charts/MomentumChart";
 
 export default function AnalyticsChartsGrid({ vm }) {
     const {
@@ -185,6 +186,32 @@ export default function AnalyticsChartsGrid({ vm }) {
                             personColorMap={personColorMap}
                             getDisplayNameFromUsername={getDisplayNameFromUsername}
                         />
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Momentum */}
+            {activeChartIds.includes("momentum") && (
+                <Card className="min-w-0">
+                    <CardHeader className="flex flex-row items-start justify-between gap-3">
+                        <div className="space-y-1">
+                            <CardTitle>Completion Momentum</CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Last 7 points completion rate to quickly spot consistency.
+                            </p>
+                        </div>
+
+                        <CardActions
+                            chartId="momentum"
+                            title="Completion Momentum"
+                            onExpand={setExpandedChartId}
+                            onDownload={handleDownloadChartData}
+                            onHide={handleToggleChart}
+                        />
+                    </CardHeader>
+
+                    <CardContent className="min-w-0">
+                        <MomentumChart data={completionData} meta={chartMetaById.get("momentum")} />
                     </CardContent>
                 </Card>
             )}

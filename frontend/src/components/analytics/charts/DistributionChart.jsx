@@ -9,7 +9,6 @@ import {
 
 import ChartFrame from "@/components/analytics/ChartFrame";
 import PeopleLegend from "@/components/analytics/PeopleLegend";
-import ChartLegend from "@/components/analytics/ChartLegend";
 
 const tooltipStyle = {
     backgroundColor: "hsl(var(--card))",
@@ -28,7 +27,7 @@ export default function DistributionChart({
 }) {
 
     const isEmpty = !data || data.length === 0;
-    
+
     return (
         <div className="min-w-0">
             <ChartFrame

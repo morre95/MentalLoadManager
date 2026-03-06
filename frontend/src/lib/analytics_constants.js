@@ -40,6 +40,13 @@ export const CHARTS = [
         emptyTitle: "Not enough category signal yet",
         emptyHint: "Use categories + assign people to build expertise map",
     },
+    {
+        id: "momentum",
+        title: "Completion Momentum",
+        desc: "Last 7 points completion rate to quickly spot consistency.",
+        emptyTitle: "No completion signal in this timeframe",
+        emptyHint: "Complete tasks to reveal completion momentum",
+    },
 ];
 
 export const DEFAULT_ACTIVE_CHART_IDS = [
@@ -48,4 +55,5 @@ export const DEFAULT_ACTIVE_CHART_IDS = [
     "load-trend",
     "completion",
     "radar",
+    "momentum",
 ];

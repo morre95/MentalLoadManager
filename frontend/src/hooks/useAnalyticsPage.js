@@ -210,6 +210,21 @@ export function useAnalyticsPage() {
             if (chartId === "load-trend") rows = loadTrendData || [];
             if (chartId === "completion") rows = completionData || [];
             if (chartId === "radar") rows = radarData || [];
+            if (chartId === "momentum") {
+                rows = (completionData || []).slice(-7).map((point) => {
+                    const completed = safeNumber(point && point.completed) ?? 0;
+                    const pending = safeNumber(point && point.pending) ?? 0;
+                    const total = completed + pending;
+                    const completionRate = total > 0 ? Number(((completed / total) * 100).toFixed(1)) : 0;
+                    return {
+                        day: (point && point.day) || "Day",
+                        completed,
+                        pending,
+                        total,
+                        completionRate,
+                    };
+                });
+            }
 
             const csv = toCsv(rows);
             if (!csv) {

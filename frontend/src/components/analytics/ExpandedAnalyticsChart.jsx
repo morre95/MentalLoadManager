@@ -7,6 +7,7 @@ import CategoryChart from "@/components/analytics/charts/CategoryChart";
 import LoadTrendChart from "@/components/analytics/charts/LoadTrendChart";
 import CompletionChart from "@/components/analytics/charts/CompletionChart";
 import RadarChart from "@/components/analytics/charts/RadarChart";
+import MomentumChart from "@/components/analytics/charts/MomentumChart";
 
 export default function ExpandedAnalyticsChart({ vm }) {
     const {
@@ -97,6 +98,16 @@ export default function ExpandedAnalyticsChart({ vm }) {
                     outerRadius="70%"
                     cy="48%"
                     legendLayout="grid"
+                />
+            );
+        }
+
+        if (expandedChartId === "momentum") {
+            return (
+                <MomentumChart
+                    data={completionData}
+                    meta={chartMetaById.get("momentum")}
+                    height={360}
                 />
             );
         }
