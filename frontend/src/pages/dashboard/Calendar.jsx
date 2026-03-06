@@ -365,7 +365,6 @@ const Calendar = () => {
         const dayEvents = getEventsForDate(day);
         const isSelected = selectedDate && isSameDay(day, selectedDate);
         const isCurrentDay = isToday(day);
-        const isOverdueDay = dayEvents.length > 0 && isBefore(startOfDay(day), todayStart);
         const dayKey = format(day, "yyyy-MM-dd");
         const isDragTarget = draggedTaskId && dragOverDayKey === dayKey;
         const isDayView = view === "day";
@@ -389,8 +388,7 @@ const Calendar = () => {
                         : isCurrentDay
                             ? "bg-sage-light"
                             : "hover:bg-muted"
-                    } ${!isInRange ? "opacity-40" : ""} ${!isSelected && isOverdueDay ? "ring-1 ring-terracotta/40" : ""
-                    } ${isDragTarget ? "ring-2 ring-primary/60 bg-primary/10" : ""
+                    } ${!isInRange ? "opacity-40" : ""} ${isDragTarget ? "ring-2 ring-primary/60 bg-primary/10" : ""
                     }`}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -455,6 +453,16 @@ const Calendar = () => {
     const upcomingThisWeek = useMemo(() => {
         return [...weekEvents].sort((a, b) => a.date - b.date);
     }, [weekEvents]);
+    const overdueEvents = useMemo(() => {
+        const allMonthEvents = [];
+        monthEventsByDayKey.forEach((events) => {
+            allMonthEvents.push(...events);
+        });
+
+        return allMonthEvents
+            .filter((event) => isBefore(startOfDay(event.date), todayStart))
+            .sort((a, b) => a.date - b.date);
+    }, [monthEventsByDayKey, todayStart]);
     const householdLegend = useMemo(() => {
         const list = Array.isArray(households) ? households : [];
         const used = new Set();
@@ -632,7 +640,6 @@ const Calendar = () => {
                             {selectedDateEvents.length > 0 ? (
                                 <div className="space-y-3">
                                     {selectedDateEvents.map((event) => {
-                                        const overdue = isBefore(startOfDay(event.date), todayStart);
                                         const linkedTask = findTaskByEvent(event);
                                         const category = linkedTask?.category || "Other";
 
@@ -653,8 +660,7 @@ const Calendar = () => {
                                                         openTaskDialogFromEvent(event);
                                                     }
                                                 }}
-                                                className={`p-3 rounded-lg border ${eventColorClasses[event.color]} ${overdue ? "ring-1 ring-terracotta/40" : ""
-                                                    } cursor-pointer`}
+                                                className={`p-3 rounded-lg border ${eventColorClasses[event.color]} cursor-pointer`}
                                             >
                                                 <div className="flex items-center justify-between gap-3">
                                                     <div className="min-w-0">
@@ -669,7 +675,7 @@ const Calendar = () => {
                                                         ) : null}
                                                     </div>
                                                     <Badge variant="outline" className="text-xs capitalize shrink-0">
-                                                        {overdue ? "overdue" : event.type}
+                                                        {event.type}
                                                     </Badge>
                                                 </div>
                                             </motion.div>
@@ -682,6 +688,55 @@ const Calendar = () => {
                                     <p className="text-muted-foreground">No tasks due</p>
                                 </div>
                             )}
+
+                            <div className="mt-6">
+                                <h4 className="font-medium text-foreground mb-3">Overdue</h4>
+
+                                <div className="space-y-2">
+                                    {overdueEvents.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground">No overdue tasks.</p>
+                                    ) : (
+                                        overdueEvents.slice(0, 6).map((event) => (
+                                            <motion.div
+                                                key={`overdue-${event.id}`}
+                                                role="button"
+                                                tabIndex={0}
+                                                whileHover={{ scale: 1.02 }}
+                                                whileTap={{ scale: 0.98 }}
+                                                onClick={() => {
+                                                    setSelectedDate(event.date);
+                                                    setCurrentWeek(event.date);
+                                                    setCurrentMonth(event.date);
+                                                    openTaskDialogFromEvent(event);
+                                                }}
+                                                onKeyDown={(keyboardEvent) => {
+                                                    if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                                                        keyboardEvent.preventDefault();
+                                                        setSelectedDate(event.date);
+                                                        setCurrentWeek(event.date);
+                                                        setCurrentMonth(event.date);
+                                                        openTaskDialogFromEvent(event);
+                                                    }
+                                                }}
+                                                className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                                            >
+                                                <div
+                                                    className="w-2 h-2 rounded-full flex-shrink-0"
+                                                    style={{ backgroundColor: `hsl(var(--${event.color}))` }}
+                                                    title={event.householdName}
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-foreground truncate">{event.title}</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {format(event.date, "MMM d")}
+                                                        {event.householdName ? ` • ${event.householdName}` : ""}
+                                                    </p>
+                                                </div>
+                                            </motion.div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
 
                             <div className="mt-6">
                                 <h4 className="font-medium text-foreground mb-3 flex items-center justify-between">
