@@ -43,6 +43,7 @@ const AddTaskDialog = ({
     onAddTask,
     householdId,
     households = [],
+    initialDueDate = "",
 }) => {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
@@ -164,6 +165,11 @@ const AddTaskDialog = ({
         loadAssignees();
     }, [open, selectedHouseholdId]);
 
+    useEffect(() => {
+        if (!open) return;
+        setDueDate(initialDueDate || "");
+    }, [open, initialDueDate]);
+
     const handleSubmit = async () => {
         if (!title.trim()) return;
         setSubmitError("");
@@ -211,6 +217,7 @@ const AddTaskDialog = ({
                 assigneeId: assigneeId || undefined,
                 assigneeLabel,
                 category: finalCategory,
+                dueDateValue: dueDate || null,
                 dueDate: dueDate ? new Date(dueDateIso).toLocaleDateString() : "",
             };
 

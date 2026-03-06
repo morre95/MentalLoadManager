@@ -27,10 +27,12 @@ import {
 
 import { useCalendarPage } from "@/hooks/useCalendarPage";
 import TaskDetailDialog from "@/components/tasks/TaskDetailDialog";
+import AddTaskDialog from "@/components/tasks/AddTaskDialog";
 import { useTaskboardTasks } from "@/hooks/useTaskboardTasks";
 import { useHousehold } from "@/hooks/useHouseHold";
 import {
     deleteKanbanTask,
+    fetchMe,
     updateKanbanTaskAssignee,
     updateKanbanTaskCategory,
     updateKanbanTaskDescription,
@@ -47,6 +49,7 @@ const eventColorClasses = {
     "status-todo": "bg-status-todo/15 text-status-todo border-status-todo/30",
 };
 const ALL_HOUSEHOLDS_FILTER = "__all_households__";
+const TASK_UPDATED_EVENT = "kanban-task-updated";
 
 function toApiStatus(status) {
     if (status === "in-progress") return "in_progress";
@@ -85,6 +88,10 @@ const Calendar = () => {
     const [dragOverDayKey, setDragOverDayKey] = useState(null);
     const [syncError, setSyncError] = useState(null);
     const [selectedHouseholdFilter, setSelectedHouseholdFilter] = useState(ALL_HOUSEHOLDS_FILTER);
+    const [showMyTasksOnly, setShowMyTasksOnly] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState(null);
+    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const [quickAddDate, setQuickAddDate] = useState("");
 
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
@@ -112,9 +119,9 @@ const Calendar = () => {
         );
     };
 
-    const findTaskByEvent = (event) => {
+    const findTaskByEvent = useCallback((event) => {
         return tasks.find((task) => String(task.id) === String(event?.id)) || null;
-    };
+    }, [tasks]);
 
     const openTaskDialogFromEvent = (event) => {
         const task = findTaskByEvent(event);
@@ -138,6 +145,7 @@ const Calendar = () => {
                 : null;
             await updateKanbanTaskDueDate(taskId, dueDateIso);
             await refreshCalendarData();
+            emitTaskUpdated();
         } catch (error) {
             setTasks(rollbackTasks);
             setSyncError(error);
@@ -161,6 +169,23 @@ const Calendar = () => {
         });
     }, [view, selectedDate]);
 
+    useEffect(() => {
+        let mounted = true;
+        const loadCurrentUser = async () => {
+            const me = await fetchMe();
+            if (!mounted) return;
+            setCurrentUserId(me?.user_id ? String(me.user_id) : null);
+        };
+        loadCurrentUser();
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    const emitTaskUpdated = () => {
+        window.dispatchEvent(new CustomEvent(TASK_UPDATED_EVENT));
+    };
+
     const activeHouseholdFilter = useMemo(() => {
         if (selectedHouseholdFilter === ALL_HOUSEHOLDS_FILTER) return ALL_HOUSEHOLDS_FILTER;
         const exists = (households || []).some((household) => {
@@ -175,6 +200,13 @@ const Calendar = () => {
         return String(event?.householdId || "") === activeHouseholdFilter;
     }, [activeHouseholdFilter]);
 
+    const isEventVisibleByAssignee = useCallback((event) => {
+        if (!showMyTasksOnly) return true;
+        if (!currentUserId) return true;
+        const linkedTask = findTaskByEvent(event);
+        return String(linkedTask?.assigneeId || "") === String(currentUserId);
+    }, [showMyTasksOnly, currentUserId, findTaskByEvent]);
+
     const getEventsForDate = (date) => {
         const key = format(date, "yyyy-MM-dd");
         const sourceEvents =
@@ -182,7 +214,7 @@ const Calendar = () => {
                 ? rangeEventsByDayKey.get(key) || []
                 : monthEventsByDayKey.get(key) || [];
 
-        return sourceEvents.filter(isEventVisibleForFilter);
+        return sourceEvents.filter((event) => isEventVisibleForFilter(event) && isEventVisibleByAssignee(event));
     };
 
     const handleUpdateTaskStatus = async (taskId, nextStatus) => {
@@ -193,6 +225,7 @@ const Calendar = () => {
         try {
             await updateKanbanTaskStatus(taskId, toApiStatus(nextStatus));
             await refreshCalendarData();
+            emitTaskUpdated();
         } catch (error) {
             setTasks(rollbackTasks);
             setSyncError(error);
@@ -206,6 +239,7 @@ const Calendar = () => {
 
         try {
             await updateKanbanTaskPriority(taskId, nextPriority);
+            emitTaskUpdated();
         } catch (error) {
             setTasks(rollbackTasks);
             setSyncError(error);
@@ -223,6 +257,7 @@ const Calendar = () => {
 
         try {
             await updateKanbanTaskDescription(taskId, nextDescription || null);
+            emitTaskUpdated();
         } catch (error) {
             setTasks(rollbackTasks);
             setSyncError(error);
@@ -237,6 +272,7 @@ const Calendar = () => {
         try {
             await updateKanbanTaskName(taskId, nextTitle);
             await refreshCalendarData();
+            emitTaskUpdated();
         } catch (error) {
             setTasks(rollbackTasks);
             setSyncError(error);
@@ -253,6 +289,7 @@ const Calendar = () => {
 
         try {
             await updateKanbanTaskAssignee(taskId, assigneeId || null);
+            emitTaskUpdated();
         } catch (error) {
             setTasks(rollbackTasks);
             setSyncError(error);
@@ -266,6 +303,7 @@ const Calendar = () => {
 
         try {
             await updateKanbanTaskCategory(taskId, nextCategory || null);
+            emitTaskUpdated();
         } catch (error) {
             setTasks(rollbackTasks);
             setSyncError(error);
@@ -281,6 +319,7 @@ const Calendar = () => {
         try {
             await deleteKanbanTask(taskId);
             await refreshCalendarData();
+            emitTaskUpdated();
         } catch (error) {
             setTasks(rollbackTasks);
             setSyncError(error);
@@ -385,6 +424,18 @@ const Calendar = () => {
         const isDragTarget = draggedTaskId && dragOverDayKey === dayKey;
         const isDayView = view === "day";
         const showSelectedStyle = isSelected && !isDayView;
+        const monthDensityClass =
+            dayEvents.length >= 5
+                ? "bg-terracotta/15"
+                : dayEvents.length >= 3
+                    ? "bg-status-todo/10"
+                    : dayEvents.length >= 1
+                        ? "bg-sky/10"
+                        : "";
+        const dotTooltip = dayEvents
+            .slice(0, 3)
+            .map((event) => event.title)
+            .join(", ");
 
         return (
             <motion.button
@@ -404,12 +455,32 @@ const Calendar = () => {
                         : isCurrentDay
                             ? "bg-sage-light"
                             : "hover:bg-muted"
-                    } ${!isInRange ? "opacity-40" : ""} ${isDragTarget ? "ring-2 ring-primary/60 bg-primary/10" : ""
+                    } ${view === "month" && !showSelectedStyle ? monthDensityClass : ""} ${!isInRange ? "opacity-40" : ""} ${isDragTarget ? "ring-2 ring-primary/60 bg-primary/10" : ""
                     }`}
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.98 }}
                 transition={{ type: "spring", stiffness: 400, damping: 25 }}
             >
+                <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        openQuickAddForDate(day);
+                    }}
+                    onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            openQuickAddForDate(day);
+                        }
+                    }}
+                    className="absolute right-1 top-1 h-5 w-5 rounded-full border border-border/60 bg-background/80 text-xs leading-none text-muted-foreground hover:text-foreground"
+                    title={`Add task on ${format(day, "MMM d")}`}
+                    aria-label={`Add task on ${format(day, "MMM d")}`}
+                >
+                    +
+                </span>
                 <span className={`text-sm font-medium ${!isInRange ? "text-muted-foreground/50" : ""}`}>
                     {format(day, "d")}
                 </span>
@@ -464,7 +535,7 @@ const Calendar = () => {
                                 }}
                                 className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-primary-foreground" : ""}`}
                                 style={{ backgroundColor: isSelected ? undefined : `hsl(var(--${event.color}))` }}
-                                title={event.householdName}
+                                title={dotTooltip || event.householdName}
                             />
                         ))}
                     </div>
@@ -476,8 +547,9 @@ const Calendar = () => {
     const upcomingThisWeek = useMemo(() => {
         return [...weekEvents]
             .filter(isEventVisibleForFilter)
+            .filter(isEventVisibleByAssignee)
             .sort((a, b) => a.date - b.date);
-    }, [weekEvents, isEventVisibleForFilter]);
+    }, [weekEvents, isEventVisibleForFilter, isEventVisibleByAssignee]);
     const weeklyInsight = useMemo(() => {
         const count = upcomingThisWeek.length;
         if (count === 0) {
@@ -503,9 +575,10 @@ const Calendar = () => {
 
         return allMonthEvents
             .filter(isEventVisibleForFilter)
+            .filter(isEventVisibleByAssignee)
             .filter((event) => isBefore(startOfDay(event.date), todayStart))
             .sort((a, b) => a.date - b.date);
-    }, [monthEventsByDayKey, todayStart, isEventVisibleForFilter]);
+    }, [monthEventsByDayKey, todayStart, isEventVisibleForFilter, isEventVisibleByAssignee]);
     const weeklyLoadCount = upcomingThisWeek.length;
     const weeklyLoadColorClass =
         weeklyLoadCount <= 3
@@ -538,6 +611,27 @@ const Calendar = () => {
             };
         });
     }, [households, householdColorById, householdPalette]);
+
+    const getRelativeDueLabel = (date) => {
+        const day = startOfDay(date);
+        const diffDays = Math.floor((day.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays === 0) return "Today";
+        if (diffDays === 1) return "Tomorrow";
+        if (diffDays === -1) return "Yesterday";
+        if (diffDays < 0) return `Overdue by ${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? "s" : ""}`;
+        return `In ${diffDays} days`;
+    };
+
+    const openQuickAddForDate = (date) => {
+        setQuickAddDate(format(date, "yyyy-MM-dd"));
+        setIsAddDialogOpen(true);
+    };
+
+    const handleAddTask = async (newTask) => {
+        setTasks((prev) => [newTask, ...prev]);
+        emitTaskUpdated();
+        await refreshCalendarData();
+    };
 
     return (
         <div className="p-4 md:p-6 space-y-6">
@@ -609,6 +703,17 @@ const Calendar = () => {
                             <span className="text-foreground">{household.name}</span>
                         </button>
                     ))}
+                    <button
+                        type="button"
+                        onClick={() => setShowMyTasksOnly((prev) => !prev)}
+                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs transition-colors ${
+                            showMyTasksOnly
+                                ? "border-primary bg-primary/10 text-foreground"
+                                : "border-border bg-card text-foreground hover:bg-muted"
+                        }`}
+                    >
+                        My tasks only
+                    </button>
                 </div>
             ) : null}
 
@@ -768,6 +873,14 @@ const Calendar = () => {
                                 <div className="text-center py-8">
                                     <CalendarIcon className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
                                     <p className="text-muted-foreground">No tasks due</p>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="mt-3"
+                                        onClick={() => selectedDate && openQuickAddForDate(selectedDate)}
+                                    >
+                                        Add task for this day
+                                    </Button>
                                 </div>
                             )}
 
@@ -814,7 +927,7 @@ const Calendar = () => {
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-sm font-medium text-foreground truncate">{event.title}</p>
                                                     <p className="text-xs text-muted-foreground">
-                                                        {format(event.date, "MMM d")}
+                                                        {getRelativeDueLabel(event.date)}
                                                         {event.householdName ? ` • ${event.householdName}` : ""}
                                                     </p>
                                                 </div>
@@ -871,7 +984,7 @@ const Calendar = () => {
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-sm font-medium text-foreground truncate">{event.title}</p>
                                                     <p className="text-xs text-muted-foreground">
-                                                        {format(event.date, "MMM d")}
+                                                        {getRelativeDueLabel(event.date)}
                                                         {event.householdName ? ` • ${event.householdName}` : ""}
                                                     </p>
                                                 </div>
@@ -884,6 +997,19 @@ const Calendar = () => {
                     </Card>
                 </motion.div>
             </div>
+
+            <AddTaskDialog
+                open={isAddDialogOpen}
+                onOpenChange={setIsAddDialogOpen}
+                onAddTask={handleAddTask}
+                householdId={
+                    activeHouseholdFilter === ALL_HOUSEHOLDS_FILTER
+                        ? undefined
+                        : activeHouseholdFilter
+                }
+                households={households}
+                initialDueDate={quickAddDate}
+            />
 
             <TaskDetailDialog
                 task={selectedTask}

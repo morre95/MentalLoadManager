@@ -3,6 +3,8 @@ import { isUserLoggedIn } from "@/lib/auth";
 import { fetchKanbanTasks } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
+const TASK_UPDATED_EVENT = "kanban-task-updated";
+
 export function useTaskboardTasks(householdId) {
   const navigate = useNavigate();
 
@@ -56,6 +58,15 @@ export function useTaskboardTasks(householdId) {
     return () => {
       alive = false;
     };
+  }, [loadTasks]);
+
+  useEffect(() => {
+    const handleTaskUpdated = () => {
+      loadTasks().catch(() => {});
+    };
+
+    window.addEventListener(TASK_UPDATED_EVENT, handleTaskUpdated);
+    return () => window.removeEventListener(TASK_UPDATED_EVENT, handleTaskUpdated);
   }, [loadTasks]);
 
   return {
