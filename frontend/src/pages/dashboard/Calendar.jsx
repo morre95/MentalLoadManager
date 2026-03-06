@@ -69,7 +69,6 @@ const Calendar = () => {
     const [view, setView] = useState("month");
 
     const {
-        weekEvents,
         monthEventsByDayKey,
         rangeEventsByDayKey,
         loadingMonth,
@@ -545,11 +544,52 @@ const Calendar = () => {
     };
 
     const upcomingThisWeek = useMemo(() => {
-        return [...weekEvents]
-            .filter(isEventVisibleForFilter)
-            .filter(isEventVisibleByAssignee)
+        const endDate = addDays(todayStart, 7);
+        const householdNameById = new Map(
+            (households || []).map((household) => [
+                String(household?.household_id ?? household?.id ?? ""),
+                household?.name || "Unknown household",
+            ])
+        );
+
+        return (tasks || [])
+            .filter((task) => task?.dueDateValue)
+            .map((task) => {
+                const dueDate = new Date(`${task.dueDateValue}T00:00:00`);
+                return { task, dueDate };
+            })
+            .filter(({ dueDate }) => !Number.isNaN(dueDate.getTime()))
+            .filter(({ dueDate }) => dueDate >= todayStart && dueDate <= endDate)
+            .filter(({ task }) => {
+                if (activeHouseholdFilter === ALL_HOUSEHOLDS_FILTER) return true;
+                return String(task?.householdId || "") === activeHouseholdFilter;
+            })
+            .filter(({ task }) => {
+                if (!showMyTasksOnly || !currentUserId) return true;
+                return String(task?.assigneeId || "") === String(currentUserId);
+            })
+            .map(({ task, dueDate }) => {
+                const householdId = String(task?.householdId || "");
+                return {
+                    id: String(task?.id || crypto.randomUUID()),
+                    title: task?.title || "",
+                    date: dueDate,
+                    householdId,
+                    householdName: householdNameById.get(householdId) || "Unknown household",
+                    color: householdColorById.get(householdId) || "terracotta",
+                    type: "task",
+                };
+            })
             .sort((a, b) => a.date - b.date);
-    }, [weekEvents, isEventVisibleForFilter, isEventVisibleByAssignee]);
+    }, [
+        tasks,
+        todayStart,
+        households,
+        householdColorById,
+        activeHouseholdFilter,
+        showMyTasksOnly,
+        currentUserId,
+    ]);
     const weeklyInsight = useMemo(() => {
         const count = upcomingThisWeek.length;
         if (count === 0) {
