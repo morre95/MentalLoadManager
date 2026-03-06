@@ -62,6 +62,24 @@ class KanbanAssigneesResponse(BaseModel):
     assignees: list[KanbanAssignee]
 
 
+class HouseholdCategory(BaseModel):
+    category_id: str
+    name: str
+
+
+class HouseholdCategoriesResponse(BaseModel):
+    categories: list[HouseholdCategory]
+
+
+class CreateHouseholdCategoryRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+
+class DeleteHouseholdCategoryResponse(BaseModel):
+    category_id: str
+    deleted: bool
+
+
 class UpdateTaskStatusRequest(BaseModel):
     status: str = Field(max_length=20)
 

@@ -35,6 +35,11 @@ export type UiTask = {
   category: string;
 };
 
+export type HouseholdCategory = {
+  category_id: string;
+  name: string;
+};
+
 export function mapApiTaskToUi(task: any): UiTask;
 export function toApiTaskStatus(status: string): string;
 export function createKanbanTask(
@@ -67,6 +72,25 @@ export function fetchKanbanAssignees(
     username: string;
     display_name: string | null;
   }>;
+}>;
+export function fetchHouseholdCategories(
+  apiClient: ApiClient,
+  householdId: string | number
+): Promise<{
+  categories: HouseholdCategory[];
+}>;
+export function createHouseholdCategory(
+  apiClient: ApiClient,
+  householdId: string | number,
+  name: string
+): Promise<HouseholdCategory>;
+export function deleteHouseholdCategory(
+  apiClient: ApiClient,
+  householdId: string | number,
+  categoryId: string | number
+): Promise<{
+  category_id: string;
+  deleted: boolean;
 }>;
 export function updateKanbanTaskStatus(
   apiClient: ApiClient,

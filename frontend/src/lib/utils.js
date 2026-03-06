@@ -3,10 +3,13 @@ import { twMerge } from "tailwind-merge";
 import {
   acceptHouseholdInvite as sharedAcceptHouseholdInvite,
   createKanbanTask as sharedCreateKanbanTask,
+  createHouseholdCategory as sharedCreateHouseholdCategory,
   changeMyPassword as sharedChangeMyPassword,
   createApiClient,
   deleteKanbanTask as sharedDeleteKanbanTask,
+  deleteHouseholdCategory as sharedDeleteHouseholdCategory,
   fetchHouseholds as sharedFetchHouseholds,
+  fetchHouseholdCategories as sharedFetchHouseholdCategories,
   fetchKanbanAssignees as sharedFetchKanbanAssignees,
   fetchKanbanTasks as sharedFetchKanbanTasks,
   fetchMe as sharedFetchMe,
@@ -173,6 +176,18 @@ export async function fetchKanbanTasks(householdId) {
 
 export async function fetchKanbanAssignees(householdId) {
   return sharedFetchKanbanAssignees(apiClient, householdId);
+}
+
+export async function fetchHouseholdCategories(householdId) {
+  return sharedFetchHouseholdCategories(apiClient, householdId);
+}
+
+export async function createHouseholdCategory(householdId, name) {
+  return sharedCreateHouseholdCategory(apiClient, householdId, name);
+}
+
+export async function deleteHouseholdCategory(householdId, categoryId) {
+  return sharedDeleteHouseholdCategory(apiClient, householdId, categoryId);
 }
 
 export async function resolveCurrentHouseholdId() {

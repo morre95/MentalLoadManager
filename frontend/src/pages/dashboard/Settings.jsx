@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Settings as SettingsIcon,
@@ -41,9 +41,16 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { toast } from "@/components/ui/sonner";
-import { changeMyPassword, fetchMe, getUserFromLocalStorage, updateMe } from "@/lib/utils";
-
-const defaultCategories = ["Shopping", "Cleaning", "Admin", "Health", "Maintenance", "Planning", "Other"];
+import { useHousehold } from "@/hooks/useHouseHold";
+import {
+    changeMyPassword,
+    createHouseholdCategory,
+    deleteHouseholdCategory,
+    fetchHouseholdCategories,
+    fetchMe,
+    getUserFromLocalStorage,
+    updateMe,
+} from "@/lib/utils";
 
 const languages = [
     { value: "en", label: "English" },
@@ -89,8 +96,13 @@ const SettingRow = ({ label, description, children }) => (
 );
 
 const Settings = () => {
-    const [categories, setCategories] = useState(defaultCategories);
+    const [categories, setCategories] = useState([]);
     const [newCategory, setNewCategory] = useState("");
+    const [selectedHouseholdId, setSelectedHouseholdId] = useState("");
+    const [categoriesLoading, setCategoriesLoading] = useState(false);
+    const [isAddingCategory, setIsAddingCategory] = useState(false);
+    const [categoryIdBeingDeleted, setCategoryIdBeingDeleted] = useState("");
+    const [meUsername, setMeUsername] = useState("");
     const [language, setLanguage] = useState("en");
     const [theme, setTheme] = useState("light");
     const [displayName, setDisplayName] = useState("");
@@ -115,6 +127,38 @@ const Settings = () => {
     // Privacy
     const [profileVisible, setProfileVisible] = useState(true);
     const [activityVisible, setActivityVisible] = useState(true);
+    const { households } = useHousehold();
+
+    const householdOptions = useMemo(() => {
+        const list = Array.isArray(households) ? households : [];
+        return list
+            .map((household) => {
+                const id = household?.household_id ?? household?.id;
+                if (!id) return null;
+                return {
+                    id: String(id),
+                    name: household?.name || "Unnamed household",
+                    members: Array.isArray(household?.members) ? household.members : [],
+                };
+            })
+            .filter(Boolean);
+    }, [households]);
+
+    const selectedHousehold = useMemo(
+        () => householdOptions.find((household) => household.id === selectedHouseholdId) || null,
+        [householdOptions, selectedHouseholdId]
+    );
+
+    const selectedHouseholdRole = useMemo(() => {
+        if (!selectedHousehold) return "";
+        const normalizedUsername = String(meUsername || "").trim().toLowerCase();
+        const membership = selectedHousehold.members.find(
+            (member) => String(member?.username || "").trim().toLowerCase() === normalizedUsername
+        );
+        return String(membership?.role || "").toLowerCase();
+    }, [meUsername, selectedHousehold]);
+
+    const canManageCategories = selectedHouseholdRole === "owner" || selectedHouseholdRole === "admin";
 
     useEffect(() => {
         let active = true;
@@ -124,6 +168,7 @@ const Settings = () => {
             if (cached && active) {
                 setDisplayName(cached.display_name || "");
                 setProfileEmail(cached.email || "");
+                setMeUsername(cached.username || "");
             }
 
             const me = await fetchMe();
@@ -131,6 +176,7 @@ const Settings = () => {
 
             setDisplayName(me.display_name || "");
             setProfileEmail(me.email || "");
+            setMeUsername(me.username || "");
         };
 
         hydrateProfile();
@@ -140,18 +186,123 @@ const Settings = () => {
         };
     }, []);
 
-    const handleAddCategory = () => {
+    useEffect(() => {
+        if (!Array.isArray(householdOptions) || householdOptions.length === 0) {
+            setSelectedHouseholdId("");
+            setCategories([]);
+            return;
+        }
+
+        let localPreferredId = "";
+        try {
+            const raw = localStorage.getItem("household");
+            const parsed = raw ? JSON.parse(raw) : null;
+            localPreferredId = String(parsed?.household_id ?? parsed?.id ?? parsed ?? "");
+        } catch {
+            localPreferredId = "";
+        }
+
+        setSelectedHouseholdId((previousHouseholdId) => {
+            if (previousHouseholdId && householdOptions.some((household) => household.id === previousHouseholdId)) {
+                return previousHouseholdId;
+            }
+            if (localPreferredId && householdOptions.some((household) => household.id === localPreferredId)) {
+                return localPreferredId;
+            }
+            return householdOptions[0].id;
+        });
+    }, [householdOptions]);
+
+    useEffect(() => {
+        if (!selectedHouseholdId) {
+            setCategories([]);
+            return;
+        }
+
+        let cancelled = false;
+
+        const loadCategories = async () => {
+            setCategoriesLoading(true);
+            try {
+                const data = await fetchHouseholdCategories(selectedHouseholdId);
+                if (cancelled) return;
+                const nextCategories = Array.isArray(data?.categories) ? data.categories : [];
+                setCategories(
+                    nextCategories.map((category) => ({
+                        category_id: String(category?.category_id || ""),
+                        name: String(category?.name || ""),
+                    }))
+                );
+            } catch (error) {
+                if (cancelled) return;
+                setCategories([]);
+                toast.error(error?.message || "Could not load categories");
+            } finally {
+                if (!cancelled) setCategoriesLoading(false);
+            }
+        };
+
+        loadCategories();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedHouseholdId]);
+
+    const handleAddCategory = async () => {
         const trimmed = newCategory.trim();
-        if (trimmed && !categories.includes(trimmed)) {
-            setCategories([...categories, trimmed]);
+        if (!trimmed || !selectedHouseholdId) return;
+
+        if (!canManageCategories) {
+            toast.error("Only household owners and admins can add categories");
+            return;
+        }
+
+        const exists = categories.some((category) => category.name.toLowerCase() === trimmed.toLowerCase());
+        if (exists) {
+            toast.error("Category already exists in this household");
+            return;
+        }
+
+        setIsAddingCategory(true);
+        try {
+            const created = await createHouseholdCategory(selectedHouseholdId, trimmed);
+            setCategories((previousCategories) => [
+                ...previousCategories,
+                {
+                    category_id: String(created?.category_id || crypto.randomUUID()),
+                    name: String(created?.name || trimmed),
+                },
+            ]);
             setNewCategory("");
             toast.success(`Category "${trimmed}" added`);
+        } catch (error) {
+            toast.error(error?.message || "Could not add category");
+        } finally {
+            setIsAddingCategory(false);
         }
     };
 
-    const handleDeleteCategory = (cat) => {
-        setCategories(categories.filter((c) => c !== cat));
-        toast.success(`Category "${cat}" removed`);
+    const handleDeleteCategory = async (category) => {
+        if (!selectedHouseholdId || !category?.category_id) return;
+
+        if (!canManageCategories) {
+            toast.error("Only household owners and admins can delete categories");
+            return;
+        }
+
+        setCategoryIdBeingDeleted(category.category_id);
+        try {
+            await deleteHouseholdCategory(selectedHouseholdId, category.category_id);
+            setCategories((previousCategories) =>
+                previousCategories.filter((entry) => entry.category_id !== category.category_id)
+            );
+            toast.success(`Category "${category.name}" removed`);
+        } catch (error) {
+            toast.error(error?.message || "Could not remove category");
+        } finally {
+            setCategoryIdBeingDeleted("");
+        }
     };
 
     const handleThemeChange = (value) => {
@@ -438,21 +589,52 @@ const Settings = () => {
                 <SectionCard delay={0.3}>
                     <SectionHeader icon={Tag} title="Task Categories" description="Organize tasks into custom categories" />
                     <Separator />
+                    <SettingRow label="Household" description="Choose which household these categories belong to">
+                        <Select
+                            value={selectedHouseholdId}
+                            onValueChange={setSelectedHouseholdId}
+                            disabled={householdOptions.length === 0}
+                        >
+                            <SelectTrigger className="w-[220px]">
+                                <SelectValue placeholder="Select household" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {householdOptions.map((household) => (
+                                    <SelectItem key={household.id} value={household.id}>
+                                        {household.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </SettingRow>
+
+                    {!selectedHouseholdId ? (
+                        <p className="text-xs text-muted-foreground">Join or create a household to manage categories.</p>
+                    ) : !canManageCategories ? (
+                        <p className="text-xs text-muted-foreground">
+                            You can view categories, but only household owners and admins can add or delete categories.
+                        </p>
+                    ) : null}
+
                     <div className="flex flex-wrap gap-2">
                         <AnimatePresence>
-                            {categories.map((cat) => (
+                            {categories.map((category) => (
                                 <motion.div
-                                    key={cat}
+                                    key={`${category.category_id}:${category.name}`}
                                     layout
                                     initial={{ opacity: 0, scale: 0.8 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.8 }}
                                 >
                                     <Badge variant="secondary" className="gap-1.5 py-1.5 px-3 text-sm">
-                                        {cat}
+                                        {category.name}
                                         <button
-                                            onClick={() => handleDeleteCategory(cat)}
+                                            onClick={() => handleDeleteCategory(category)}
                                             className="ml-1 text-muted-foreground hover:text-destructive transition-colors"
+                                            disabled={
+                                                !canManageCategories ||
+                                                categoryIdBeingDeleted === category.category_id
+                                            }
                                         >
                                             <X className="h-3 w-3" />
                                         </button>
@@ -462,6 +644,12 @@ const Settings = () => {
                         </AnimatePresence>
                     </div>
 
+                    {categoriesLoading ? (
+                        <p className="text-xs text-muted-foreground">Loading categories...</p>
+                    ) : categories.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No categories saved for this household yet.</p>
+                    ) : null}
+
                     <div className="flex gap-2">
                         <Input
                             placeholder="New category name..."
@@ -469,9 +657,20 @@ const Settings = () => {
                             onChange={(e) => setNewCategory(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
                             className="flex-1"
+                            disabled={!selectedHouseholdId || !canManageCategories || isAddingCategory}
                         />
-                        <Button onClick={handleAddCategory} size="sm" className="gap-1" disabled={!newCategory.trim()}>
-                            <Plus className="h-4 w-4" /> Add
+                        <Button
+                            onClick={handleAddCategory}
+                            size="sm"
+                            className="gap-1"
+                            disabled={
+                                !newCategory.trim() ||
+                                !selectedHouseholdId ||
+                                !canManageCategories ||
+                                isAddingCategory
+                            }
+                        >
+                            <Plus className="h-4 w-4" /> {isAddingCategory ? "Adding..." : "Add"}
                         </Button>
                     </div>
                 </SectionCard>

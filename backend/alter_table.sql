@@ -29,3 +29,7 @@ CREATE TABLE IF NOT EXISTS password_refresh_tokens (
 CREATE INDEX IF NOT EXISTS idx_password_refresh_tokens_user_id ON password_refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_password_refresh_tokens_family_id ON password_refresh_tokens(family_id);
 CREATE INDEX IF NOT EXISTS idx_password_refresh_tokens_expires_at ON password_refresh_tokens(expires_at);
+
+
+ALTER TABLE categories
+ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();

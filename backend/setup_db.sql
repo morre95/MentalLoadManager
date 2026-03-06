@@ -98,11 +98,15 @@ CREATE TABLE IF NOT EXISTS calendar_connections (
 CREATE TABLE IF NOT EXISTS categories (
   category_id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   household_id      UUID NOT NULL REFERENCES households(household_id) ON DELETE CASCADE,
-  name          VARCHAR(100) NOT NULL
+  name          VARCHAR(100) NOT NULL,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (household_id, name)
 );
 
 -- ALTER TABLE categories
   -- ADD CONSTRAINT uq_categories_household_name UNIQUE (household_id, name);
+--
+
 
 
 CREATE TABLE IF NOT EXISTS tasks (

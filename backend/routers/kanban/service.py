@@ -10,17 +10,23 @@ from models import Categories, Tasks, UserEmail
 from .repository import (
     find_membership,
     get_assignee_by_id,
+    get_category_by_household_and_id,
     get_category_by_id,
     get_category_by_name,
     get_task_by_id,
     get_user_by_username,
+    list_categories_for_household,
     list_assignees_for_household,
     list_reorder_tasks,
     list_tasks_for_member,
 )
 from .schemas import (
+    CreateHouseholdCategoryRequest,
     CreateTaskRequest,
+    DeleteHouseholdCategoryResponse,
     DeleteTaskResponse,
+    HouseholdCategoriesResponse,
+    HouseholdCategory,
     KanbanAssignee,
     KanbanAssigneesResponse,
     KanbanTask,
@@ -46,6 +52,9 @@ from .schemas import (
 
 ALLOWED_TASK_STATUSES = {"todo", "in_progress", "done", "on_hold", "archive"}
 ALLOWED_TASK_PRIORITIES = {"low", "medium", "high"}
+ROLE_OWNER = "owner"
+ROLE_ADMIN = "admin"
+PRIVILEGED_HOUSEHOLD_ROLES = {ROLE_OWNER, ROLE_ADMIN}
 
 
 def _get_me(db, current_user: UserEmail):
@@ -65,6 +74,144 @@ def _require_membership(db, user_id: UUID, household_id: UUID, detail: str):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=detail,
+        )
+
+
+def _require_privileged_membership(db, user_id: UUID, household_id: UUID):
+    membership = find_membership(db, user_id, household_id)
+    if membership is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not a member of the specified household",
+        )
+    if membership.role not in PRIVILEGED_HOUSEHOLD_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owners and admins can manage categories in this household",
+        )
+
+
+def list_household_categories(
+    household_id: UUID,
+    current_user: UserEmail,
+) -> HouseholdCategoriesResponse:
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        me = _get_me(db, current_user)
+        _require_membership(
+            db,
+            me.user_id,
+            household_id,
+            "User is not a member of the specified household",
+        )
+
+        rows = list_categories_for_household(db, household_id)
+
+        return HouseholdCategoriesResponse(
+            categories=[
+                HouseholdCategory(
+                    category_id=str(row.category_id),
+                    name=row.name,
+                )
+                for row in rows
+            ]
+        )
+
+
+def create_household_category(
+    household_id: UUID,
+    payload: CreateHouseholdCategoryRequest,
+    current_user: UserEmail,
+) -> HouseholdCategory:
+    category_name = payload.name.strip()
+    if not category_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Category name is required",
+        )
+
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        me = _get_me(db, current_user)
+        _require_privileged_membership(db, me.user_id, household_id)
+
+        category = get_category_by_name(db, household_id, category_name)
+        if not category:
+            category = Categories(
+                household_id=household_id,
+                name=category_name,
+            )
+            db.add(category)
+
+            try:
+                db.commit()
+            except IntegrityError as exc:
+                db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Unable to create household category",
+                ) from exc
+
+            db.refresh(category)
+
+        return HouseholdCategory(
+            category_id=str(category.category_id),
+            name=category.name,
+        )
+
+
+def delete_household_category(
+    household_id: UUID,
+    category_id: UUID,
+    current_user: UserEmail,
+) -> DeleteHouseholdCategoryResponse:
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        me = _get_me(db, current_user)
+        _require_privileged_membership(db, me.user_id, household_id)
+
+        category = get_category_by_household_and_id(db, household_id, category_id)
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Category was not found",
+            )
+
+        db.delete(category)
+
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Unable to delete household category",
+            ) from exc
+
+        return DeleteHouseholdCategoryResponse(
+            category_id=str(category_id),
+            deleted=True,
         )
 
 

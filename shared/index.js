@@ -2,8 +2,11 @@ export { getApiBaseUrl } from "./env.js";
 export { createApiClient } from "./apiClient.js";
 
 export {
+  createHouseholdCategory,
   createKanbanTask,
+  deleteHouseholdCategory,
   deleteKanbanTask,
+  fetchHouseholdCategories,
   fetchKanbanAssignees,
   fetchKanbanTasks,
   mapApiTaskToUi,

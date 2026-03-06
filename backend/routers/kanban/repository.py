@@ -46,6 +46,25 @@ def get_category_by_name(db: Session, household_id: UUID, category_name: str):
     )
 
 
+def get_category_by_household_and_id(db: Session, household_id: UUID, category_id: UUID):
+    return db.scalar(
+        select(Categories).where(
+            and_(
+                Categories.household_id == household_id,
+                Categories.category_id == category_id,
+            )
+        )
+    )
+
+
+def list_categories_for_household(db: Session, household_id: UUID):
+    return db.execute(
+        select(Categories.category_id, Categories.name)
+        .where(Categories.household_id == household_id)
+        .order_by(func.lower(Categories.name).asc())
+    ).all()
+
+
 def list_tasks_for_member(db: Session, user_id: UUID, household_id: UUID | None):
     priority_sort = case(
         (Tasks.priority == "high", 0),

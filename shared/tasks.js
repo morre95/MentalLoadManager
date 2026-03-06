@@ -82,6 +82,37 @@ export async function fetchKanbanAssignees(apiClient, householdId) {
   };
 }
 
+export async function fetchHouseholdCategories(apiClient, householdId) {
+  const encodedHouseholdId = encodeURIComponent(String(householdId || "").trim());
+  const data = await apiClient.request(
+    `/api/kanban/households/${encodedHouseholdId}/categories`,
+    { method: "GET" }
+  );
+
+  return {
+    ...data,
+    categories: Array.isArray(data?.categories) ? data.categories : [],
+  };
+}
+
+export async function createHouseholdCategory(apiClient, householdId, name) {
+  const encodedHouseholdId = encodeURIComponent(String(householdId || "").trim());
+  return apiClient.request(`/api/kanban/households/${encodedHouseholdId}/categories`, {
+    method: "POST",
+    body: JSON.stringify({ name: String(name || "").trim() }),
+  });
+}
+
+export async function deleteHouseholdCategory(apiClient, householdId, categoryId) {
+  const encodedHouseholdId = encodeURIComponent(String(householdId || "").trim());
+  const encodedCategoryId = encodeURIComponent(String(categoryId || "").trim());
+
+  return apiClient.request(
+    `/api/kanban/households/${encodedHouseholdId}/categories/${encodedCategoryId}`,
+    { method: "DELETE" }
+  );
+}
+
 export async function updateKanbanTaskStatus(apiClient, taskId, status) {
   return apiClient.request(`/api/kanban/tasks/${taskId}/status`, {
     method: "PATCH",
