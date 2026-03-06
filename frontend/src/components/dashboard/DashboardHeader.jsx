@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useHouseholdMembers } from "@/hooks/useHouseholdMembers";
 import { useHousehold } from "@/hooks/useHouseHold";
 import AddTaskDialog from "@/components/tasks/AddTaskDialog";
 
@@ -19,8 +18,7 @@ function firstLetter(name) {
 const DashboardHeader = ({ onAddTask }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { members } = useHouseholdMembers();
-  const { households } = useHousehold();
+  const { households, membersFlat: members } = useHousehold();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   const handleAddClick = () => {

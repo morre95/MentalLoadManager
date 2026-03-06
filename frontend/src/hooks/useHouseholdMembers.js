@@ -1,46 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  fetchHouseholds,
-  flattenHouseholdMembers,
-} from "../../../shared/index.js";
-import { apiClient } from "@/lib/utils";
+import { useMemo } from "react";
+import { flattenHouseholdMembers } from "../../../shared/index.js";
+import { useHousehold } from "@/hooks/useHouseHold";
 
 export function useHouseholdMembers() {
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { households, loading, error } = useHousehold();
+  const members = useMemo(
+    () => flattenHouseholdMembers(Array.isArray(households) ? households : []),
+    [households]
+  );
 
-  useEffect(() => {
-    let alive = true;
-
-    async function load() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const data = await fetchHouseholds(apiClient);
-        if (alive) {
-          setMembers(flattenHouseholdMembers(data?.households || []));
-        }
-      } catch (err) {
-        if (alive) {
-          setError(err);
-        }
-      }
-
-      if (alive) {
-        setLoading(false);
-      }
-    }
-
-    load();
-
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const normalized = useMemo(() => members ?? [], [members]);
-
-  return { members: normalized, loading, error };
+  return { members, loading, error };
 }

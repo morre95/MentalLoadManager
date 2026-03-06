@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createHousehold as sharedCreateHousehold,
   createHouseholdInvite as sharedCreateHouseholdInvite,
@@ -12,39 +12,82 @@ import {
 import { apiClient } from "@/lib/utils";
 
 const LS_HOUSEHOLDS_KEY = "households";
+let householdsCache = null;
+let householdsPromise = null;
+let hasFetchedHouseholds = false;
+
+function readHouseholdsFromStorage() {
+  try {
+    const raw = localStorage.getItem(LS_HOUSEHOLDS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchHouseholdsShared(force = false) {
+  if (!force && hasFetchedHouseholds && Array.isArray(householdsCache)) {
+    return householdsCache;
+  }
+
+  if (householdsPromise) {
+    return householdsPromise;
+  }
+
+  householdsPromise = (async () => {
+    const data = await fetchHouseholds(apiClient);
+    const list = Array.isArray(data?.households) ? data.households : [];
+    householdsCache = list;
+    hasFetchedHouseholds = true;
+    localStorage.setItem(LS_HOUSEHOLDS_KEY, JSON.stringify(list));
+    return list;
+  })().finally(() => {
+    householdsPromise = null;
+  });
+
+  return householdsPromise;
+}
 
 export function useHousehold() {
-  const [households, setHouseholds] = useState(() => {
-    try {
-      const raw = localStorage.getItem(LS_HOUSEHOLDS_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
+  const [households, setHouseholdsState] = useState(() => {
+    if (Array.isArray(householdsCache)) return householdsCache;
+    const stored = readHouseholdsFromStorage();
+    householdsCache = stored;
+    return stored;
   });
 
   const [loading, setLoading] = useState(households.length === 0);
   const [error, setError] = useState(null);
 
-  const load = async () => {
+  const setHouseholds = useCallback((nextHouseholds) => {
+    setHouseholdsState((previous) => {
+      const resolved =
+        typeof nextHouseholds === "function" ? nextHouseholds(previous) : nextHouseholds;
+      const normalized = Array.isArray(resolved) ? resolved : [];
+      householdsCache = normalized;
+      hasFetchedHouseholds = true;
+      localStorage.setItem(LS_HOUSEHOLDS_KEY, JSON.stringify(normalized));
+      return normalized;
+    });
+  }, []);
+
+  const load = useCallback(async (force = false) => {
     setLoading(true);
     setError(null);
 
     try {
-      const data = await fetchHouseholds(apiClient);
-      const list = Array.isArray(data?.households) ? data.households : [];
+      const list = await fetchHouseholdsShared(force);
       setHouseholds(list);
-      localStorage.setItem(LS_HOUSEHOLDS_KEY, JSON.stringify(list));
     } catch (err) {
       setError(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    load();
-  }, []);
+    void load(false);
+  }, [load]);
 
   const normalizedHouseholds = useMemo(() => households || [], [households]);
 
@@ -59,7 +102,7 @@ export function useHousehold() {
     loading,
     error,
     setHouseholds,
-    refetch: load,
+    refetch: () => load(true),
   };
 }
 

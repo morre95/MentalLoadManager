@@ -41,7 +41,8 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { toast } from "@/components/ui/sonner";
-import { changeMyPassword, fetchMe, getUserFromLocalStorage, updateMe } from "@/lib/utils";
+import { getUserFromLocalStorage } from "@/lib/auth";
+import { changeMyPassword, fetchMe, updateMe } from "@/lib/utils";
 
 const defaultCategories = ["Shopping", "Cleaning", "Admin", "Health", "Maintenance", "Planning", "Other"];
 
