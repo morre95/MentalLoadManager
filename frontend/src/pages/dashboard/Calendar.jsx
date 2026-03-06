@@ -41,10 +41,10 @@ import {
 } from "@/lib/utils";
 
 const eventColorClasses = {
-    sage: "bg-sage-light text-sage border-sage/30",
     terracotta: "bg-terracotta-light text-terracotta border-terracotta/30",
     lavender: "bg-lavender-light text-lavender border-lavender/30",
     sky: "bg-sky-light text-sky border-sky/30",
+    "status-todo": "bg-status-todo/15 text-status-todo border-status-todo/30",
 };
 
 function toApiStatus(status) {
@@ -74,6 +74,8 @@ const Calendar = () => {
         weekError,
         loadMonth,
         loadWeekRange,
+        householdColorById,
+        householdPalette,
     } = useCalendarPage();
     const { households } = useHousehold();
     const { tasks, setTasks } = useTaskboardTasks(null);
@@ -366,6 +368,8 @@ const Calendar = () => {
         const isOverdueDay = dayEvents.length > 0 && isBefore(startOfDay(day), todayStart);
         const dayKey = format(day, "yyyy-MM-dd");
         const isDragTarget = draggedTaskId && dragOverDayKey === dayKey;
+        const isDayView = view === "day";
+        const showSelectedStyle = isSelected && !isDayView;
 
         return (
             <motion.button
@@ -378,7 +382,9 @@ const Calendar = () => {
                 }}
                 onDrop={(dragEvent) => handleDayDrop(dragEvent, day)}
                 className={`p-1 rounded-lg relative transition-colors ${view === "month" ? "aspect-square" : "min-h-[100px] flex flex-col items-start"
-                    } ${isSelected
+                    } ${isDayView
+                        ? "hover:bg-muted/30"
+                        : showSelectedStyle
                         ? "bg-primary text-primary-foreground"
                         : isCurrentDay
                             ? "bg-sage-light"
@@ -393,27 +399,33 @@ const Calendar = () => {
                     {format(day, "d")}
                 </span>
 
-                {view === "week" && dayEvents.length > 0 ? (
+                {(view === "week" || view === "day") && dayEvents.length > 0 ? (
                     <div className="mt-2 space-y-2 w-full">
-                        {dayEvents.map((event) => (
-                            <div
-                                key={event.id}
-                                draggable
-                                onDragStart={(dragEvent) => handleTaskDragStart(dragEvent, event)}
-                                onDragEnd={handleTaskDragEnd}
-                                onClick={(mouseEvent) => {
-                                    mouseEvent.stopPropagation();
-                                    openTaskDialogFromEvent(event);
-                                }}
-                                className={`text-xs px-1.5 py-0.5 rounded truncate ${isSelected
-                                        ? "bg-primary-foreground/20 text-primary-foreground"
-                                        : eventColorClasses[event.color]
-                                    }`}
-                                title={`${event.title} • ${event.householdName}`}
-                            >
-                                {event.title}
-                            </div>
-                        ))}
+                        {dayEvents.map((event) => {
+                            const linkedTask = findTaskByEvent(event);
+                            const category = linkedTask?.category || "Other";
+
+                            return (
+                                <div
+                                    key={event.id}
+                                    draggable
+                                    onDragStart={(dragEvent) => handleTaskDragStart(dragEvent, event)}
+                                    onDragEnd={handleTaskDragEnd}
+                                    onClick={(mouseEvent) => {
+                                        mouseEvent.stopPropagation();
+                                        openTaskDialogFromEvent(event);
+                                    }}
+                                    className={`text-sm px-2 py-1.5 rounded-md whitespace-normal break-words ${showSelectedStyle
+                                            ? "bg-primary-foreground/20 text-primary-foreground"
+                                            : eventColorClasses[event.color]
+                                        }`}
+                                    title={`${event.title} • ${event.householdName}`}
+                                >
+                                    <div className="font-medium leading-snug">{event.title}</div>
+                                    <div className="text-xs opacity-80 mt-0.5">{category}</div>
+                                </div>
+                            );
+                        })}
                     </div>
                 ) : null}
 
@@ -443,6 +455,30 @@ const Calendar = () => {
     const upcomingThisWeek = useMemo(() => {
         return [...weekEvents].sort((a, b) => a.date - b.date);
     }, [weekEvents]);
+    const householdLegend = useMemo(() => {
+        const list = Array.isArray(households) ? households : [];
+        const used = new Set();
+        const fallbackQueue = Array.isArray(householdPalette) ? [...householdPalette] : ["terracotta"];
+
+        return list.map((household) => {
+            const householdId = household?.household_id ?? household?.id ?? null;
+            const householdIdKey = householdId ? String(householdId) : "";
+            let color = householdColorById.get(householdIdKey);
+
+            if (!color) {
+                const nextUnused = fallbackQueue.find((c) => !used.has(c));
+                color = nextUnused || fallbackQueue[0];
+            }
+
+            used.add(color);
+
+            return {
+                id: householdId ? String(householdId) : household?.name || "household",
+                name: household?.name || "Unnamed household",
+                color,
+            };
+        });
+    }, [households, householdColorById, householdPalette]);
 
     return (
         <div className="p-4 md:p-6 space-y-6">
@@ -481,6 +517,23 @@ const Calendar = () => {
                     </Button>
                 </div>
             </motion.div>
+
+            {householdLegend.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                    {householdLegend.map((household) => (
+                        <div
+                            key={household.id}
+                            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs"
+                        >
+                            <span
+                                className="h-2.5 w-2.5 rounded-full"
+                                style={{ backgroundColor: `hsl(var(--${household.color}))` }}
+                            />
+                            <span className="text-foreground">{household.name}</span>
+                        </div>
+                    ))}
+                </div>
+            ) : null}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <motion.div
@@ -580,6 +633,8 @@ const Calendar = () => {
                                 <div className="space-y-3">
                                     {selectedDateEvents.map((event) => {
                                         const overdue = isBefore(startOfDay(event.date), todayStart);
+                                        const linkedTask = findTaskByEvent(event);
+                                        const category = linkedTask?.category || "Other";
 
                                         return (
                                             <motion.div
@@ -604,6 +659,9 @@ const Calendar = () => {
                                                 <div className="flex items-center justify-between gap-3">
                                                     <div className="min-w-0">
                                                         <span className="font-medium block truncate">{event.title}</span>
+                                                        <span className="text-xs text-muted-foreground block truncate">
+                                                            {category}
+                                                        </span>
                                                         {event.householdName ? (
                                                             <span className="text-xs text-muted-foreground block truncate">
                                                                 {event.householdName}

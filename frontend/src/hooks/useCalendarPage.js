@@ -3,20 +3,7 @@ import { fetchCalendarMonth, fetchCalendarRange } from "../../../shared";
 import { apiClient } from "@/lib/utils";
 import { parseISO, format } from "date-fns";
 
-const PALETTE = ["terracotta", "sage", "lavender", "sky"];
-
-function stableHash(str) {
-    let hash = 0;
-    for (let index = 0; index < str.length; index += 1) {
-        hash = (hash * 31 + str.charCodeAt(index)) >>> 0;
-    }
-    return hash;
-}
-
-function householdColor(householdId) {
-    if (!householdId) return "sage";
-    return PALETTE[stableHash(String(householdId)) % PALETTE.length];
-}
+const PALETTE = ["terracotta", "lavender", "sky", "status-todo"];
 
 function normalizeUiEvent(event) {
     const dateObj = event?.date ? parseISO(event.date) : null;
@@ -28,7 +15,7 @@ function normalizeUiEvent(event) {
         date: dateObj,
         householdId: event?.household_id ?? null,
         householdName: event?.household_name || "",
-        color: householdColor(event?.household_id),
+        color: null,
         type: event?.type ?? "task",
     };
 }
@@ -114,15 +101,53 @@ export function useCalendarPage() {
         [loadRange]
     );
 
+    const householdColorById = useMemo(() => {
+        const map = new Map();
+        const idsInOrder = [];
+        const seen = new Set();
+
+        const allEvents = [
+            ...(Array.isArray(monthPayload?.events) ? monthPayload.events : []),
+            ...(Array.isArray(rangePayload?.events) ? rangePayload.events : []),
+        ];
+
+        for (const event of allEvents) {
+            const householdId = event?.household_id;
+            if (!householdId) continue;
+            const key = String(householdId);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            idsInOrder.push(key);
+        }
+
+        idsInOrder.forEach((householdId, index) => {
+            map.set(householdId, PALETTE[index % PALETTE.length]);
+        });
+
+        return map;
+    }, [monthPayload, rangePayload]);
+
     const monthEvents = useMemo(() => {
         const raw = Array.isArray(monthPayload?.events) ? monthPayload.events : [];
-        return raw.map(normalizeUiEvent).filter((event) => event.date);
-    }, [monthPayload]);
+        return raw
+            .map(normalizeUiEvent)
+            .filter((event) => event.date)
+            .map((event) => ({
+                ...event,
+                color: householdColorById.get(String(event.householdId || "")) || PALETTE[0],
+            }));
+    }, [monthPayload, householdColorById]);
 
     const rangeEvents = useMemo(() => {
         const raw = Array.isArray(rangePayload?.events) ? rangePayload.events : [];
-        return raw.map(normalizeUiEvent).filter((event) => event.date);
-    }, [rangePayload]);
+        return raw
+            .map(normalizeUiEvent)
+            .filter((event) => event.date)
+            .map((event) => ({
+                ...event,
+                color: householdColorById.get(String(event.householdId || "")) || PALETTE[0],
+            }));
+    }, [rangePayload, householdColorById]);
 
     const monthEventsByDayKey = useMemo(() => buildEventsByDayKey(monthEvents), [monthEvents]);
     const rangeEventsByDayKey = useMemo(() => buildEventsByDayKey(rangeEvents), [rangeEvents]);
@@ -135,6 +160,8 @@ export function useCalendarPage() {
         monthEventsByDayKey,
         rangeEventsByDayKey,
         eventsByDayKey: monthEventsByDayKey,
+        householdColorById,
+        householdPalette: PALETTE,
         loadingMonth,
         loadingWeek,
         monthError,
