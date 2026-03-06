@@ -13,6 +13,7 @@ import {
   createKanbanTask as sharedCreateKanbanTask,
   createHouseholdCategory as sharedCreateHouseholdCategory,
   changeMyPassword as sharedChangeMyPassword,
+  fetchNotificationSettings as sharedFetchNotificationSettings,
   createApiClient,
   deleteKanbanTask as sharedDeleteKanbanTask,
   deleteHouseholdCategory as sharedDeleteHouseholdCategory,
@@ -22,6 +23,7 @@ import {
   fetchKanbanTasks as sharedFetchKanbanTasks,
   fetchMe as sharedFetchMe,
   getApiBaseUrl,
+  updateNotificationSettings as sharedUpdateNotificationSettings,
   updateMe as sharedUpdateMe,
   updateKanbanTaskDescription as sharedUpdateKanbanTaskDescription,
   updateKanbanTaskAssignee as sharedUpdateKanbanTaskAssignee,
@@ -240,3 +242,11 @@ export function getInitials(nameOrUsername) {
 }
 
 export { API_BASE_URL };
+
+export async function fetchNotificationSettings() {
+  return sharedFetchNotificationSettings(apiClient);
+}
+
+export async function updateNotificationSettings(payload) {
+  return sharedUpdateNotificationSettings(apiClient, payload);
+}

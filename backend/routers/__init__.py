@@ -8,6 +8,7 @@ from .features import router as feature_router
 from .ai_summaries import router as ai_summaries_router
 from .household import router as household_router
 from .analytics import router as analytics_router
+from .settings import router as settings_router
 
 all_routers = [
     users_router,
@@ -20,6 +21,7 @@ all_routers = [
     ai_summaries_router,
     household_router,
     analytics_router,
+    settings_router,
 ]
 
 

@@ -7,6 +7,7 @@ from .daily_reports import DailyReports
 from .households import Households
 from .invitations import Invitations
 from .monthly_reports import MonthlyReports
+from .notification_settings import NotificationSettings
 from .oauth_accounts import OAuthAccounts
 from .password_refresh_token import PasswordRefreshToken
 from .preferences import Preferences
@@ -31,6 +32,7 @@ __all__ = [
     "Households",
     "UsersHouseholds",
     "Preferences",
+    "NotificationSettings",
     "OAuthAccounts",
     "PasswordRefreshToken",
     "CalendarConnections",
