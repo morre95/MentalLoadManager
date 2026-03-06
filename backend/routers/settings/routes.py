@@ -7,7 +7,7 @@ from .schemas import NotificationSettingsResponse, UpdateNotificationSettingsReq
 from .service import get_my_notification_settings, update_my_notification_settings
 
 router = APIRouter(
-    prefix="/api/users/me",
+    prefix="/api/settings",
     tags=["settings"],
 )
 
