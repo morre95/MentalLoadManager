@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -402,6 +402,8 @@ const Calendar = () => {
                         {dayEvents.map((event) => {
                             const linkedTask = findTaskByEvent(event);
                             const category = linkedTask?.category || "Other";
+                            const isWeekView = view === "week";
+                            const isDraggingTask = String(event.id) === String(draggedTaskId || "");
 
                             return (
                                 <div
@@ -413,12 +415,16 @@ const Calendar = () => {
                                         mouseEvent.stopPropagation();
                                         openTaskDialogFromEvent(event);
                                     }}
-                                    className={`text-sm px-2 py-1.5 rounded-md whitespace-normal break-words ${showSelectedStyle
+                                    className={`text-sm px-2 py-1.5 rounded-md whitespace-normal break-words transition-all relative ${showSelectedStyle
                                             ? "bg-primary-foreground/20 text-primary-foreground"
                                             : eventColorClasses[event.color]
-                                        }`}
+                                        } ${isWeekView ? "cursor-grab active:cursor-grabbing border-dashed hover:shadow-md hover:-translate-y-0.5" : ""
+                                        } ${isDraggingTask ? "opacity-60 ring-2 ring-primary/40" : ""}`}
                                     title={`${event.title} • ${event.householdName}`}
                                 >
+                                    {isWeekView ? (
+                                        <GripVertical className="pointer-events-none absolute left-1.5 top-1.5 h-3 w-3 opacity-70" />
+                                    ) : null}
                                     <div className="font-medium leading-snug">{event.title}</div>
                                     <div className="text-xs opacity-80 mt-0.5">{category}</div>
                                 </div>
