@@ -117,7 +117,7 @@ export function saveUserToLocalStorage(user) {
   }
 }
 
-const apiClient = createApiClient({
+export const apiClient = createApiClient({
   getAccessToken,
   getRefreshToken,
   setAuthTokens,

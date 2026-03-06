@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   createHousehold as sharedCreateHousehold,
   createHouseholdInvite as sharedCreateHouseholdInvite,
-  createApiClient,
   fetchHouseholds,
   flattenHouseholdMembers,
   leaveHousehold as sharedLeaveHousehold,
@@ -10,19 +9,9 @@ import {
   transferHouseholdOwnership as sharedTransferHouseholdOwnership,
   updateHouseholdMemberRole as sharedUpdateHouseholdMemberRole,
 } from "../../../shared/index.js";
-import { clearAuth, getAccessToken, getRefreshToken, setAuthTokens } from "@/lib/utils";
+import { apiClient } from "@/lib/utils";
 
 const LS_HOUSEHOLDS_KEY = "households";
-
-const apiClient = createApiClient({
-  getAccessToken,
-  getRefreshToken,
-  setAuthTokens,
-  onUnauthorized: clearAuth,
-  envOptions: {
-    locationHref: typeof window !== "undefined" ? window.location?.href : "",
-  },
-});
 
 export function useHousehold() {
   const [households, setHouseholds] = useState(() => {

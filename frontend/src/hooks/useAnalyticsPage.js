@@ -1,13 +1,10 @@
 // src/hooks/useAnalyticsPage.js
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useHousehold } from "@/hooks/useHouseHold";
-import { createApiClient, fetchAnalyticsSummary } from "../../../shared";
+import { fetchAnalyticsSummary } from "../../../shared";
 import {
-    clearAuth,
-    getAccessToken,
     getDisplayNameFromUsername,
-    getRefreshToken,
-    setAuthTokens,
+    apiClient
 } from "@/lib/utils";
 
 import { CHARTS, DEFAULT_ACTIVE_CHART_IDS, TIMEFRAME_OPTIONS } from "@/lib/analytics_constants";
@@ -96,18 +93,6 @@ export function useAnalyticsPage() {
         return (opt && opt.label) || timeframe;
     }, [timeframe]);
 
-    const apiClient = useMemo(() => {
-        return createApiClient({
-            getAccessToken,
-            getRefreshToken,
-            setAuthTokens,
-            onUnauthorized: clearAuth,
-            envOptions: {
-                locationHref: typeof window !== "undefined" ? window.location?.href : "",
-            },
-        });
-    }, []);
-
     const load = useCallback(
         async (tf = timeframe) => {
             setLoading(true);
@@ -139,7 +124,7 @@ export function useAnalyticsPage() {
                 setLoading(false);
             }
         },
-        [apiClient, selectedHouseholdId, timeframe]
+        [ selectedHouseholdId, timeframe]
     );
 
     // initial load + on changes
