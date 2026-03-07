@@ -39,9 +39,9 @@ export default function Analytics() {
     return (
         <div className="p-4 md:p-6 space-y-6">
             <AnalyticsHeader vm={vm} />
-            <AnalyticsFiltersBar vm={vm} />
             <AnalyticsStatsGrid stats={vm.enrichedStats} />
             <AnalyticsInsightsPanel vm={vm} />
+            <AnalyticsFiltersBar vm={vm} />
             <AnalyticsChartsGrid vm={vm} />
             <AnalyticsFairnessCard vm={vm} />
 

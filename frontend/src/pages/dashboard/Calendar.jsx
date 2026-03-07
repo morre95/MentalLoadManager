@@ -87,7 +87,7 @@ const Calendar = () => {
     const [dragOverDayKey, setDragOverDayKey] = useState(null);
     const [syncError, setSyncError] = useState(null);
     const [selectedHouseholdFilter, setSelectedHouseholdFilter] = useState(ALL_HOUSEHOLDS_FILTER);
-    const [showMyTasksOnly, setShowMyTasksOnly] = useState(false);
+    const [showMyTasksOnly] = useState(false);
     const [currentUserId, setCurrentUserId] = useState(null);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [quickAddDate, setQuickAddDate] = useState("");

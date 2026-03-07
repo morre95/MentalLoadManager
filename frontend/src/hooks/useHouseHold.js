@@ -83,7 +83,7 @@ export function useHousehold() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setHouseholds]);
 
   useEffect(() => {
     void load(false);

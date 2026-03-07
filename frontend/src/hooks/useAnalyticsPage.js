@@ -5,7 +5,7 @@ import { fetchAnalyticsSummary } from "../../../shared";
 import { getDisplayNameFromUsername, apiClient } from "@/lib/utils";
 
 import { CHARTS, DEFAULT_ACTIVE_CHART_IDS, TIMEFRAME_OPTIONS } from "@/lib/analytics_constants";
-import { downloadTextFile, formatPct, safeNumber, toCsv } from "@/lib/analytics_utils";
+import { downloadPdfFromRows, downloadPdfFromText, formatPct, safeNumber } from "@/lib/analytics_utils";
 
 function sumNumericValues(row, skipKeys = ["week", "day", "month", "category", "_dayKey", "_monthKey"]) {
     return Object.entries(row || {}).reduce((sum, [k, v]) => {
@@ -538,7 +538,7 @@ export function useAnalyticsPage() {
         (chartId) => {
             const tf = timeframeLabel.replace(/\s+/g, "-").toLowerCase();
             const hh = (selectedHouseholdName || "household").replace(/\s+/g, "-").toLowerCase();
-            const filename = `analytics-${chartId}-${hh}-${tf}.csv`;
+            const filename = `analytics-${chartId}-${hh}-${tf}.pdf`;
             let rows = [];
             if (chartId === "distribution") rows = filteredWeeklyData || [];
             if (chartId === "category") rows = filteredCategoryPieData || [];
@@ -554,12 +554,7 @@ export function useAnalyticsPage() {
                     return { day: (point && point.day) || "Day", completed, pending, total, completionRate };
                 });
             }
-            const csv = toCsv(rows);
-            if (!csv) {
-                downloadTextFile(filename, "No data", "text/plain");
-                return;
-            }
-            downloadTextFile(filename, csv, "text/csv");
+            downloadPdfFromRows(filename, `Analytics · ${chartId}`, rows);
         },
         [
             timeframeLabel,
@@ -577,7 +572,7 @@ export function useAnalyticsPage() {
         const now = new Date();
         const monthStamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
         const hh = (selectedHouseholdName || "household").replace(/\s+/g, "-").toLowerCase();
-        const filename = `analytics-summary-${hh}-${monthStamp}.md`;
+        const filename = `analytics-summary-${hh}-${monthStamp}.pdf`;
         const lines = [
             `# Analytics Summary (${monthStamp})`,
             "",
@@ -602,7 +597,7 @@ export function useAnalyticsPage() {
                 .filter(([, text]) => !!text)
                 .map(([key, text]) => `- ${key}: ${text}`),
         ];
-        downloadTextFile(filename, lines.join("\n"), "text/markdown");
+        downloadPdfFromText(filename, `Analytics Summary (${monthStamp})`, lines);
     }, [
         selectedHouseholdName,
         timeframeLabel,

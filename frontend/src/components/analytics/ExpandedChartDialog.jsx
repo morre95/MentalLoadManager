@@ -23,7 +23,7 @@ export default function ExpandedChartDialog({
                 <div className="mt-2 flex items-center justify-end gap-2">
                     <Button variant="outline" onClick={onDownload}>
                         <Download className="h-4 w-4 mr-2" />
-                        Download data
+                        Download PDF
                     </Button>
                     <Button variant="outline" onClick={onClose}>
                         Close

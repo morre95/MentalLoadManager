@@ -26,7 +26,7 @@ export default function CardActions({
                 variant="ghost"
                 onClick={() => onDownload(chartId)}
                 aria-label={`Download ${title} data`}
-                title="Download data (CSV)"
+                title="Download data (PDF)"
             >
                 <Download className="h-4 w-4" />
             </Button>

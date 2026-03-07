@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { downloadTextFile, toCsv } from "@/lib/analytics_utils";
+import { downloadPdfFromRows } from "@/lib/analytics_utils";
 
 export default function AnalyticsDrilldownDialog({ vm }) {
     const { drilldown, handleCloseDrilldown } = vm;
@@ -9,9 +9,8 @@ export default function AnalyticsDrilldownDialog({ vm }) {
     const columns = rows.length ? Object.keys(rows[0]) : [];
 
     const handleDownload = () => {
-        const csv = toCsv(rows);
         const name = (drilldown?.title || "drilldown").toLowerCase().replace(/[^a-z0-9]+/g, "-");
-        downloadTextFile(`${name || "drilldown"}.csv`, csv || "No data", csv ? "text/csv" : "text/plain");
+        downloadPdfFromRows(`${name || "drilldown"}.pdf`, drilldown?.title || "Details", rows);
     };
 
     return (
@@ -52,7 +51,7 @@ export default function AnalyticsDrilldownDialog({ vm }) {
 
                 <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={handleDownload}>
-                        Download details
+                        Download details (PDF)
                     </Button>
                     <Button variant="outline" onClick={handleCloseDrilldown}>
                         Close
