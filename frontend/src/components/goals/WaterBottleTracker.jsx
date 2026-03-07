@@ -2,7 +2,24 @@ import { motion } from "framer-motion";
 import { Droplet } from "lucide-react";
 
 const WaterBottleTracker = ({ current, target, name }) => {
-    const percentage = Math.min((current / target) * 100, 100);
+    const safeTarget = Math.max(1, Number(target) || 1);
+    const safeCurrent = Math.max(0, Number(current) || 0);
+
+    const percentage = Math.min((safeCurrent / safeTarget) * 100, 100);
+    const fillRatio = Math.min(safeCurrent / safeTarget, 1);
+
+    const bottleX = 10;
+    const bottleY = 30;
+    const bottleWidth = 40;
+    const bottleHeight = 90;
+    const bottleRadius = 5;
+
+    const innerX = bottleX;
+    const innerY = bottleY;
+    const innerWidth = bottleWidth;
+    const innerHeight = bottleHeight;
+    const fillHeight = innerHeight * fillRatio;
+    const fillY = innerY + innerHeight - fillHeight;
 
     //const _segments = Array.from({ length: target }, (_, i) => i < current);
 
@@ -21,24 +38,23 @@ const WaterBottleTracker = ({ current, target, name }) => {
                     />
 
                     <rect
-                        x="10"
-                        y="30"
-                        width="40"
-                        height="90"
-                        rx="5"
-                        className="fill-card stroke-border"
-                        strokeWidth="2"
+                        x={bottleX}
+                        y={bottleY}
+                        width={bottleWidth}
+                        height={bottleHeight}
+                        rx={bottleRadius}
+                        className="fill-card"
                     />
 
-                    {Array.from({ length: target - 1 }).map((_, i) => {
-                        const segmentHeight = 88 / target;
-                        const y = 120 - (i + 1) * segmentHeight;
+                    {Array.from({ length: safeTarget - 1 }).map((_, i) => {
+                        const segmentHeight = innerHeight / safeTarget;
+                        const y = innerY + innerHeight - (i + 1) * segmentHeight;
                         return (
                             <line
                                 key={i}
-                                x1="12"
+                                x1={innerX}
                                 y1={y}
-                                x2="48"
+                                x2={innerX + innerWidth}
                                 y2={y}
                                 className="stroke-border/30"
                                 strokeWidth="0.5"
@@ -47,33 +63,41 @@ const WaterBottleTracker = ({ current, target, name }) => {
                         );
                     })}
 
-                    <motion.rect
-                        x="12"
-                        y={120 - percentage * 0.88}
-                        width="36"
-                        height={percentage * 0.88}
-                        rx="3"
+                    <rect
+                        x={innerX}
+                        y={fillY}
+                        width={innerWidth}
+                        height={fillHeight}
                         className="fill-sky"
-                        initial={{ height: 0, y: 120 }}
-                        animate={{ height: percentage * 0.88, y: 120 - percentage * 0.88 }}
-                        transition={{ duration: 1, ease: "easeOut" }}
-                        opacity="0.7"
+                        opacity="0.85"
+                        rx={bottleRadius}
                     />
 
-                    {current > 0 && (
+                    <rect
+                        x={bottleX}
+                        y={bottleY}
+                        width={bottleWidth}
+                        height={bottleHeight}
+                        rx={bottleRadius}
+                        fill="none"
+                        className="stroke-border"
+                        strokeWidth="2"
+                    />
+
+                    {safeCurrent > 0 && fillHeight > 6 && (
                         <motion.circle
                             cx="25"
-                            cy={115 - percentage * 0.4}
+                            cy={Math.max(innerY + 6, fillY + 4)}
                             r="2"
                             className="fill-sky-light"
                             animate={{ y: [0, -10, 0], opacity: [0.3, 0.8, 0.3] }}
                             transition={{ repeat: Infinity, duration: 3 }}
                         />
                     )}
-                    {current > Math.floor(target / 2) && (
+                    {safeCurrent > Math.floor(safeTarget / 2) && fillHeight > 10 && (
                         <motion.circle
                             cx="35"
-                            cy={105 - percentage * 0.3}
+                            cy={Math.max(innerY + 8, fillY + 10)}
                             r="1.5"
                             className="fill-sky-light"
                             animate={{ y: [0, -8, 0], opacity: [0.3, 0.8, 0.3] }}
@@ -81,9 +105,9 @@ const WaterBottleTracker = ({ current, target, name }) => {
                         />
                     )}
 
-                    {Array.from({ length: target }).map((_, i) => {
-                        const segmentHeight = 88 / target;
-                        const y = 120 - (i + 1) * segmentHeight;
+                    {Array.from({ length: safeTarget }).map((_, i) => {
+                        const segmentHeight = innerHeight / safeTarget;
+                        const y = innerY + innerHeight - (i + 1) * segmentHeight;
                         return (
                             <g key={`label-${i}`}>
                                 <line
@@ -109,7 +133,7 @@ const WaterBottleTracker = ({ current, target, name }) => {
                         animate={{ scale: 1 }}
                         transition={{ delay: 0.3 }}
                     >
-                        {current}/{target}
+                        {safeCurrent}/{safeTarget}
                     </motion.p>
                 </div>
                 <p className="text-sm text-muted-foreground">glasses today</p>
