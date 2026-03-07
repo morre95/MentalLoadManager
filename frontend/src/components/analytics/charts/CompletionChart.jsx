@@ -15,6 +15,7 @@ export default function CompletionChart({
     meta,
     height = 256,
     legendLayout = "grid",
+    onPointSelect,
 }) {
     const isEmpty = !data || data.length === 0;
     const legendPayload = [
@@ -30,7 +31,21 @@ export default function CompletionChart({
                 emptyHint={meta?.emptyHint}
                 height={height}
             >
-                <LineChart data={data} margin={{ top: 20, right: 30, left: -10, bottom: 0 }}>
+                <LineChart
+                    data={data}
+                    margin={{ top: 20, right: 30, left: -10, bottom: 0 }}
+                    onClick={(state) => {
+                        if (!onPointSelect) return;
+                        const day = state?.activeLabel;
+                        const row = (data || []).find((point) => point?.day === day);
+                        if (!row) return;
+                        onPointSelect({
+                            day: row.day,
+                            completed: row.completed,
+                            pending: row.pending,
+                        });
+                    }}
+                >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                     <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />

@@ -16,16 +16,17 @@ export default function ExpandedAnalyticsChart({ vm }) {
         chartMetaById,
         handleDownloadChartData,
 
-        weeklyData,
-        categoryPieData,
-        loadTrendData,
-        completionData,
-        radarData,
+        filteredWeeklyData,
+        filteredCategoryPieData,
+        filteredLoadTrendData,
+        filteredCompletionData,
+        filteredRadarData,
 
         labels,
-        sortedPeople,
+        filteredPeople,
         personColorMap,
         getDisplayNameFromUsername,
+        handleChartPointSelect,
 
         SERIES_COLORS,
     } = vm;
@@ -39,13 +40,14 @@ export default function ExpandedAnalyticsChart({ vm }) {
         if (expandedChartId === "distribution") {
             return (
                 <DistributionChart
-                    data={weeklyData}
+                    data={filteredWeeklyData}
                     meta={chartMetaById.get("distribution")}
-                    sortedPeople={sortedPeople}
+                    sortedPeople={filteredPeople}
                     labels={labels}
                     personColorMap={personColorMap}
                     getDisplayNameFromUsername={getDisplayNameFromUsername}
                     height={360}
+                    onPointSelect={(point) => handleChartPointSelect("distribution", point)}
                 />
             );
         }
@@ -53,13 +55,14 @@ export default function ExpandedAnalyticsChart({ vm }) {
         if (expandedChartId === "category") {
             return (
                 <CategoryChart
-                    data={categoryPieData}
+                    data={filteredCategoryPieData}
                     meta={chartMetaById.get("category")}
                     seriesColors={SERIES_COLORS}
                     height={360}
                     innerRadius={70}
                     outerRadius={110}
                     legendLayout="wrap"
+                    onPointSelect={(point) => handleChartPointSelect("category", point)}
                 />
             );
         }
@@ -67,9 +70,10 @@ export default function ExpandedAnalyticsChart({ vm }) {
         if (expandedChartId === "load-trend") {
             return (
                 <LoadTrendChart
-                    data={loadTrendData}
+                    data={filteredLoadTrendData}
                     meta={chartMetaById.get("load-trend")}
                     height={360}
+                    onPointSelect={(point) => handleChartPointSelect("load-trend", point)}
                 />
             );
         }
@@ -77,10 +81,11 @@ export default function ExpandedAnalyticsChart({ vm }) {
         if (expandedChartId === "completion") {
             return (
                 <CompletionChart
-                    data={completionData}
+                    data={filteredCompletionData}
                     meta={chartMetaById.get("completion")}
                     height={360}
                     legendLayout="grid"
+                    onPointSelect={(point) => handleChartPointSelect("completion", point)}
                 />
             );
         }
@@ -88,9 +93,9 @@ export default function ExpandedAnalyticsChart({ vm }) {
         if (expandedChartId === "radar") {
             return (
                 <RadarChart
-                    data={radarData}
+                    data={filteredRadarData}
                     meta={chartMetaById.get("radar")}
-                    sortedPeople={sortedPeople}
+                    sortedPeople={filteredPeople}
                     labels={labels}
                     personColorMap={personColorMap}
                     getDisplayNameFromUsername={getDisplayNameFromUsername}
@@ -98,6 +103,7 @@ export default function ExpandedAnalyticsChart({ vm }) {
                     outerRadius="70%"
                     cy="48%"
                     legendLayout="grid"
+                    onPointSelect={(point) => handleChartPointSelect("radar", point)}
                 />
             );
         }
@@ -105,9 +111,10 @@ export default function ExpandedAnalyticsChart({ vm }) {
         if (expandedChartId === "momentum") {
             return (
                 <MomentumChart
-                    data={completionData}
+                    data={filteredCompletionData}
                     meta={chartMetaById.get("momentum")}
                     height={360}
+                    onPointSelect={(point) => handleChartPointSelect("momentum", point)}
                 />
             );
         }
@@ -115,17 +122,18 @@ export default function ExpandedAnalyticsChart({ vm }) {
         return null;
     }, [
         expandedChartId,
-        weeklyData,
-        categoryPieData,
-        loadTrendData,
-        completionData,
-        radarData,
+        filteredWeeklyData,
+        filteredCategoryPieData,
+        filteredLoadTrendData,
+        filteredCompletionData,
+        filteredRadarData,
         chartMetaById,
-        sortedPeople,
+        filteredPeople,
         labels,
         personColorMap,
         getDisplayNameFromUsername,
         SERIES_COLORS,
+        handleChartPointSelect,
     ]);
 
     return (

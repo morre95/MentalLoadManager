@@ -8,7 +8,6 @@ import {
 } from "recharts";
 
 import ChartFrame from "@/components/analytics/ChartFrame";
-import ChartLegend from "@/components/analytics/ChartLegend";
 import PeopleLegend from "@/components/analytics/PeopleLegend";
 
 
@@ -28,6 +27,7 @@ export default function RadarChart({
     height = 256,
     outerRadius = "68%",
     cy = "44%",
+    onPointSelect,
 }) {
         const isEmpty = !data || data.length === 0;
 
@@ -39,7 +39,24 @@ export default function RadarChart({
             emptyHint={meta?.emptyHint}
             height={height}
         >
-            <RChart data={data} outerRadius={outerRadius} cy={cy} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+            <RChart
+                data={data}
+                outerRadius={outerRadius}
+                cy={cy}
+                margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+                onClick={(state) => {
+                    if (!onPointSelect) return;
+                    const category = state?.activeLabel;
+                    const row = (data || []).find((point) => point?.category === category);
+                    if (!row) return;
+                    const values = Object.entries(row).reduce((acc, [k, v]) => {
+                        if (k === "category") return acc;
+                        acc[k] = v;
+                        return acc;
+                    }, {});
+                    onPointSelect({ category, values });
+                }}
+            >
                 <PolarGrid />
 
                 <PolarAngleAxis

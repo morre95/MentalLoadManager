@@ -17,6 +17,7 @@ export default function CategoryChart({
     innerRadius = 60,
     outerRadius = 90,
     legendLayout = "wrap",
+    onPointSelect,
 }) {
     const isEmpty = !data || data.length === 0;
     const legendPayload = (data || []).map((entry, index) => ({
@@ -40,6 +41,13 @@ export default function CategoryChart({
                         dataKey="value"
                         nameKey="name"
                         paddingAngle={2}
+                        onClick={(entry) => {
+                            if (!onPointSelect) return;
+                            onPointSelect({
+                                name: entry?.name,
+                                value: entry?.value,
+                            });
+                        }}
                     >
                         {data.map((entry, index) => (
                             <Cell

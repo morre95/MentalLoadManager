@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { BarChart3, RefreshCcw, Plus, Info } from "lucide-react";
+import { BarChart3, RefreshCcw, Plus, Info, FileDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +31,7 @@ export default function AnalyticsHeader({ vm }) {
         topCategory,
 
         load,
+        handleDownloadMonthlySummary,
         setIsManageOpen,
         setLastUpdatedAt,
     } = vm;
@@ -114,6 +115,11 @@ export default function AnalyticsHeader({ vm }) {
             </div>
 
             <div className="flex items-center gap-3">
+                <Button variant="outline" onClick={handleDownloadMonthlySummary}>
+                    <FileDown className="w-4 h-4 mr-2" />
+                    Export Summary
+                </Button>
+
                 <Button
                     variant="outline"
                     size="icon"

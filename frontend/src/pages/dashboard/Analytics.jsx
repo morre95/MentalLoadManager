@@ -4,10 +4,14 @@ import { NoHouseholdState } from "@/components/ui/noHouseHoldState";
 import { useAnalyticsPage } from "@/hooks/useAnalyticsPage";
 
 import AnalyticsHeader from "@/components/analytics/AnalyticsHeader";
+import AnalyticsFiltersBar from "@/components/analytics/AnalyticsFiltersBar";
+import AnalyticsInsightsPanel from "@/components/analytics/AnalyticsInsightsPanel";
+import AnalyticsFairnessCard from "@/components/analytics/AnalyticsFairnessCard";
 import AnalyticsStatsGrid from "@/components/analytics/AnalyticsStatsGrid";
 import AnalyticsChartsGrid from "@/components/analytics/AnalyticsChartsGrid";
 import ManageChartsDialog from "@/components/analytics/ManageChartsDialog";
 import ExpandedAnalyticsChart from "@/components/analytics/ExpandedAnalyticsChart";
+import AnalyticsDrilldownDialog from "@/components/analytics/AnalyticsDrilldownDialog";
 import AnalyticsError from "@/components/analytics/AnalyticsError";
 
 export default function Analytics() {
@@ -35,8 +39,11 @@ export default function Analytics() {
     return (
         <div className="p-4 md:p-6 space-y-6">
             <AnalyticsHeader vm={vm} />
+            <AnalyticsFiltersBar vm={vm} />
             <AnalyticsStatsGrid stats={vm.enrichedStats} />
+            <AnalyticsInsightsPanel vm={vm} />
             <AnalyticsChartsGrid vm={vm} />
+            <AnalyticsFairnessCard vm={vm} />
 
             <ManageChartsDialog
                 open={vm.isManageOpen}
@@ -47,6 +54,7 @@ export default function Analytics() {
             />
 
             <ExpandedAnalyticsChart vm={vm} />
+            <AnalyticsDrilldownDialog vm={vm} />
         </div>
     );
 }

@@ -13,6 +13,7 @@ export default function LoadTrendChart({
     data, // <- loadTrendData
     meta,
     height = 256,
+    onPointSelect,
 }) {
     return (
         <ChartFrame
@@ -21,7 +22,17 @@ export default function LoadTrendChart({
             emptyHint={meta?.emptyHint}
             height={height}
         >
-            <AreaChart data={data} margin={{ top: 20, right: 30, left: -10, bottom: 0 }}>
+            <AreaChart
+                data={data}
+                margin={{ top: 20, right: 30, left: -10, bottom: 0 }}
+                onClick={(state) => {
+                    if (!onPointSelect) return;
+                    const month = state?.activeLabel;
+                    const row = (data || []).find((point) => point?.month === month);
+                    if (!row) return;
+                    onPointSelect({ month: row.month, load: row.load });
+                }}
+            >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                 <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />

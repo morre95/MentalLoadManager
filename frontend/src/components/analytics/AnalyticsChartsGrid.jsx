@@ -18,18 +18,20 @@ export default function AnalyticsChartsGrid({ vm }) {
         handleDownloadChartData,
         handleToggleChart,
 
-        weeklyData,
-        categoryPieData,
-        loadTrendData,
-        completionData,
-        radarData,
+        filteredWeeklyData,
+        filteredCategoryPieData,
+        filteredLoadTrendData,
+        filteredCompletionData,
+        filteredRadarData,
 
         topCategory,
+        chartChanges,
 
         labels,
-        sortedPeople,
+        filteredPeople,
         personColorMap,
         getDisplayNameFromUsername,
+        handleChartPointSelect,
 
         SERIES_COLORS,
     } = vm;
@@ -45,6 +47,9 @@ export default function AnalyticsChartsGrid({ vm }) {
                             <p className="text-sm text-muted-foreground">
                                 Shows how tasks are split across people week by week.
                             </p>
+                            {chartChanges?.distribution ? (
+                                <p className="text-xs text-muted-foreground">{chartChanges.distribution}</p>
+                            ) : null}
                         </div>
 
                         <CardActions
@@ -58,12 +63,13 @@ export default function AnalyticsChartsGrid({ vm }) {
 
                     <CardContent className="min-w-0">
                         <DistributionChart
-                            data={weeklyData}
+                            data={filteredWeeklyData}
                             meta={chartMetaById.get("distribution")}
-                            sortedPeople={sortedPeople}
+                            sortedPeople={filteredPeople}
                             labels={labels}
                             personColorMap={personColorMap}
                             getDisplayNameFromUsername={getDisplayNameFromUsername}
+                            onPointSelect={(point) => handleChartPointSelect("distribution", point)}
                         />
                     </CardContent>
                 </Card>
@@ -84,6 +90,9 @@ export default function AnalyticsChartsGrid({ vm }) {
                                     </>
                                 ) : null}
                             </p>
+                            {chartChanges?.category ? (
+                                <p className="text-xs text-muted-foreground">{chartChanges.category}</p>
+                            ) : null}
                         </div>
 
                         <CardActions
@@ -97,9 +106,10 @@ export default function AnalyticsChartsGrid({ vm }) {
 
                     <CardContent className="min-w-0">
                         <CategoryChart
-                            data={categoryPieData}
+                            data={filteredCategoryPieData}
                             meta={chartMetaById.get("category")}
                             seriesColors={SERIES_COLORS}
+                            onPointSelect={(point) => handleChartPointSelect("category", point)}
                         />
                     </CardContent>
                 </Card>
@@ -114,6 +124,9 @@ export default function AnalyticsChartsGrid({ vm }) {
                             <p className="text-sm text-muted-foreground">
                                 Shows how mental load changes month to month.
                             </p>
+                            {chartChanges?.["load-trend"] ? (
+                                <p className="text-xs text-muted-foreground">{chartChanges["load-trend"]}</p>
+                            ) : null}
                         </div>
 
                         <CardActions
@@ -126,7 +139,11 @@ export default function AnalyticsChartsGrid({ vm }) {
                     </CardHeader>
 
                     <CardContent className="min-w-0">
-                        <LoadTrendChart data={loadTrendData} meta={chartMetaById.get("load-trend")} />
+                        <LoadTrendChart
+                            data={filteredLoadTrendData}
+                            meta={chartMetaById.get("load-trend")}
+                            onPointSelect={(point) => handleChartPointSelect("load-trend", point)}
+                        />
                     </CardContent>
                 </Card>
             )}
@@ -140,6 +157,9 @@ export default function AnalyticsChartsGrid({ vm }) {
                             <p className="text-sm text-muted-foreground">
                                 Shows completed and pending tasks for each day.
                             </p>
+                            {chartChanges?.completion ? (
+                                <p className="text-xs text-muted-foreground">{chartChanges.completion}</p>
+                            ) : null}
                         </div>
 
                         <CardActions
@@ -152,7 +172,11 @@ export default function AnalyticsChartsGrid({ vm }) {
                     </CardHeader>
 
                     <CardContent className="min-w-0">
-                        <CompletionChart data={completionData} meta={chartMetaById.get("completion")} />
+                        <CompletionChart
+                            data={filteredCompletionData}
+                            meta={chartMetaById.get("completion")}
+                            onPointSelect={(point) => handleChartPointSelect("completion", point)}
+                        />
                     </CardContent>
                 </Card>
             )}
@@ -166,6 +190,9 @@ export default function AnalyticsChartsGrid({ vm }) {
                             <p className="text-sm text-muted-foreground">
                                 Compares who contributes most in each category.
                             </p>
+                            {chartChanges?.radar ? (
+                                <p className="text-xs text-muted-foreground">{chartChanges.radar}</p>
+                            ) : null}
                         </div>
 
                         <CardActions
@@ -179,12 +206,13 @@ export default function AnalyticsChartsGrid({ vm }) {
 
                     <CardContent className="min-w-0">
                         <RadarChart
-                            data={radarData}
+                            data={filteredRadarData}
                             meta={chartMetaById.get("radar")}
-                            sortedPeople={sortedPeople}
+                            sortedPeople={filteredPeople}
                             labels={labels}
                             personColorMap={personColorMap}
                             getDisplayNameFromUsername={getDisplayNameFromUsername}
+                            onPointSelect={(point) => handleChartPointSelect("radar", point)}
                         />
                     </CardContent>
                 </Card>
@@ -199,6 +227,9 @@ export default function AnalyticsChartsGrid({ vm }) {
                             <p className="text-sm text-muted-foreground">
                                 Shows how steady task completion has been over time.
                             </p>
+                            {chartChanges?.momentum ? (
+                                <p className="text-xs text-muted-foreground">{chartChanges.momentum}</p>
+                            ) : null}
                         </div>
 
                         <CardActions
@@ -211,7 +242,11 @@ export default function AnalyticsChartsGrid({ vm }) {
                     </CardHeader>
 
                     <CardContent className="min-w-0">
-                        <MomentumChart data={completionData} meta={chartMetaById.get("momentum")} />
+                        <MomentumChart
+                            data={filteredCompletionData}
+                            meta={chartMetaById.get("momentum")}
+                            onPointSelect={(point) => handleChartPointSelect("momentum", point)}
+                        />
                     </CardContent>
                 </Card>
             )}

@@ -24,6 +24,7 @@ export default function DistributionChart({
     personColorMap,
     getDisplayNameFromUsername,
     height = 256,
+    onPointSelect,
 }) {
 
     const isEmpty = !data || data.length === 0;
@@ -36,7 +37,22 @@ export default function DistributionChart({
                 emptyHint={meta?.emptyHint}
                 height={height}
             >
-                <BarChart data={data} margin={{ top: 20, right: 30, left: -10, bottom: 0 }}>
+                <BarChart
+                    data={data}
+                    margin={{ top: 20, right: 30, left: -10, bottom: 0 }}
+                    onClick={(state) => {
+                        if (!onPointSelect) return;
+                        const week = state?.activeLabel;
+                        const row = (data || []).find((point) => point?.week === week);
+                        if (!row) return;
+                        const values = Object.entries(row).reduce((acc, [k, v]) => {
+                            if (k === "week") return acc;
+                            acc[k] = v;
+                            return acc;
+                        }, {});
+                        onPointSelect({ week, values });
+                    }}
+                >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis
                         dataKey="week"

@@ -32,6 +32,7 @@ export default function MomentumChart({
     data, // <- completionData
     meta,
     height = 256,
+    onPointSelect,
 }) {
     const momentumData = toMomentumData(data);
     const hasSignal = momentumData.some((item) => item.total > 0);
@@ -43,7 +44,17 @@ export default function MomentumChart({
             emptyHint={meta?.emptyHint}
             height={height}
         >
-            <BarChart data={momentumData} margin={{ top: 20, right: 30, left: -10, bottom: 0 }}>
+            <BarChart
+                data={momentumData}
+                margin={{ top: 20, right: 30, left: -10, bottom: 0 }}
+                onClick={(state) => {
+                    if (!onPointSelect) return;
+                    const day = state?.activeLabel;
+                    const row = momentumData.find((point) => point?.day === day);
+                    if (!row) return;
+                    onPointSelect(row);
+                }}
+            >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                 <YAxis
