@@ -20,6 +20,17 @@ export async function fetchGoals(apiClient) {
   };
 }
 
+export async function fetchAchievements(apiClient) {
+  const data = await apiClient.request("/api/goals/achievements", {
+    method: "GET",
+  });
+
+  return {
+    ...data,
+    achievements: Array.isArray(data?.achievements) ? data.achievements : [],
+  };
+}
+
 export async function createGoal(apiClient, payload) {
   const data = await apiClient.request("/api/goals", {
     method: "POST",

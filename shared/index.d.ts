@@ -145,6 +145,17 @@ export type UiGoal = {
 
 export function mapApiGoalToUi(goal: any): UiGoal;
 export function fetchGoals(apiClient: ApiClient): Promise<{ goals: UiGoal[] }>;
+export function fetchAchievements(apiClient: ApiClient): Promise<{
+  achievements: Array<{
+    id: string;
+    title: string;
+    description: string;
+    icon: string;
+    current: number;
+    target: number;
+    category: string;
+  }>;
+}>;
 export function createGoal(
   apiClient: ApiClient,
   payload: {

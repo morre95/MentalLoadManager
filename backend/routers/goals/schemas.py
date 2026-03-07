@@ -17,6 +17,20 @@ class GoalsResponse(BaseModel):
     goals: list[GoalResponse]
 
 
+class AchievementResponse(BaseModel):
+    id: str
+    title: str
+    description: str
+    icon: str
+    current: int
+    target: int
+    category: str
+
+
+class AchievementsResponse(BaseModel):
+    achievements: list[AchievementResponse]
+
+
 class CreateGoalRequest(BaseModel):
     type: str = Field(min_length=1, max_length=50)
     name: str = Field(min_length=1, max_length=255)

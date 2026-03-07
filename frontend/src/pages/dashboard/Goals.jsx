@@ -9,70 +9,15 @@ import AchievementCard from "@/components/goals/AchievementCard";
 import {
     createGoal as createGoalRequest,
     deleteGoal as deleteGoalRequest,
+    fetchAchievements as fetchAchievementsRequest,
     fetchGoals as fetchGoalsRequest,
     updateGoalProgress as updateGoalProgressRequest,
 } from "@/lib/utils";
 
-const achievements = [
-    {
-        id: "a1",
-        title: "Category Champion",
-        description: "Clear all tasks in the Cleaning category",
-        icon: "trophy",
-        current: 3,
-        target: 5,
-        category: "Tasks",
-    },
-    {
-        id: "a2",
-        title: "Equal Split",
-        description: "Achieve a 50/50 split in household chores for a week",
-        icon: "scale",
-        current: 4,
-        target: 7,
-        category: "Balance",
-    },
-    {
-        id: "a3",
-        title: "Perfect Week",
-        description: "Complete all tasks every day for a week",
-        icon: "flame",
-        current: 3,
-        target: 7,
-        category: "Consistency",
-    },
-    {
-        id: "a4",
-        title: "Task Master",
-        description: "Complete 100 tasks total",
-        icon: "star",
-        current: 42,
-        target: 100,
-        category: "Tasks",
-    },
-    {
-        id: "a5",
-        title: "Early Bird",
-        description: "Complete all tasks before their due date for 2 weeks",
-        icon: "check",
-        current: 8,
-        target: 14,
-        category: "Consistency",
-    },
-    {
-        id: "a6",
-        title: "Category Explorer",
-        description: "Complete tasks in every category",
-        icon: "target",
-        current: 5,
-        target: 7,
-        category: "Tasks",
-    },
-];
-
 const Goals = () => {
     const navigate = useNavigate();
     const [goals, setGoals] = useState([]);
+    const [achievements, setAchievements] = useState([]);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [syncError, setSyncError] = useState(null);
@@ -82,15 +27,23 @@ const Goals = () => {
         setSyncError(null);
 
         try {
-            const data = await fetchGoalsRequest();
-            setGoals(Array.isArray(data?.goals) ? data.goals : []);
+            const [goalsData, achievementsData] = await Promise.all([
+                fetchGoalsRequest(),
+                fetchAchievementsRequest(),
+            ]);
+            setGoals(Array.isArray(goalsData?.goals) ? goalsData.goals : []);
+            setAchievements(
+                Array.isArray(achievementsData?.achievements)
+                    ? achievementsData.achievements
+                    : []
+            );
         } catch (error) {
             if (error?.status === 401) {
                 navigate("/login", { replace: true });
                 return;
             }
 
-            setSyncError("Could not load goals right now.");
+            setSyncError("Could not load goals and achievements right now.");
         } finally {
             setIsLoading(false);
         }

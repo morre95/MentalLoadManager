@@ -19,6 +19,7 @@ import {
   deleteGoal as sharedDeleteGoal,
   deleteKanbanTask as sharedDeleteKanbanTask,
   deleteHouseholdCategory as sharedDeleteHouseholdCategory,
+  fetchAchievements as sharedFetchAchievements,
   fetchGoals as sharedFetchGoals,
   fetchHouseholds as sharedFetchHouseholds,
   fetchHouseholdCategories as sharedFetchHouseholdCategories,
@@ -167,6 +168,10 @@ export async function createKanbanTask(payload) {
 
 export async function fetchGoals() {
   return sharedFetchGoals(apiClient);
+}
+
+export async function fetchAchievements() {
+  return sharedFetchAchievements(apiClient);
 }
 
 export async function createGoal(payload) {

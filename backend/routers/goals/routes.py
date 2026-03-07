@@ -6,13 +6,20 @@ from helpers import get_current_user
 from models import UserEmail
 
 from .schemas import (
+    AchievementsResponse,
     CreateGoalRequest,
     DeleteGoalResponse,
     GoalResponse,
     GoalsResponse,
     UpdateGoalProgressRequest,
 )
-from .service import create_my_goal, delete_my_goal, list_my_goals, update_my_goal_progress
+from .service import (
+    create_my_goal,
+    delete_my_goal,
+    list_my_achievements,
+    list_my_goals,
+    update_my_goal_progress,
+)
 
 router = APIRouter(prefix="/api/goals", tags=["goals"])
 
@@ -20,6 +27,11 @@ router = APIRouter(prefix="/api/goals", tags=["goals"])
 @router.get("", response_model=GoalsResponse)
 def list_my_goals_route(current_user: UserEmail = Depends(get_current_user)):
     return list_my_goals(current_user)
+
+
+@router.get("/achievements", response_model=AchievementsResponse)
+def list_my_achievements_route(current_user: UserEmail = Depends(get_current_user)):
+    return list_my_achievements(current_user)
 
 
 @router.post("", response_model=GoalResponse, status_code=201)
