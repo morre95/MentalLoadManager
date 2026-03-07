@@ -52,6 +52,27 @@ function getStatNumber(stats = [], title = "") {
     return safeNumber(stat?.value);
 }
 
+function computeLoadBalanceScore(rows = [], people = []) {
+    const counts = {};
+    (people || []).forEach((person) => {
+        counts[person] = 0;
+    });
+
+    (rows || []).forEach((row) => {
+        (people || []).forEach((person) => {
+            counts[person] += safeNumber(row?.[person]) ?? 0;
+        });
+    });
+
+    const values = Object.values(counts).filter((v) => Number.isFinite(v));
+    if (values.length < 2) return null;
+
+    const total = values.reduce((sum, v) => sum + v, 0) || 1;
+    const shares = values.map((v) => v / total);
+    const spread = Math.max(...shares) - Math.min(...shares);
+    return Math.max(0, Math.min(100, Math.round((1 - spread) * 100)));
+}
+
 export function useAnalyticsPage() {
     const [weeklyData, setWeeklyData] = useState([]);
     const [categoryData, setCategoryData] = useState([]);
@@ -328,6 +349,69 @@ export function useAnalyticsPage() {
         });
     }, [stats]);
 
+    const filteredEnrichedStats = useMemo(() => {
+        const hasActiveFilters =
+            selectedPersonFilter !== "all" ||
+            selectedCategoryFilter !== "all" ||
+            selectedTaskTypeFilter !== "all" ||
+            selectedPriorityFilter !== "all";
+
+        if (!hasActiveFilters) return enrichedStats;
+
+        const totalCompleted = (filteredCompletionData || []).reduce(
+            (sum, row) => sum + (safeNumber(row?.completed) ?? 0),
+            0
+        );
+        const totalPending = (filteredCompletionData || []).reduce(
+            (sum, row) => sum + (safeNumber(row?.pending) ?? 0),
+            0
+        );
+
+        const allWorkload = (weeklyData || []).reduce((sum, row) => sum + sumNumericValues(row, ["week"]), 0);
+        const filteredWorkload = (filteredWeeklyData || []).reduce(
+            (sum, row) => sum + sumNumericValues(row, ["week"]),
+            0
+        );
+        const workloadRatio = allWorkload > 0 ? Math.min(1, Math.max(0, filteredWorkload / allWorkload)) : 1;
+
+        const baseOverdue = getStatNumber(stats, "Overdue Tasks") ?? 0;
+        const estimatedOverdue = selectedTaskTypeFilter === "completed"
+            ? 0
+            : Math.min(totalPending, Math.round(baseOverdue * workloadRatio));
+
+        const loadBalance = computeLoadBalanceScore(filteredWeeklyData, filteredPeople);
+
+        return (enrichedStats || []).map((stat) => {
+            const key = String(stat?.title || "").toLowerCase();
+
+            if (key === "done this week") {
+                return { ...stat, value: String(totalCompleted), _changeText: null, _trend: "flat" };
+            }
+            if (key === "open tasks remaining") {
+                return { ...stat, value: String(totalPending), _changeText: null, _trend: "flat" };
+            }
+            if (key === "overdue tasks") {
+                return { ...stat, value: String(estimatedOverdue), _changeText: null, _trend: "flat" };
+            }
+            if (key === "load balance score") {
+                return { ...stat, value: loadBalance == null ? "—" : String(loadBalance), _changeText: null, _trend: "flat" };
+            }
+
+            return stat;
+        });
+    }, [
+        enrichedStats,
+        selectedPersonFilter,
+        selectedCategoryFilter,
+        selectedTaskTypeFilter,
+        selectedPriorityFilter,
+        filteredCompletionData,
+        weeklyData,
+        filteredWeeklyData,
+        stats,
+        filteredPeople,
+    ]);
+
     const chartChanges = useMemo(() => {
         const distributionSplit = splitPeriodTotals(filteredWeeklyData, (row) => sumNumericValues(row, ["week"]));
         const distributionDelta = distributionSplit
@@ -581,7 +665,7 @@ export function useAnalyticsPage() {
             `Filters: person=${selectedPersonFilter}, category=${selectedCategoryFilter}, taskType=${selectedTaskTypeFilter}, priority=${selectedPriorityFilter}`,
             "",
             "## Key Stats",
-            ...(enrichedStats || []).slice(0, 4).map((s) => `- ${s.title}: ${s.value}`),
+            ...(filteredEnrichedStats || []).slice(0, 4).map((s) => `- ${s.title}: ${s.value}`),
             "",
             "## Insights",
             ...(insights.length ? insights.map((i) => `- ${i.title}: ${i.text}`) : ["- No insights available for this timeframe."]),
@@ -605,7 +689,7 @@ export function useAnalyticsPage() {
         selectedCategoryFilter,
         selectedTaskTypeFilter,
         selectedPriorityFilter,
-        enrichedStats,
+        filteredEnrichedStats,
         insights,
         forecast,
         suggestions,
@@ -648,7 +732,8 @@ export function useAnalyticsPage() {
         setIsManageOpen,
         expandedChartId,
         setExpandedChartId,
-        enrichedStats,
+        enrichedStats: filteredEnrichedStats,
+        baseEnrichedStats: enrichedStats,
         topCategory,
         chartChanges,
         insights,
