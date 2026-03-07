@@ -10,13 +10,16 @@ import {
 } from "./auth";
 import {
   acceptHouseholdInvite as sharedAcceptHouseholdInvite,
+  createGoal as sharedCreateGoal,
   createKanbanTask as sharedCreateKanbanTask,
   createHouseholdCategory as sharedCreateHouseholdCategory,
   changeMyPassword as sharedChangeMyPassword,
   fetchNotificationSettings as sharedFetchNotificationSettings,
   createApiClient,
+  deleteGoal as sharedDeleteGoal,
   deleteKanbanTask as sharedDeleteKanbanTask,
   deleteHouseholdCategory as sharedDeleteHouseholdCategory,
+  fetchGoals as sharedFetchGoals,
   fetchHouseholds as sharedFetchHouseholds,
   fetchHouseholdCategories as sharedFetchHouseholdCategories,
   fetchKanbanAssignees as sharedFetchKanbanAssignees,
@@ -25,6 +28,7 @@ import {
   getApiBaseUrl,
   updateNotificationSettings as sharedUpdateNotificationSettings,
   updateMe as sharedUpdateMe,
+  updateGoalProgress as sharedUpdateGoalProgress,
   updateKanbanTaskDescription as sharedUpdateKanbanTaskDescription,
   updateKanbanTaskAssignee as sharedUpdateKanbanTaskAssignee,
   updateKanbanTaskCategory as sharedUpdateKanbanTaskCategory,
@@ -159,6 +163,22 @@ export async function resolveCurrentHouseholdId() {
 
 export async function createKanbanTask(payload) {
   return sharedCreateKanbanTask(apiClient, payload);
+}
+
+export async function fetchGoals() {
+  return sharedFetchGoals(apiClient);
+}
+
+export async function createGoal(payload) {
+  return sharedCreateGoal(apiClient, payload);
+}
+
+export async function updateGoalProgress(goalId, currentValue) {
+  return sharedUpdateGoalProgress(apiClient, goalId, currentValue);
+}
+
+export async function deleteGoal(goalId) {
+  return sharedDeleteGoal(apiClient, goalId);
 }
 
 export async function deleteKanbanTask(taskId) {

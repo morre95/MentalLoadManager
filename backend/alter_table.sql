@@ -33,3 +33,17 @@ CREATE INDEX IF NOT EXISTS idx_password_refresh_tokens_expires_at ON password_re
 
 ALTER TABLE categories
 ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+
+CREATE TABLE IF NOT EXISTS goals (
+  goal_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  type            VARCHAR(50) NOT NULL,
+  name            VARCHAR(255) NOT NULL,
+  current_value   INTEGER NOT NULL DEFAULT 0 CHECK (current_value >= 0),
+  target_value    INTEGER NOT NULL CHECK (target_value > 0),
+  tracking_style  VARCHAR(20) NOT NULL CHECK (tracking_style IN ('daily', 'weekly', 'total')),
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);

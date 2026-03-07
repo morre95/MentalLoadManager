@@ -39,6 +39,14 @@ export { fetchAnalyticsSummary, normalizeAnalyticsSummary} from "./analytics.js"
 export { fetchCalendarMonth, fetchCalendarRange} from "./calendar.js";
 
 export {
+  createGoal,
+  deleteGoal,
+  fetchGoals,
+  mapApiGoalToUi,
+  updateGoalProgress,
+} from "./goals.js";
+
+export {
   changeMyPassword,
   fetchMe,
   fetchNotificationSettings,

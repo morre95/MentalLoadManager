@@ -127,6 +127,18 @@ CREATE TABLE IF NOT EXISTS tasks (
   updated_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS goals (
+  goal_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  type            VARCHAR(50) NOT NULL,
+  name            VARCHAR(255) NOT NULL,
+  current_value   INTEGER NOT NULL DEFAULT 0 CHECK (current_value >= 0),
+  target_value    INTEGER NOT NULL CHECK (target_value > 0),
+  tracking_style  VARCHAR(20) NOT NULL CHECK (tracking_style IN ('daily', 'weekly', 'total')),
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Junction table: tasks <-> calendar_connections (M:N)
 CREATE TABLE IF NOT EXISTS task_calendar_links (
   task_link_id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -235,10 +247,10 @@ CREATE TABLE IF NOT EXISTS contact_messages (
 
 CREATE INDEX IF NOT EXISTS idx_tasks_group_due ON tasks(household_id, due_date);
 CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assigns_to);
+CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_lower ON users (LOWER(username));
 CREATE INDEX IF NOT EXISTS idx_links_connection ON task_calendar_links(connection_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_category ON tasks(category_id);
 CREATE INDEX IF NOT EXISTS idx_password_refresh_tokens_user_id ON password_refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_password_refresh_tokens_family_id ON password_refresh_tokens(family_id);
 CREATE INDEX IF NOT EXISTS idx_password_refresh_tokens_expires_at ON password_refresh_tokens(expires_at);
-

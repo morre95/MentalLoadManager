@@ -4,6 +4,7 @@ from .calendar_connections import CalendarConnections
 from .categories import Categories
 from .contact_messages import ContactMessages
 from .daily_reports import DailyReports
+from .goals import Goals
 from .households import Households
 from .invitations import Invitations
 from .monthly_reports import MonthlyReports
@@ -48,4 +49,5 @@ __all__ = [
     "DailyReports",
     "AISummaries",
     "ContactMessages",
+    "Goals",
 ]

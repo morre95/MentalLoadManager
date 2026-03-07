@@ -133,6 +133,38 @@ export function updateKanbanTaskName(
   name: string
 ): Promise<any>;
 
+export type UiGoal = {
+  id: string;
+  type: string;
+  name: string;
+  current: number;
+  target: number;
+  trackingStyle: "daily" | "weekly" | "total" | string;
+  createdAt: Date | null;
+};
+
+export function mapApiGoalToUi(goal: any): UiGoal;
+export function fetchGoals(apiClient: ApiClient): Promise<{ goals: UiGoal[] }>;
+export function createGoal(
+  apiClient: ApiClient,
+  payload: {
+    type: string;
+    name: string;
+    target_value: number;
+    tracking_style: string;
+    current_value?: number;
+  }
+): Promise<UiGoal>;
+export function updateGoalProgress(
+  apiClient: ApiClient,
+  goalId: string,
+  currentValue: number
+): Promise<UiGoal>;
+export function deleteGoal(
+  apiClient: ApiClient,
+  goalId: string
+): Promise<{ goal_id: string; deleted: boolean }>;
+
 export type HouseholdMember = {
   user_id: string | number;
   username: string;

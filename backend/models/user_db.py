@@ -13,6 +13,7 @@ from .base import Base
 
 if TYPE_CHECKING:
     from .calendar_connections import CalendarConnections
+    from .goals import Goals
     from .invitations import Invitations
     from .oauth_accounts import OAuthAccounts
     from .password_refresh_token import PasswordRefreshToken
@@ -75,6 +76,9 @@ class UserDB(Base):
     )
     reminders: Mapped[list[Reminders]] = relationship(
         "Reminders", back_populates="user", cascade="all, delete-orphan"
+    )
+    goals: Mapped[list[Goals]] = relationship(
+        "Goals", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
