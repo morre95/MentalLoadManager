@@ -1,16 +1,18 @@
 // shared/analytics.js
 
 export function normalizeAnalyticsSummary(data) {
+    const CHART_LOCALE = "en-US";
+
     const formatMonth = (yyyyMm) => {
         if (!yyyyMm) return "";
         const d = new Date(`${yyyyMm}-01T00:00:00`);
-        return d.toLocaleString(undefined, { month: "short" });
+        return d.toLocaleString(CHART_LOCALE, { month: "short" });
     };
 
     const formatWeekday = (yyyyMmDd) => {
         if (!yyyyMmDd) return "";
         const d = new Date(`${yyyyMmDd}T00:00:00`);
-        return d.toLocaleString(undefined, { weekday: "short" });
+        return d.toLocaleString(CHART_LOCALE, { weekday: "short" });
     };
 
     const safeArray = (x) => (Array.isArray(x) ? x : []);
