@@ -49,16 +49,6 @@ export default function AnalyticsStatsGrid({ stats }) {
 
                             <div>
                                 <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-
-                                {stat.previousValue != null ? (
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        Prev: <span className="text-foreground">{stat.previousValue}</span>
-                                    </p>
-                                ) : null}
-
-                                {stat.description ? (
-                                    <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
-                                ) : null}
                             </div>
                         </CardContent>
                     </Card>

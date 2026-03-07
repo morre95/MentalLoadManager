@@ -61,7 +61,7 @@ export default function ChartLegend({
                 gridTemplateColumns: `repeat(${gridColumns}, auto)`,
                 gap: "8px 18px",
                 justifyContent: "center",
-                paddingTop: 10,
+                paddingTop: 4,
                 fontSize: 14,
                 lineHeight: "18px",
             }
@@ -70,7 +70,7 @@ export default function ChartLegend({
                 flexWrap: "wrap",
                 gap: "8px 18px",
                 justifyContent: "center",
-                paddingTop: 10,
+                paddingTop: 4,
                 fontSize: 14,
                 lineHeight: "18px",
             };

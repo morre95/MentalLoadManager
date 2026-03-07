@@ -743,17 +743,6 @@ const Calendar = () => {
                             <span className="text-foreground">{household.name}</span>
                         </button>
                     ))}
-                    <button
-                        type="button"
-                        onClick={() => setShowMyTasksOnly((prev) => !prev)}
-                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs transition-colors ${
-                            showMyTasksOnly
-                                ? "border-primary bg-primary/10 text-foreground"
-                                : "border-border bg-card text-foreground hover:bg-muted"
-                        }`}
-                    >
-                        My tasks only
-                    </button>
                 </div>
             ) : null}
 

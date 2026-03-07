@@ -32,7 +32,7 @@ export default function PeopleLegend({
     if (!total) return null;
 
     return (
-        <div className="pt-3">
+        <div className="pt-1">
             <div
                 className="grid justify-center gap-x-6 gap-y-2"
                 style={{ gridTemplateColumns: `repeat(${columns}, max-content)` }}

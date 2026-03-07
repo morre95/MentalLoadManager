@@ -43,7 +43,7 @@ export default function AnalyticsChartsGrid({ vm }) {
                         <div className="space-y-1">
                             <CardTitle>Task Distribution by Person</CardTitle>
                             <p className="text-sm text-muted-foreground">
-                                Weekly count of tasks per person, grouped by week number.
+                                Shows how tasks are split across people week by week.
                             </p>
                         </div>
 
@@ -76,11 +76,11 @@ export default function AnalyticsChartsGrid({ vm }) {
                         <div className="space-y-1">
                             <CardTitle>Tasks by Category</CardTitle>
                             <p className="text-sm text-muted-foreground">
-                                Top 6 categories + “Other” to keep the legend readable.
+                                Shows which categories account for most of the workload.
                                 {topCategory ? (
                                     <>
                                         {" "}
-                                        <span className="text-foreground font-medium">Top: {topCategory.name}</span>
+                                        <span className="text-foreground font-medium">Largest: {topCategory.name}</span>
                                     </>
                                 ) : null}
                             </p>
@@ -112,7 +112,7 @@ export default function AnalyticsChartsGrid({ vm }) {
                         <div className="space-y-1">
                             <CardTitle>Mental Load Trend</CardTitle>
                             <p className="text-sm text-muted-foreground">
-                                Overall load score over time (monthly).
+                                Shows how mental load changes month to month.
                             </p>
                         </div>
 
@@ -138,7 +138,7 @@ export default function AnalyticsChartsGrid({ vm }) {
                         <div className="space-y-1">
                             <CardTitle>Daily Completion Rate</CardTitle>
                             <p className="text-sm text-muted-foreground">
-                                Completed vs pending tasks per day in the selected timeframe.
+                                Shows completed and pending tasks for each day.
                             </p>
                         </div>
 
@@ -164,7 +164,7 @@ export default function AnalyticsChartsGrid({ vm }) {
                         <div className="space-y-1">
                             <CardTitle>Category Expertise</CardTitle>
                             <p className="text-sm text-muted-foreground">
-                                Per-person strength by category (higher = more handled/completed).
+                                Compares who contributes most in each category.
                             </p>
                         </div>
 
@@ -197,7 +197,7 @@ export default function AnalyticsChartsGrid({ vm }) {
                         <div className="space-y-1">
                             <CardTitle>Completion Momentum</CardTitle>
                             <p className="text-sm text-muted-foreground">
-                                Last 7 points completion rate to quickly spot consistency.
+                                Shows how steady task completion has been over time.
                             </p>
                         </div>
 

@@ -21,7 +21,7 @@ function ChartEmptyState({
 
 export default function ChartFrame({ isEmpty, emptyTitle, emptyHint, children, height = 256 }) {
     return (
-        <div className="h-72">
+        <div style={{ height }}>
             {isEmpty ? (
                 <ChartEmptyState title={emptyTitle} hint={emptyHint} />
             ) : (
