@@ -553,23 +553,8 @@ const Settings = () => {
 
         {/* Language */}
         <SectionCard delay={0.2}>
-          <SectionHeader icon={Globe} title="Language & Region" description="Interface language and formatting" />
+          <SectionHeader icon={Globe} title="Calendar & Date" description="Calendar and date formatting" />
           <Separator />
-          <SettingRow label="Language" description="Choose your preferred language">
-            <Select value={language} onValueChange={handleLanguageChange}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {languages.map((lang) => (
-                  <SelectItem key={lang.value} value={lang.value}>
-                    {lang.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SettingRow>
-
           <SettingRow label="Date format" description="How dates are displayed">
             <Select defaultValue="mdy">
               <SelectTrigger className="w-[160px]">
