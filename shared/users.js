@@ -28,3 +28,16 @@ export async function updateNotificationSettings(apiClient, payload) {
     body: JSON.stringify(payload),
   });
 }
+
+export async function fetchPreferences(apiClient) {
+  return apiClient.request("/api/settings/preferences", {
+    method: "GET",
+  });
+}
+
+export async function updatePreferences(apiClient, payload) {
+  return apiClient.request("/api/settings/preferences", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}

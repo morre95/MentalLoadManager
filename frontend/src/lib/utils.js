@@ -14,6 +14,7 @@ import {
   createKanbanTask as sharedCreateKanbanTask,
   createHouseholdCategory as sharedCreateHouseholdCategory,
   changeMyPassword as sharedChangeMyPassword,
+  fetchPreferences as sharedFetchPreferences,
   fetchNotificationSettings as sharedFetchNotificationSettings,
   createApiClient,
   deleteGoal as sharedDeleteGoal,
@@ -29,6 +30,7 @@ import {
   getApiBaseUrl,
   updateNotificationSettings as sharedUpdateNotificationSettings,
   updateMe as sharedUpdateMe,
+  updatePreferences as sharedUpdatePreferences,
   updateGoalProgress as sharedUpdateGoalProgress,
   updateKanbanTaskDescription as sharedUpdateKanbanTaskDescription,
   updateKanbanTaskAssignee as sharedUpdateKanbanTaskAssignee,
@@ -278,4 +280,12 @@ export async function fetchNotificationSettings() {
 
 export async function updateNotificationSettings(payload) {
   return sharedUpdateNotificationSettings(apiClient, payload);
+}
+
+export async function fetchPreferences() {
+  return sharedFetchPreferences(apiClient);
+}
+
+export async function updatePreferences(payload) {
+  return sharedUpdatePreferences(apiClient, payload);
 }

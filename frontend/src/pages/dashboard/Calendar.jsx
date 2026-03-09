@@ -32,6 +32,7 @@ import { useTaskboardTasks } from "@/hooks/useTaskboardTasks";
 import { useHousehold } from "@/hooks/useHouseHold";
 import {
     deleteKanbanTask,
+    fetchPreferences,
     fetchMe,
     updateKanbanTaskAssignee,
     updateKanbanTaskCategory,
@@ -51,6 +52,15 @@ const eventColorClasses = {
 const ALL_HOUSEHOLDS_FILTER = "__all_households__";
 const TASK_UPDATED_EVENT = "kanban-task-updated";
 const CALENDAR_VIEW_STORAGE_KEY = "calendar_view_preference";
+const CALENDAR_FIRST_DAY_STORAGE_KEY = "calendar_first_day_of_week";
+
+const FIRST_DAY_TO_WEEK_START = {
+    sunday: 0,
+    monday: 1,
+    saturday: 6,
+};
+
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function toApiStatus(status) {
     if (status === "in-progress") return "in_progress";
@@ -99,16 +109,27 @@ const Calendar = () => {
     const [currentUserId, setCurrentUserId] = useState(null);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [quickAddDate, setQuickAddDate] = useState("");
+    const [firstDayOfWeek, setFirstDayOfWeek] = useState(() => {
+        if (typeof window === "undefined") return "monday";
+        const stored = localStorage.getItem(CALENDAR_FIRST_DAY_STORAGE_KEY);
+        return stored === "sunday" || stored === "monday" || stored === "saturday"
+            ? stored
+            : "monday";
+    });
+    const weekStartsOn = FIRST_DAY_TO_WEEK_START[firstDayOfWeek] ?? 1;
 
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
     const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-    const startDayOfWeek = getDay(monthStart);
+    const startDayOfWeek = (getDay(monthStart) - weekStartsOn + 7) % 7;
     const paddingDays = Array(startDayOfWeek).fill(null);
 
-    const weekStart = startOfWeek(currentWeek);
-    const weekEnd = endOfWeek(currentWeek);
+    const weekStart = startOfWeek(currentWeek, { weekStartsOn });
+    const weekEnd = endOfWeek(currentWeek, { weekStartsOn });
     const daysInWeek = eachDayOfInterval({ start: weekStart, end: weekEnd });
+    const weekdayLabels = WEEKDAY_LABELS.slice(weekStartsOn).concat(
+        WEEKDAY_LABELS.slice(0, weekStartsOn)
+    );
     const selectedTask = selectedTaskId
         ? tasks.find((task) => String(task.id) === String(selectedTaskId)) || null
         : null;
@@ -189,6 +210,29 @@ const Calendar = () => {
             setCurrentUserId(me?.user_id ? String(me.user_id) : null);
         };
         loadCurrentUser();
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        let mounted = true;
+
+        const loadPreferences = async () => {
+            try {
+                const preferences = await fetchPreferences();
+                if (!mounted || !preferences) return;
+
+                const nextFirstDayOfWeek = String(preferences.first_day_of_week || "monday");
+                setFirstDayOfWeek(nextFirstDayOfWeek);
+                localStorage.setItem(CALENDAR_FIRST_DAY_STORAGE_KEY, nextFirstDayOfWeek);
+            } catch {
+                // Keep local preference fallback.
+            }
+        };
+
+        loadPreferences();
+
         return () => {
             mounted = false;
         };
@@ -848,7 +892,7 @@ const Calendar = () => {
                             </div>
 
                             <div className="grid grid-cols-7 gap-1 mb-2">
-                                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                                {weekdayLabels.map((day) => (
                                     <div
                                         key={day}
                                         className="text-center text-xs md:text-sm font-medium text-muted-foreground py-2"

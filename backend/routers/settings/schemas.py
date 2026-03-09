@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -15,3 +17,13 @@ class UpdateNotificationSettingsRequest(BaseModel):
     goal_milestones: bool
     household_updates: bool
     weekly_analytics_email: bool
+
+
+class PreferencesResponse(BaseModel):
+    date_format: Literal["mdy", "dmy", "ymd"]
+    first_day_of_week: Literal["sunday", "monday", "saturday"]
+
+
+class UpdatePreferencesRequest(BaseModel):
+    date_format: Literal["mdy", "dmy", "ymd"]
+    first_day_of_week: Literal["sunday", "monday", "saturday"]

@@ -31,6 +31,12 @@ class Preferences(Base):
         Integer, nullable=False, server_default=text("60")
     )
     timezone: Mapped[str | None] = mapped_column(Text, server_default=text("'UTC'"))
+    date_format: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'mdy'")
+    )
+    first_day_of_week: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'monday'")
+    )
 
     user: Mapped[UserDB] = relationship("UserDB", back_populates="preference")
 

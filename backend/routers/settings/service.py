@@ -3,8 +3,18 @@ from fastapi import HTTPException, status
 from helpers import get_session_local
 from models import UserEmail
 
-from .repository import create_notification_settings, find_notification_settings
-from .schemas import NotificationSettingsResponse, UpdateNotificationSettingsRequest
+from .repository import (
+    create_notification_settings,
+    create_preferences,
+    find_notification_settings,
+    find_preferences,
+)
+from .schemas import (
+    NotificationSettingsResponse,
+    PreferencesResponse,
+    UpdateNotificationSettingsRequest,
+    UpdatePreferencesRequest,
+)
 
 
 def get_my_notification_settings(
@@ -82,4 +92,65 @@ def update_my_notification_settings(
             goal_milestones=settings.goal_milestones,
             household_updates=settings.household_updates,
             weekly_analytics_email=settings.weekly_analytics_email,
+        )
+
+
+def get_my_preferences(current_user: UserEmail) -> PreferencesResponse:
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        preferences = find_preferences(db, current_user.user_id)
+        if not preferences:
+            preferences = create_preferences(
+                db,
+                user_id=current_user.user_id,
+                date_format="mdy",
+                first_day_of_week="monday",
+            )
+            db.commit()
+            db.refresh(preferences)
+
+        return PreferencesResponse(
+            date_format=preferences.date_format,
+            first_day_of_week=preferences.first_day_of_week,
+        )
+
+
+def update_my_preferences(
+    payload: UpdatePreferencesRequest,
+    current_user: UserEmail,
+) -> PreferencesResponse:
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        preferences = find_preferences(db, current_user.user_id)
+        if not preferences:
+            preferences = create_preferences(
+                db,
+                user_id=current_user.user_id,
+                date_format=payload.date_format,
+                first_day_of_week=payload.first_day_of_week,
+            )
+        else:
+            preferences.date_format = payload.date_format
+            preferences.first_day_of_week = payload.first_day_of_week
+
+        db.commit()
+        db.refresh(preferences)
+
+        return PreferencesResponse(
+            date_format=preferences.date_format,
+            first_day_of_week=preferences.first_day_of_week,
         )

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Settings as SettingsIcon,
@@ -46,6 +46,7 @@ import {
   changeMyPassword,
   createHouseholdCategory,
   deleteHouseholdCategory,
+  fetchPreferences,
   fetchHouseholds,
   fetchMe,
   fetchHouseholdCategories,
@@ -53,6 +54,7 @@ import {
   resolveCurrentHouseholdId,
   updateMe,
   updateNotificationSettings,
+  updatePreferences,
 } from "@/lib/utils";
 
 const SectionCard = ({ children, delay = 0 }) => (
@@ -88,6 +90,9 @@ const SettingRow = ({ label, description, children }) => (
   </div>
 );
 
+const CALENDAR_DATE_FORMAT_STORAGE_KEY = "calendar_date_format";
+const CALENDAR_FIRST_DAY_STORAGE_KEY = "calendar_first_day_of_week";
+
 const Settings = () => {
   const [categories, setCategories] = useState([]);
   const [households, setHouseholds] = useState([]);
@@ -117,6 +122,10 @@ const Settings = () => {
   const [householdUpdates, setHouseholdUpdates] = useState(false);
   const [isSavingNotificationSettings, setIsSavingNotificationSettings] = useState(false);
   const hasHydratedNotificationSettings = useRef(false);
+  const [dateFormat, setDateFormat] = useState("mdy");
+  const [firstDayOfWeek, setFirstDayOfWeek] = useState("monday");
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
+  const hasHydratedPreferences = useRef(false);
 
   // Privacy
   const [profileVisible, setProfileVisible] = useState(true);
@@ -136,6 +145,27 @@ const Settings = () => {
       if (active && me) {
         setDisplayName(me.display_name || "");
         setProfileEmail(me.email || "");
+      }
+
+      try {
+        const preferences = await fetchPreferences();
+        if (active && preferences) {
+          const nextDateFormat = String(preferences.date_format || "mdy");
+          const nextFirstDayOfWeek = String(preferences.first_day_of_week || "monday");
+          setDateFormat(nextDateFormat);
+          setFirstDayOfWeek(nextFirstDayOfWeek);
+          localStorage.setItem(CALENDAR_DATE_FORMAT_STORAGE_KEY, nextDateFormat);
+          localStorage.setItem(CALENDAR_FIRST_DAY_STORAGE_KEY, nextFirstDayOfWeek);
+        }
+      } catch {
+        if (active && typeof window !== "undefined") {
+          setDateFormat(localStorage.getItem(CALENDAR_DATE_FORMAT_STORAGE_KEY) || "mdy");
+          setFirstDayOfWeek(localStorage.getItem(CALENDAR_FIRST_DAY_STORAGE_KEY) || "monday");
+        }
+      } finally {
+        if (active) {
+          hasHydratedPreferences.current = true;
+        }
       }
 
       try {
@@ -362,7 +392,7 @@ const Settings = () => {
     }
   };
 
-  const handleSaveNotificationSettings = async () => {
+  const handleSaveNotificationSettings = useCallback(async () => {
     setIsSavingNotificationSettings(true);
     try {
       const updated = await updateNotificationSettings({
@@ -383,7 +413,34 @@ const Settings = () => {
     } finally {
       setIsSavingNotificationSettings(false);
     }
-  };
+  }, [
+    emailNotifications,
+    taskReminders,
+    goalMilestones,
+    householdUpdates,
+    weeklyAnalytics,
+  ]);
+
+  const handleSavePreferences = useCallback(async () => {
+    setIsSavingPreferences(true);
+    try {
+      const updated = await updatePreferences({
+        date_format: dateFormat,
+        first_day_of_week: firstDayOfWeek,
+      });
+
+      const nextDateFormat = String(updated?.date_format || "mdy");
+      const nextFirstDayOfWeek = String(updated?.first_day_of_week || "monday");
+      setDateFormat(nextDateFormat);
+      setFirstDayOfWeek(nextFirstDayOfWeek);
+      localStorage.setItem(CALENDAR_DATE_FORMAT_STORAGE_KEY, nextDateFormat);
+      localStorage.setItem(CALENDAR_FIRST_DAY_STORAGE_KEY, nextFirstDayOfWeek);
+    } catch (error) {
+      toast.error(error?.message || "Could not save calendar preferences");
+    } finally {
+      setIsSavingPreferences(false);
+    }
+  }, [dateFormat, firstDayOfWeek]);
 
   useEffect(() => {
     if (!hasHydratedNotificationSettings.current) return;
@@ -399,7 +456,18 @@ const Settings = () => {
     goalMilestones,
     householdUpdates,
     weeklyAnalytics,
+    handleSaveNotificationSettings,
   ]);
+
+  useEffect(() => {
+    if (!hasHydratedPreferences.current) return;
+
+    const timeout = setTimeout(() => {
+      void handleSavePreferences();
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [dateFormat, firstDayOfWeek, handleSavePreferences]);
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
@@ -539,7 +607,7 @@ const Settings = () => {
           <SectionHeader icon={Globe} title="Calendar & Date" description="Calendar and date formatting" />
           <Separator />
           <SettingRow label="Date format" description="How dates are displayed">
-            <Select defaultValue="mdy">
+            <Select value={dateFormat} onValueChange={setDateFormat}>
               <SelectTrigger className="w-[160px]">
                 <SelectValue />
               </SelectTrigger>
@@ -552,7 +620,7 @@ const Settings = () => {
           </SettingRow>
 
           <SettingRow label="First day of week">
-            <Select defaultValue="monday">
+            <Select value={firstDayOfWeek} onValueChange={setFirstDayOfWeek}>
               <SelectTrigger className="w-[160px]">
                 <SelectValue />
               </SelectTrigger>
@@ -563,6 +631,9 @@ const Settings = () => {
               </SelectContent>
             </Select>
           </SettingRow>
+          {isSavingPreferences ? (
+            <p className="text-xs text-muted-foreground text-right">Saving...</p>
+          ) : null}
         </SectionCard>
 
         {/* Notifications */}

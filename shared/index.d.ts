@@ -249,3 +249,14 @@ export function updateNotificationSettings(apiClient: ApiClient, payload: {
   household_updates: boolean;
   weekly_analytics_email: boolean;
 }>;
+export function fetchPreferences(apiClient: ApiClient): Promise<{
+  date_format: "mdy" | "dmy" | "ymd";
+  first_day_of_week: "sunday" | "monday" | "saturday";
+}>;
+export function updatePreferences(apiClient: ApiClient, payload: {
+  date_format: "mdy" | "dmy" | "ymd";
+  first_day_of_week: "sunday" | "monday" | "saturday";
+}): Promise<{
+  date_format: "mdy" | "dmy" | "ymd";
+  first_day_of_week: "sunday" | "monday" | "saturday";
+}>;

@@ -108,6 +108,8 @@ def seed_preferences(db: Session, users: dict[str, UserDB]) -> None:
             monthly_digest_enabled=True,
             reminder_minutes_default=60,
             timezone="Europe/Stockholm",
+            date_format="dmy",
+            first_day_of_week="monday",
         )
     )
     db.merge(
@@ -117,6 +119,8 @@ def seed_preferences(db: Session, users: dict[str, UserDB]) -> None:
             monthly_digest_enabled=False,
             reminder_minutes_default=45,
             timezone="Europe/Stockholm",
+            date_format="ymd",
+            first_day_of_week="monday",
         )
     )
     db.merge(
@@ -126,6 +130,8 @@ def seed_preferences(db: Session, users: dict[str, UserDB]) -> None:
             monthly_digest_enabled=False,
             reminder_minutes_default=30,
             timezone="Europe/Stockholm",
+            date_format="mdy",
+            first_day_of_week="sunday",
         )
     )
 

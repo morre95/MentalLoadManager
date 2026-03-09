@@ -49,8 +49,10 @@ export {
 
 export {
   changeMyPassword,
+  fetchPreferences,
   fetchMe,
   fetchNotificationSettings,
   updateMe,
+  updatePreferences,
   updateNotificationSettings,
 } from "./users.js";

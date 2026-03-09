@@ -42,8 +42,16 @@ CREATE TABLE IF NOT EXISTS preferences (
   weekly_digest_enabled   BOOLEAN NOT NULL DEFAULT FALSE,
   monthly_digest_enabled  BOOLEAN NOT NULL DEFAULT FALSE,
   reminder_minutes_default INT NOT NULL DEFAULT 60,
-  timezone               TEXT DEFAULT 'UTC'
+  timezone               TEXT DEFAULT 'UTC',
+  date_format            TEXT NOT NULL DEFAULT 'mdy',
+  first_day_of_week      TEXT NOT NULL DEFAULT 'monday'
 );
+
+ALTER TABLE preferences
+  ADD COLUMN IF NOT EXISTS date_format TEXT NOT NULL DEFAULT 'mdy';
+
+ALTER TABLE preferences
+  ADD COLUMN IF NOT EXISTS first_day_of_week TEXT NOT NULL DEFAULT 'monday';
 
 -- =========================
 -- OAuth + Calendar sync
