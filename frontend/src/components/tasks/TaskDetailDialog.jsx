@@ -24,7 +24,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchKanbanAssignees, resolveCurrentHouseholdId } from "@/lib/utils";
+import {
+  fetchHouseholdCategories,
+  fetchKanbanAssignees,
+  resolveCurrentHouseholdId,
+} from "@/lib/utils";
 
 import useFokus from '@/hooks/useFocus';
 
@@ -42,19 +46,10 @@ const statusConfig = {
   done: { icon: Check, label: "Done", color: "bg-status-done" },
 };
 
-const categories = [
-  "Shopping",
-  "Cleaning",
-  "Admin",
-  "Health",
-  "Maintenance",
-  "Planning",
-  "Other",
-];
-
 const UNASSIGNED_ASSIGNEE_VALUE = "__unassigned__";
 const CUSTOM_CATEGORY_VALUE = "__custom__";
 const ARCHIVE_STATUS = "archive";
+const FALLBACK_CATEGORY = "Other";
 
 function toDateInputValue(value) {
   if (!value) return "";
@@ -94,7 +89,9 @@ const TaskDetailDialog = ({
   const status = statusConfig[task?.status] || statusConfig.todo;
   const StatusIcon = status.icon;
   const [assignees, setAssignees] = useState([]);
+  const [availableCategories, setAvailableCategories] = useState([FALLBACK_CATEGORY]);
   const [assigneesError, setAssigneesError] = useState("");
+  const [categoriesError, setCategoriesError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   const [titleDraft, setTitleDraft] = useState("");
@@ -133,16 +130,19 @@ const TaskDetailDialog = ({
     setPriorityDraft(normalizedPriority);
     setAssigneeIdDraft(task.assigneeId || UNASSIGNED_ASSIGNEE_VALUE);
     setDueDateDraft(toDateInputValue(task.dueDate));
+  }, [open, task, normalizedPriority]);
 
-    const currentCategory = task.category || "Other";
-    if (categories.includes(currentCategory)) {
+  useEffect(() => {
+    if (!open || !task) return;
+    const currentCategory = task.category || FALLBACK_CATEGORY;
+    if (availableCategories.includes(currentCategory)) {
       setCategoryDraft(currentCategory);
       setCustomCategoryDraft("");
     } else {
       setCategoryDraft(CUSTOM_CATEGORY_VALUE);
       setCustomCategoryDraft(currentCategory);
     }
-  }, [open, task, normalizedPriority]);
+  }, [open, task, availableCategories]);
 
   useEffect(() => {
     if (!open) return;
@@ -167,6 +167,39 @@ const TaskDetailDialog = ({
     };
 
     loadAssignees();
+  }, [open, task?.householdId]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const loadCategories = async () => {
+      const householdId = task?.householdId || await resolveCurrentHouseholdId();
+      if (!householdId) {
+        setAvailableCategories([FALLBACK_CATEGORY]);
+        setCategoriesError("No household found. Create or join a household first.");
+        return;
+      }
+
+      setCategoriesError("");
+      try {
+        const data = await fetchHouseholdCategories(householdId);
+        const categoryNames = Array.isArray(data?.categories)
+          ? data.categories
+            .map((item) => String(item?.name || "").trim())
+            .filter(Boolean)
+          : [];
+        const uniqueCategoryNames = Array.from(new Set(categoryNames));
+        if (!uniqueCategoryNames.includes(FALLBACK_CATEGORY)) {
+          uniqueCategoryNames.push(FALLBACK_CATEGORY);
+        }
+        setAvailableCategories(uniqueCategoryNames);
+      } catch (err) {
+        setAvailableCategories([FALLBACK_CATEGORY]);
+        setCategoriesError(err?.message || "Could not load household categories.");
+      }
+    };
+
+    loadCategories();
   }, [open, task?.householdId]);
 
   if (!task) return null;
@@ -520,7 +553,7 @@ const TaskDetailDialog = ({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((cat) => (
+                      {availableCategories.map((cat) => (
                         <SelectItem key={cat} value={cat}>
                           {cat}
                         </SelectItem>
@@ -528,6 +561,9 @@ const TaskDetailDialog = ({
                       <SelectItem value={CUSTOM_CATEGORY_VALUE}>Custom...</SelectItem>
                     </SelectContent>
                   </Select>
+                  {categoriesError ? (
+                    <p className="text-xs text-destructive mt-1">{categoriesError}</p>
+                  ) : null}
                   {categoryDraft === CUSTOM_CATEGORY_VALUE ? (
                     <Input
                       ref={customCategoryRef}

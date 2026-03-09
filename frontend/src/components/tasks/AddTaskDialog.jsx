@@ -20,22 +20,14 @@ import {
 } from "@/components/ui/select";
 import {
     createKanbanTask,
+    fetchHouseholdCategories,
     fetchKanbanAssignees,
     resolveCurrentHouseholdId,
 } from "@/lib/utils";
 
-const categories = [
-    "Shopping",
-    "Cleaning",
-    "Admin",
-    "Health",
-    "Maintenance",
-    "Planning",
-    "Other",
-];
-
 const CUSTOM_CATEGORY_VALUE = "__custom__";
 const UNASSIGNED_ASSIGNEE_VALUE = "__unassigned__";
+const FALLBACK_CATEGORY = "Other";
 
 const AddTaskDialog = ({
     open,
@@ -58,6 +50,9 @@ const AddTaskDialog = ({
     const [saving, setSaving] = useState(false);
     const [submitError, setSubmitError] = useState("");
     const [selectedHouseholdId, setSelectedHouseholdId] = useState("");
+    const [availableCategories, setAvailableCategories] = useState([FALLBACK_CATEGORY]);
+    const [loadingCategories, setLoadingCategories] = useState(false);
+    const [categoriesError, setCategoriesError] = useState("");
 
     const householdOptions = useMemo(() => {
         const nextHouseholds = Array.isArray(households) ? households : [];
@@ -167,8 +162,54 @@ const AddTaskDialog = ({
 
     useEffect(() => {
         if (!open) return;
+
+        const loadCategories = async () => {
+            const activeHouseholdId = selectedHouseholdId;
+            if (!activeHouseholdId) {
+                setAvailableCategories([FALLBACK_CATEGORY]);
+                setCategoriesError("No household found. Create or join a household first.");
+                return;
+            }
+
+            setLoadingCategories(true);
+            setCategoriesError("");
+            try {
+                const data = await fetchHouseholdCategories(activeHouseholdId);
+                const categoryNames = Array.isArray(data?.categories)
+                    ? data.categories
+                        .map((item) => String(item?.name || "").trim())
+                        .filter(Boolean)
+                    : [];
+
+                const uniqueCategoryNames = Array.from(new Set(categoryNames));
+                if (!uniqueCategoryNames.includes(FALLBACK_CATEGORY)) {
+                    uniqueCategoryNames.push(FALLBACK_CATEGORY);
+                }
+                setAvailableCategories(uniqueCategoryNames);
+            } catch (err) {
+                setAvailableCategories([FALLBACK_CATEGORY]);
+                setCategoriesError(err?.message || "Could not load household categories.");
+            } finally {
+                setLoadingCategories(false);
+            }
+        };
+
+        loadCategories();
+    }, [open, selectedHouseholdId]);
+
+    useEffect(() => {
+        if (!open) return;
         setDueDate(initialDueDate || "");
     }, [open, initialDueDate]);
+
+    useEffect(() => {
+        if (!open) return;
+        setCategory((previousCategory) => {
+            if (previousCategory === CUSTOM_CATEGORY_VALUE) return previousCategory;
+            if (availableCategories.includes(previousCategory)) return previousCategory;
+            return availableCategories[0] || FALLBACK_CATEGORY;
+        });
+    }, [open, availableCategories]);
 
     const handleSubmit = async () => {
         if (!title.trim()) return;
@@ -315,14 +356,14 @@ const AddTaskDialog = ({
                             </Select>
                         </div>
 
-                        <div className="space-y-2">
+                <div className="space-y-2">
                             <Label>Category</Label>
                             <Select value={category} onValueChange={setCategory}>
                                 <SelectTrigger>
-                                    <SelectValue />
+                                    <SelectValue placeholder={loadingCategories ? "Loading categories..." : "Select category"} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {categories.map((cat) => (
+                                    {availableCategories.map((cat) => (
                                         <SelectItem key={cat} value={cat}>
                                             {cat}
                                         </SelectItem>
@@ -336,6 +377,9 @@ const AddTaskDialog = ({
                                     onChange={(e) => setCustomCategory(e.target.value)}
                                     placeholder="Write category"
                                 />
+                            ) : null}
+                            {categoriesError ? (
+                                <p className="text-xs text-destructive">{categoriesError}</p>
                             ) : null}
                         </div>
                     </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Settings as SettingsIcon,
@@ -127,6 +127,7 @@ const Settings = () => {
   const [goalMilestones, setGoalMilestones] = useState(true);
   const [householdUpdates, setHouseholdUpdates] = useState(false);
   const [isSavingNotificationSettings, setIsSavingNotificationSettings] = useState(false);
+  const hasHydratedNotificationSettings = useRef(false);
 
   // Privacy
   const [profileVisible, setProfileVisible] = useState(true);
@@ -159,6 +160,10 @@ const Settings = () => {
         setWeeklyAnalytics(Boolean(settings.weekly_analytics_email));
       } catch {
         // Keep local defaults when settings are unavailable.
+      } finally {
+        if (active) {
+          hasHydratedNotificationSettings.current = true;
+        }
       }
 
     };
@@ -390,13 +395,28 @@ const Settings = () => {
       setGoalMilestones(Boolean(updated?.goal_milestones));
       setHouseholdUpdates(Boolean(updated?.household_updates));
       setWeeklyAnalytics(Boolean(updated?.weekly_analytics_email));
-      toast.success("Notification settings saved");
     } catch (error) {
       toast.error(error?.message || "Could not save notification settings");
     } finally {
       setIsSavingNotificationSettings(false);
     }
   };
+
+  useEffect(() => {
+    if (!hasHydratedNotificationSettings.current) return;
+
+    const timeout = setTimeout(() => {
+      void handleSaveNotificationSettings();
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [
+    emailNotifications,
+    taskReminders,
+    goalMilestones,
+    householdUpdates,
+    weeklyAnalytics,
+  ]);
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
@@ -597,15 +617,9 @@ const Settings = () => {
           <SettingRow label="Weekly analytics email" description="Summary of your household's progress every Monday">
             <Switch checked={weeklyAnalytics} onCheckedChange={setWeeklyAnalytics} />
           </SettingRow>
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              onClick={handleSaveNotificationSettings}
-              disabled={isSavingNotificationSettings}
-            >
-              {isSavingNotificationSettings ? "Saving..." : "Save Notification Settings"}
-            </Button>
-          </div>
+          {isSavingNotificationSettings ? (
+            <p className="text-xs text-muted-foreground text-right">Saving...</p>
+          ) : null}
         </SectionCard>
 
         {/* Task Categories */}

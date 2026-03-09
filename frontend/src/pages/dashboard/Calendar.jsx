@@ -358,7 +358,26 @@ const Calendar = () => {
 
         const targetTask = tasks.find((task) => String(task.id) === String(dropTaskId));
         if (!targetTask) return;
-        if (targetTask.dueDateValue === nextDate) return;
+
+        // Prefer the currently rendered event day over task dueDateValue because
+        // dueDateValue can be timezone-shifted by one day for some payloads.
+        let currentRenderedDayKey = null;
+        for (const [dayKey, dayEvents] of rangeEventsByDayKey.entries()) {
+            if (dayEvents.some((event) => String(event.id) === String(dropTaskId))) {
+                currentRenderedDayKey = dayKey;
+                break;
+            }
+        }
+        if (!currentRenderedDayKey) {
+            for (const [dayKey, dayEvents] of monthEventsByDayKey.entries()) {
+                if (dayEvents.some((event) => String(event.id) === String(dropTaskId))) {
+                    currentRenderedDayKey = dayKey;
+                    break;
+                }
+            }
+        }
+
+        if ((currentRenderedDayKey || targetTask.dueDateValue) === nextDate) return;
 
         await moveTaskToDate(dropTaskId, nextDate);
     };
