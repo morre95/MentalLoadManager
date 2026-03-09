@@ -116,6 +116,10 @@ export async function fetchHouseholdCategories(householdId) {
   return sharedFetchHouseholdCategories(apiClient, householdId);
 }
 
+export async function fetchHouseholds() {
+  return sharedFetchHouseholds(apiClient);
+}
+
 export async function createHouseholdCategory(householdId, name) {
   return sharedCreateHouseholdCategory(apiClient, householdId, name);
 }

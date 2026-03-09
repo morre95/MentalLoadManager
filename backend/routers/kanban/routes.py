@@ -6,12 +6,8 @@ from helpers import get_current_user
 from models import UserEmail
 
 from .schemas import (
-    CreateHouseholdCategoryRequest,
     CreateTaskRequest,
-    DeleteHouseholdCategoryResponse,
     DeleteTaskResponse,
-    HouseholdCategory,
-    HouseholdCategoriesResponse,
     KanbanAssigneesResponse,
     KanbanTasksResponse,
     ReorderTasksRequest,
@@ -33,11 +29,8 @@ from .schemas import (
     UpdateTaskStatusResponse,
 )
 from .service import (
-    create_household_category,
     create_task,
-    delete_household_category,
     delete_task,
-    list_household_categories,
     list_household_assignees,
     list_kanban_tasks,
     reorder_tasks,
@@ -67,35 +60,6 @@ def list_household_assignees_route(
     current_user: UserEmail = Depends(get_current_user),
 ):
     return list_household_assignees(household_id, current_user)
-
-
-@router.get("/households/{household_id}/categories", response_model=HouseholdCategoriesResponse)
-def list_household_categories_route(
-    household_id: UUID,
-    current_user: UserEmail = Depends(get_current_user),
-):
-    return list_household_categories(household_id, current_user)
-
-
-@router.post("/households/{household_id}/categories", response_model=HouseholdCategory, status_code=201)
-def create_household_category_route(
-    household_id: UUID,
-    payload: CreateHouseholdCategoryRequest,
-    current_user: UserEmail = Depends(get_current_user),
-):
-    return create_household_category(household_id, payload, current_user)
-
-
-@router.delete(
-    "/households/{household_id}/categories/{category_id}",
-    response_model=DeleteHouseholdCategoryResponse,
-)
-def delete_household_category_route(
-    household_id: UUID,
-    category_id: UUID,
-    current_user: UserEmail = Depends(get_current_user),
-):
-    return delete_household_category(household_id, category_id, current_user)
 
 
 @router.post("", response_model=TaskResponse, status_code=201)

@@ -46,6 +46,7 @@ import {
   changeMyPassword,
   createHouseholdCategory,
   deleteHouseholdCategory,
+  fetchHouseholds,
   fetchMe,
   fetchHouseholdCategories,
   fetchNotificationSettings,
@@ -99,8 +100,10 @@ const SettingRow = ({ label, description, children }) => (
 
 const Settings = () => {
   const [categories, setCategories] = useState([]);
+  const [households, setHouseholds] = useState([]);
   const [currentHouseholdId, setCurrentHouseholdId] = useState(null);
   const [newCategory, setNewCategory] = useState("");
+  const [isLoadingHouseholds, setIsLoadingHouseholds] = useState(false);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [isSavingCategory, setIsSavingCategory] = useState(false);
   const [deletingCategoryId, setDeletingCategoryId] = useState(null);
@@ -158,18 +161,66 @@ const Settings = () => {
         // Keep local defaults when settings are unavailable.
       }
 
+    };
+
+    hydrateProfile();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const hydrateHouseholds = async () => {
+      setIsLoadingHouseholds(true);
       try {
-        setIsLoadingCategories(true);
-        const householdId = await resolveCurrentHouseholdId();
+        const data = await fetchHouseholds();
         if (!active) return;
 
-        setCurrentHouseholdId(householdId || null);
-        if (!householdId) {
-          setCategories([]);
-          return;
-        }
+        const householdList = Array.isArray(data?.households) ? data.households : [];
+        setHouseholds(householdList);
 
-        const data = await fetchHouseholdCategories(householdId);
+        const resolvedHouseholdId = await resolveCurrentHouseholdId();
+        if (!active) return;
+
+        const fallbackHouseholdId = householdList[0]?.household_id
+          ? String(householdList[0].household_id)
+          : null;
+        setCurrentHouseholdId(resolvedHouseholdId || fallbackHouseholdId);
+      } catch {
+        if (active) {
+          setHouseholds([]);
+          setCurrentHouseholdId(null);
+          toast.error("Could not load households");
+        }
+      } finally {
+        if (active) {
+          setIsLoadingHouseholds(false);
+        }
+      }
+    };
+
+    hydrateHouseholds();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const hydrateCategories = async () => {
+      if (!currentHouseholdId) {
+        setCategories([]);
+        return;
+      }
+
+      setIsLoadingCategories(true);
+      try {
+        const data = await fetchHouseholdCategories(currentHouseholdId);
         if (!active) return;
         setCategories(Array.isArray(data?.categories) ? data.categories : []);
       } catch {
@@ -184,12 +235,12 @@ const Settings = () => {
       }
     };
 
-    hydrateProfile();
+    hydrateCategories();
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [currentHouseholdId]);
 
   const handleAddCategory = async () => {
     const trimmed = newCategory.trim();
@@ -561,6 +612,25 @@ const Settings = () => {
         <SectionCard delay={0.3}>
           <SectionHeader icon={Tag} title="Task Categories" description="Organize tasks into custom categories" />
           <Separator />
+          <SettingRow label="Household" description="Choose which household categories to manage">
+            <Select
+              value={currentHouseholdId ?? undefined}
+              onValueChange={setCurrentHouseholdId}
+              disabled={isLoadingHouseholds || households.length === 0}
+            >
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder={isLoadingHouseholds ? "Loading households..." : "Select household"} />
+              </SelectTrigger>
+              <SelectContent>
+                {(households || []).map((household) => (
+                  <SelectItem key={household.household_id} value={String(household.household_id)}>
+                    {household.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SettingRow>
+
           <div className="flex flex-wrap gap-2">
             <AnimatePresence>
               {categories.map((cat) => (

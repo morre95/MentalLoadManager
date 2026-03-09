@@ -1,7 +1,20 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, status
 
 from helpers import get_current_user
 from models import UserEmail
+from ..kanban.schemas import (
+    CreateHouseholdCategoryRequest,
+    DeleteHouseholdCategoryResponse,
+    HouseholdCategoriesResponse,
+    HouseholdCategory,
+)
+from ..kanban.service import (
+    create_household_category,
+    delete_household_category,
+    list_household_categories,
+)
 
 from .schemas import (
     AcceptInviteRequest,
@@ -110,3 +123,32 @@ def transfer_household_ownership_route(
 ):
     transfer_household_ownership(payload, current_user)
     return
+
+
+@router.get("/{household_id}/categories", response_model=HouseholdCategoriesResponse)
+def list_household_categories_route(
+    household_id: UUID,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    return list_household_categories(household_id, current_user)
+
+
+@router.post("/{household_id}/categories", response_model=HouseholdCategory, status_code=201)
+def create_household_category_route(
+    household_id: UUID,
+    payload: CreateHouseholdCategoryRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    return create_household_category(household_id, payload, current_user)
+
+
+@router.delete(
+    "/{household_id}/categories/{category_id}",
+    response_model=DeleteHouseholdCategoryResponse,
+)
+def delete_household_category_route(
+    household_id: UUID,
+    category_id: UUID,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    return delete_household_category(household_id, category_id, current_user)
