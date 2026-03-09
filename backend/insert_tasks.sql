@@ -144,7 +144,7 @@ SELECT
 FROM generate_series(1,30) AS s(i)
 CROSS JOIN (SELECT '1a8f5d9d-8691-454c-a818-a3b4f533a7e7'::uuid AS uid) AS val;
 
-
+-- NOTE: Skapar tasks åt alla hushåll som användaren tillhör
 INSERT INTO tasks (
   due_date, 
   name, 
@@ -178,5 +178,62 @@ CROSS JOIN (
   SELECT 
     '4fb5097a-d4ae-43c8-ada2-169d98cd58ee'::uuid AS uid,
     (SELECT household_id FROM users_households WHERE user_id = '4fb5097a-d4ae-43c8-ada2-169d98cd58ee' ORDER BY random() LIMIT 1) AS hid
+) AS val;
+
+-- NOTE: Samma som, men sluimpar även ut kategorier
+INSERT INTO tasks (
+  due_date, 
+  name, 
+  description, 
+  status, 
+  priority, 
+  "order", 
+  category_id,
+  assigns_to, 
+  created_by, 
+  household_id
+)
+SELECT
+  NOW() + (i || ' days')::interval,
+  'Task ' || i,
+  'Auto generated Task with random assignment',
+  (ARRAY['todo', 'in_progress', 'done'])[floor(random() * 3 + 1)],
+  (ARRAY['low', 'medium', 'high'])[floor(random() * 3 + 1)],
+  i,
+
+  -- Slumpmässig kategori från samma hushåll
+  (
+    SELECT c.category_id
+    FROM categories c
+    WHERE c.household_id = val.hid
+    ORDER BY random()
+    LIMIT 1
+  ),
+
+  -- Slumpmässig användare från samma hushåll där ca 20% blir NULL
+  CASE 
+    WHEN random() > 0.2 THEN (
+      SELECT uh.user_id 
+      FROM users_households uh
+      WHERE uh.household_id = val.hid 
+      ORDER BY random() 
+      LIMIT 1
+    ) 
+    ELSE NULL 
+  END,
+
+  val.uid,
+  val.hid
+FROM generate_series(1,30) AS s(i)
+CROSS JOIN (
+  SELECT 
+    '2dbe464b-8b80-4c4b-b323-2cdd9872e52b'::uuid AS uid,
+    (
+      SELECT household_id 
+      FROM users_households 
+      WHERE user_id = '2dbe464b-8b80-4c4b-b323-2cdd9872e52b'
+      ORDER BY random() 
+      LIMIT 1
+    ) AS hid
 ) AS val;
 

@@ -34,6 +34,7 @@ import {
     deleteKanbanTask,
     fetchPreferences,
     fetchMe,
+    toUtcDateOnlyIso,
     updateKanbanTaskAssignee,
     updateKanbanTaskCategory,
     updateKanbanTaskDescription,
@@ -168,9 +169,7 @@ const Calendar = () => {
         });
 
         try {
-            const dueDateIso = targetDate
-                ? new Date(`${targetDate}T00:00:00`).toISOString()
-                : null;
+            const dueDateIso = toUtcDateOnlyIso(targetDate);
             await updateKanbanTaskDueDate(taskId, dueDateIso);
             await refreshCalendarData();
             emitTaskUpdated();

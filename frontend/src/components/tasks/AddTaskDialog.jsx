@@ -23,6 +23,7 @@ import {
     fetchHouseholdCategories,
     fetchKanbanAssignees,
     resolveCurrentHouseholdId,
+    toUtcDateOnlyIso,
 } from "@/lib/utils";
 
 const CUSTOM_CATEGORY_VALUE = "__custom__";
@@ -221,7 +222,7 @@ const AddTaskDialog = ({
             return;
         }
 
-        const dueDateIso = dueDate ? new Date(`${dueDate}T00:00:00`).toISOString() : null;
+        const dueDateIso = toUtcDateOnlyIso(dueDate);
         const finalCategory =
             category === CUSTOM_CATEGORY_VALUE
                 ? customCategory.trim() || "Other"

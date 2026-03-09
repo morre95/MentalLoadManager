@@ -50,6 +50,12 @@ export function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
 
+export function toUtcDateOnlyIso(dateInputValue) {
+  if (!dateInputValue) return null;
+
+  return `${dateInputValue}T00:00:00.000Z`;
+}
+
 function getHouseholdIdFromStoredValue(value) {
   const householdId = value?.household_id ?? value?.id ?? value;
   return householdId ? String(householdId) : null;

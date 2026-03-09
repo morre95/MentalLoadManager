@@ -41,6 +41,7 @@ import { useTaskboardTasks } from "@/hooks/useTaskboardTasks";
 import { useHousehold } from "@/hooks/useHouseHold";
 import {
   deleteKanbanTask,
+  toUtcDateOnlyIso,
   updateKanbanTaskDescription,
   updateKanbanTaskAssignee,
   updateKanbanTaskCategory,
@@ -422,9 +423,7 @@ const Tasks = () => {
     });
 
     try {
-      const dueDateIso = dueDateInputValue
-        ? new Date(`${dueDateInputValue}T00:00:00`).toISOString()
-        : null;
+      const dueDateIso = toUtcDateOnlyIso(dueDateInputValue);
       await updateKanbanTaskDueDate(taskId, dueDateIso);
     } catch (syncException) {
       setTasks(rollbackTasks);
