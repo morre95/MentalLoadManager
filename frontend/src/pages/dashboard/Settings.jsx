@@ -4,7 +4,6 @@ import {
   Settings as SettingsIcon,
   Bell,
   Palette,
-  Shield,
   Globe,
   Tag,
   Plus,
@@ -128,9 +127,6 @@ const Settings = () => {
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
   const hasHydratedPreferences = useRef(false);
 
-  // Privacy
-  const [profileVisible, setProfileVisible] = useState(true);
-  const [activityVisible, setActivityVisible] = useState(true);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -611,9 +607,6 @@ const Settings = () => {
             </div>
           </SettingRow>
 
-          <SettingRow label="Compact mode" description="Reduce spacing for denser layouts">
-            <Switch />
-          </SettingRow>
         </SectionCard>
 
         {/* Language */}
