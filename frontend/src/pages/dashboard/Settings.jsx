@@ -731,18 +731,6 @@ const Settings = () => {
           ) : null}
         </SectionCard>
 
-        {/* Privacy */}
-        <SectionCard delay={0.35}>
-          <SectionHeader icon={Shield} title="Privacy" description="Control your visibility and data" />
-          <Separator />
-          <SettingRow label="Profile visible to household" description="Others can see your name and avatar">
-            <Switch checked={profileVisible} onCheckedChange={setProfileVisible} />
-          </SettingRow>
-          <SettingRow label="Show activity status" description="Others can see when you complete tasks">
-            <Switch checked={activityVisible} onCheckedChange={setActivityVisible} />
-          </SettingRow>
-        </SectionCard>
-
         {/* Data & Account */}
         <SectionCard delay={0.4}>
           <SectionHeader icon={Download} title="Data & Account" description="Export, logout, or delete your account" />
