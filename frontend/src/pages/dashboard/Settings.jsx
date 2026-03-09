@@ -55,16 +55,6 @@ import {
   updateNotificationSettings,
 } from "@/lib/utils";
 
-const languages = [
-  { value: "en", label: "English" },
-  { value: "es", label: "Español" },
-  { value: "fr", label: "Français" },
-  { value: "de", label: "Deutsch" },
-  { value: "pt", label: "Português" },
-  { value: "nl", label: "Nederlands" },
-  { value: "sv", label: "Svenska" },
-];
-
 const SectionCard = ({ children, delay = 0 }) => (
   <motion.div
     initial={{ opacity: 0, y: 16 }}
@@ -107,7 +97,6 @@ const Settings = () => {
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [isSavingCategory, setIsSavingCategory] = useState(false);
   const [deletingCategoryId, setDeletingCategoryId] = useState(null);
-  const [language, setLanguage] = useState("en");
   const [theme, setTheme] = useState("light");
   const [displayName, setDisplayName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
@@ -350,12 +339,6 @@ const Settings = () => {
     } finally {
       setIsChangingPassword(false);
     }
-  };
-
-  const handleLanguageChange = (value) => {
-    setLanguage(value);
-    const lang = languages.find((l) => l.value === value);
-    toast.success(`Language changed to ${lang?.label}`);
   };
 
   const handleSaveProfile = async () => {
