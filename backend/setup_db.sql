@@ -47,11 +47,7 @@ CREATE TABLE IF NOT EXISTS preferences (
   first_day_of_week      TEXT NOT NULL DEFAULT 'monday'
 );
 
-ALTER TABLE preferences
-  ADD COLUMN IF NOT EXISTS date_format TEXT NOT NULL DEFAULT 'mdy';
 
-ALTER TABLE preferences
-  ADD COLUMN IF NOT EXISTS first_day_of_week TEXT NOT NULL DEFAULT 'monday';
 
 -- =========================
 -- OAuth + Calendar sync

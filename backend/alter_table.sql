@@ -47,3 +47,10 @@ CREATE TABLE IF NOT EXISTS goals (
 );
 
 CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
+
+
+ALTER TABLE preferences
+  ADD COLUMN IF NOT EXISTS date_format TEXT NOT NULL DEFAULT 'mdy';
+
+ALTER TABLE preferences
+  ADD COLUMN IF NOT EXISTS first_day_of_week TEXT NOT NULL DEFAULT 'monday';
