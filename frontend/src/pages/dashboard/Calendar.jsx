@@ -50,6 +50,7 @@ const eventColorClasses = {
 };
 const ALL_HOUSEHOLDS_FILTER = "__all_households__";
 const TASK_UPDATED_EVENT = "kanban-task-updated";
+const CALENDAR_VIEW_STORAGE_KEY = "calendar_view_preference";
 
 function toApiStatus(status) {
     if (status === "in-progress") return "in_progress";
@@ -63,10 +64,17 @@ function toDisplayDueDate(dateInputValue) {
 }
 
 const Calendar = () => {
+    const getInitialView = () => {
+        if (typeof window === "undefined") return "month";
+        const stored = localStorage.getItem(CALENDAR_VIEW_STORAGE_KEY);
+        if (stored === "month" || stored === "week" || stored === "day") return stored;
+        return "month";
+    };
+
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [currentWeek, setCurrentWeek] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
-    const [view, setView] = useState("month");
+    const [view, setView] = useState(getInitialView);
 
     const {
         monthEventsByDayKey,
@@ -167,6 +175,11 @@ const Calendar = () => {
             setCurrentMonth(selectedDate);
         });
     }, [view, selectedDate]);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        localStorage.setItem(CALENDAR_VIEW_STORAGE_KEY, view);
+    }, [view]);
 
     useEffect(() => {
         let mounted = true;
