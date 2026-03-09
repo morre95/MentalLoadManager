@@ -44,13 +44,15 @@ import { toast } from "@/components/ui/sonner";
 import { getUserFromLocalStorage } from "@/lib/auth";
 import {
   changeMyPassword,
+  createHouseholdCategory,
+  deleteHouseholdCategory,
   fetchMe,
+  fetchHouseholdCategories,
   fetchNotificationSettings,
+  resolveCurrentHouseholdId,
   updateMe,
   updateNotificationSettings,
 } from "@/lib/utils";
-
-const defaultCategories = ["Shopping", "Cleaning", "Admin", "Health", "Maintenance", "Planning", "Other"];
 
 const languages = [
   { value: "en", label: "English" },
@@ -96,8 +98,12 @@ const SettingRow = ({ label, description, children }) => (
 );
 
 const Settings = () => {
-  const [categories, setCategories] = useState(defaultCategories);
+  const [categories, setCategories] = useState([]);
+  const [currentHouseholdId, setCurrentHouseholdId] = useState(null);
   const [newCategory, setNewCategory] = useState("");
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
+  const [deletingCategoryId, setDeletingCategoryId] = useState(null);
   const [language, setLanguage] = useState("en");
   const [theme, setTheme] = useState("light");
   const [displayName, setDisplayName] = useState("");
@@ -151,6 +157,31 @@ const Settings = () => {
       } catch {
         // Keep local defaults when settings are unavailable.
       }
+
+      try {
+        setIsLoadingCategories(true);
+        const householdId = await resolveCurrentHouseholdId();
+        if (!active) return;
+
+        setCurrentHouseholdId(householdId || null);
+        if (!householdId) {
+          setCategories([]);
+          return;
+        }
+
+        const data = await fetchHouseholdCategories(householdId);
+        if (!active) return;
+        setCategories(Array.isArray(data?.categories) ? data.categories : []);
+      } catch {
+        if (active) {
+          setCategories([]);
+          toast.error("Could not load household categories");
+        }
+      } finally {
+        if (active) {
+          setIsLoadingCategories(false);
+        }
+      }
     };
 
     hydrateProfile();
@@ -160,18 +191,60 @@ const Settings = () => {
     };
   }, []);
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     const trimmed = newCategory.trim();
-    if (trimmed && !categories.includes(trimmed)) {
-      setCategories([...categories, trimmed]);
+    if (!trimmed) return;
+    if (!currentHouseholdId) {
+      toast.error("No household selected");
+      return;
+    }
+
+    const exists = categories.some(
+      (category) => String(category?.name || "").toLowerCase() === trimmed.toLowerCase()
+    );
+    if (exists) {
+      toast.error(`Category "${trimmed}" already exists`);
+      return;
+    }
+
+    setIsSavingCategory(true);
+    try {
+      const created = await createHouseholdCategory(currentHouseholdId, trimmed);
+      setCategories((previous) => [...previous, created]);
       setNewCategory("");
       toast.success(`Category "${trimmed}" added`);
+    } catch (error) {
+      toast.error(error?.message || "Could not add category");
+    } finally {
+      setIsSavingCategory(false);
     }
   };
 
-  const handleDeleteCategory = (cat) => {
-    setCategories(categories.filter((c) => c !== cat));
-    toast.success(`Category "${cat}" removed`);
+  const handleDeleteCategory = async (category) => {
+    if (!currentHouseholdId) {
+      toast.error("No household selected");
+      return;
+    }
+
+    const categoryId = category?.category_id;
+    const categoryName = category?.name || "Category";
+    if (!categoryId) {
+      toast.error("Could not delete category");
+      return;
+    }
+
+    setDeletingCategoryId(categoryId);
+    try {
+      await deleteHouseholdCategory(currentHouseholdId, categoryId);
+      setCategories((previous) =>
+        previous.filter((item) => item.category_id !== categoryId)
+      );
+      toast.success(`Category "${categoryName}" removed`);
+    } catch (error) {
+      toast.error(error?.message || "Could not remove category");
+    } finally {
+      setDeletingCategoryId(null);
+    }
   };
 
   const handleThemeChange = (value) => {
@@ -492,16 +565,17 @@ const Settings = () => {
             <AnimatePresence>
               {categories.map((cat) => (
                 <motion.div
-                  key={cat}
+                  key={cat.category_id}
                   layout
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
                 >
                   <Badge variant="secondary" className="gap-1.5 py-1.5 px-3 text-sm">
-                    {cat}
+                    {cat.name}
                     <button
                       onClick={() => handleDeleteCategory(cat)}
+                      disabled={deletingCategoryId === cat.category_id}
                       className="ml-1 text-muted-foreground hover:text-destructive transition-colors"
                     >
                       <X className="h-3 w-3" />
@@ -517,13 +591,21 @@ const Settings = () => {
               placeholder="New category name..."
               value={newCategory}
               onChange={(e) => setNewCategory(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
+              onKeyDown={(e) => e.key === "Enter" && void handleAddCategory()}
               className="flex-1"
             />
-            <Button onClick={handleAddCategory} size="sm" className="gap-1" disabled={!newCategory.trim()}>
+            <Button
+              onClick={() => void handleAddCategory()}
+              size="sm"
+              className="gap-1"
+              disabled={!newCategory.trim() || isSavingCategory || isLoadingCategories}
+            >
               <Plus className="h-4 w-4" /> Add
             </Button>
           </div>
+          {isLoadingCategories ? (
+            <p className="text-xs text-muted-foreground">Loading categories...</p>
+          ) : null}
         </SectionCard>
 
         {/* Privacy */}

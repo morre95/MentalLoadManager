@@ -9,7 +9,16 @@ import {
     updateHouseholdMemberRole,
 } from "@/hooks/useHouseHold";
 import { getUserFromLocalStorage } from "@/lib/auth";
-import { acceptHouseholdInvite } from "@/lib/utils";
+import { acceptHouseholdInvite, createHouseholdCategory } from "@/lib/utils";
+
+const DEFAULT_HOUSEHOLD_CATEGORIES = [
+    "Shopping",
+    "Cleaning",
+    "Health",
+    "Maintenance",
+    "Planning",
+    "Other",
+];
 
 
 export function useHouseholdPage() {
@@ -69,10 +78,29 @@ export function useHouseholdPage() {
 
         setCreating(true);
         try {
-            await createHousehold(name);
+            const createdHousehold = await createHousehold(name);
+            const householdId =
+                createdHousehold?.household_id ?? createdHousehold?.id ?? null;
+
+            if (householdId) {
+                const createCategoryTasks = DEFAULT_HOUSEHOLD_CATEGORIES.map((categoryName) =>
+                    createHouseholdCategory(householdId, categoryName)
+                );
+                const results = await Promise.allSettled(createCategoryTasks);
+                const failedCount = results.filter((result) => result.status === "rejected").length;
+                if (failedCount > 0) {
+                    alert(
+                        `Household created, but ${failedCount} default categor${failedCount === 1 ? "y was" : "ies were"
+                        } not added.`
+                    );
+                }
+            }
+
             setIsCreatingUI(false);
             setNewHouseholdName("");
             await refetch();
+        } catch (err) {
+            alert(err?.message || "Could not create household.");
         } finally {
             setCreating(false);
         }
