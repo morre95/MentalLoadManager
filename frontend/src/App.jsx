@@ -33,8 +33,41 @@ import Settings from "./pages/dashboard/Settings";
 import DashboardLayout from "./layouts/DashboardLayout";
 
 const queryClient = new QueryClient();
+const THEME_STORAGE_KEY = "theme_preference";
 
 const App = () => {
+  useEffect(() => {
+    const root = document.documentElement;
+    const applyTheme = () => {
+      const storedTheme = localStorage.getItem(THEME_STORAGE_KEY) || "system";
+
+      if (storedTheme === "dark") {
+        root.classList.add("dark");
+        return;
+      }
+
+      if (storedTheme === "light") {
+        root.classList.remove("dark");
+        return;
+      }
+
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      root.classList.toggle("dark", prefersDark);
+    };
+
+    applyTheme();
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleSystemThemeChange = () => {
+      if ((localStorage.getItem(THEME_STORAGE_KEY) || "system") === "system") {
+        applyTheme();
+      }
+    };
+
+    mediaQuery.addEventListener("change", handleSystemThemeChange);
+    return () => mediaQuery.removeEventListener("change", handleSystemThemeChange);
+  }, []);
+
   // OAuth token from URL hash (Google, Facebook, etc)
   useEffect(() => {
     const hash = window.location.hash.replace(/^#/, "");

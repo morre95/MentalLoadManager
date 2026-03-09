@@ -92,6 +92,7 @@ const SettingRow = ({ label, description, children }) => (
 
 const CALENDAR_DATE_FORMAT_STORAGE_KEY = "calendar_date_format";
 const CALENDAR_FIRST_DAY_STORAGE_KEY = "calendar_first_day_of_week";
+const THEME_STORAGE_KEY = "theme_preference";
 
 const Settings = () => {
   const [categories, setCategories] = useState([]);
@@ -130,6 +131,18 @@ const Settings = () => {
   // Privacy
   const [profileVisible, setProfileVisible] = useState(true);
   const [activityVisible, setActivityVisible] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    if (storedTheme === "light" || storedTheme === "dark" || storedTheme === "system") {
+      setTheme(storedTheme);
+      return;
+    }
+
+    setTheme("system");
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -324,6 +337,7 @@ const Settings = () => {
 
   const handleThemeChange = (value) => {
     setTheme(value);
+    localStorage.setItem(THEME_STORAGE_KEY, value);
     const root = document.documentElement;
 
     if (value === "dark") root.classList.add("dark");
