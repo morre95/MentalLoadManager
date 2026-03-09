@@ -17,7 +17,8 @@ function normalizePriority(task) {
 
   if (["high", "h", "3", "p1", "urgent"].includes(value)) return "high";
   if (["low", "l", "1", "p3"].includes(value)) return "low";
-  if (["medium", "med", "m", "2", "p2", "normal"].includes(value)) return "medium";
+  if (["medium", "med", "m", "2", "p2", "normal"].includes(value))
+    return "medium";
 
   return "medium";
 }
@@ -33,14 +34,17 @@ function formatDueDate(iso) {
 
 function toDateInputValue(iso) {
   if (!iso) return null;
+
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
+
   return date.toISOString().slice(0, 10);
 }
 
 export function toApiTaskStatus(status) {
   if (status === "in-progress") return "in_progress";
   if (status === "on-hold") return "on_hold";
+
   return status;
 }
 
@@ -54,7 +58,9 @@ export function mapApiTaskToUi(task) {
     description: task.description || "",
     status: normalizeStatus(task.status),
     priority: normalizePriority(task),
-    assigneeId: task.assignee_user_id ? String(task.assignee_user_id) : undefined,
+    assigneeId: task.assignee_user_id
+      ? String(task.assignee_user_id)
+      : undefined,
     assigneeLabel,
     dueDateValue: toDateInputValue(task.due_date),
     dueDate: formatDueDate(task.due_date),
@@ -77,10 +83,12 @@ export async function fetchKanbanTasks(apiClient, householdId) {
 }
 
 export async function fetchKanbanAssignees(apiClient, householdId) {
-  const encodedHouseholdId = encodeURIComponent(String(householdId || "").trim());
+  const encodedHouseholdId = encodeURIComponent(
+    String(householdId || "").trim(),
+  );
   const data = await apiClient.request(
     `/api/kanban/households/${encodedHouseholdId}/assignees`,
-    { method: "GET" }
+    { method: "GET" },
   );
   const assignees = Array.isArray(data?.assignees) ? data.assignees : [];
 
@@ -91,10 +99,12 @@ export async function fetchKanbanAssignees(apiClient, householdId) {
 }
 
 export async function fetchHouseholdCategories(apiClient, householdId) {
-  const encodedHouseholdId = encodeURIComponent(String(householdId || "").trim());
+  const encodedHouseholdId = encodeURIComponent(
+    String(householdId || "").trim(),
+  );
   const data = await apiClient.request(
     `/api/household/${encodedHouseholdId}/categories`,
-    { method: "GET" }
+    { method: "GET" },
   );
 
   return {
@@ -104,20 +114,29 @@ export async function fetchHouseholdCategories(apiClient, householdId) {
 }
 
 export async function createHouseholdCategory(apiClient, householdId, name) {
-  const encodedHouseholdId = encodeURIComponent(String(householdId || "").trim());
+  const encodedHouseholdId = encodeURIComponent(
+    String(householdId || "").trim(),
+  );
+
   return apiClient.request(`/api/household/${encodedHouseholdId}/categories`, {
     method: "POST",
     body: JSON.stringify({ name: String(name || "").trim() }),
   });
 }
 
-export async function deleteHouseholdCategory(apiClient, householdId, categoryId) {
-  const encodedHouseholdId = encodeURIComponent(String(householdId || "").trim());
+export async function deleteHouseholdCategory(
+  apiClient,
+  householdId,
+  categoryId,
+) {
+  const encodedHouseholdId = encodeURIComponent(
+    String(householdId || "").trim(),
+  );
   const encodedCategoryId = encodeURIComponent(String(categoryId || "").trim());
 
   return apiClient.request(
     `/api/household/${encodedHouseholdId}/categories/${encodedCategoryId}`,
-    { method: "DELETE" }
+    { method: "DELETE" },
   );
 }
 
@@ -142,7 +161,9 @@ export async function updateKanbanTaskPriority(apiClient, taskId, priority) {
   return apiClient.request(`/api/kanban/tasks/${taskId}/priority`, {
     method: "PATCH",
     body: JSON.stringify({
-      priority: String(priority || "").trim().toLowerCase(),
+      priority: String(priority || "")
+        .trim()
+        .toLowerCase(),
     }),
   });
 }
@@ -156,7 +177,11 @@ export async function updateKanbanTaskDueDate(apiClient, taskId, dueDate) {
   });
 }
 
-export async function updateKanbanTaskDescription(apiClient, taskId, description) {
+export async function updateKanbanTaskDescription(
+  apiClient,
+  taskId,
+  description,
+) {
   return apiClient.request(`/api/kanban/tasks/${taskId}/description`, {
     method: "PATCH",
     body: JSON.stringify({
@@ -174,7 +199,11 @@ export async function updateKanbanTaskAssignee(apiClient, taskId, assigneeId) {
   });
 }
 
-export async function updateKanbanTaskCategory(apiClient, taskId, categoryName) {
+export async function updateKanbanTaskCategory(
+  apiClient,
+  taskId,
+  categoryName,
+) {
   return apiClient.request(`/api/kanban/tasks/${taskId}/category`, {
     method: "PATCH",
     body: JSON.stringify({

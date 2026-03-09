@@ -18,7 +18,7 @@ export function flattenHouseholdMembers(households) {
       ...member,
       household_id: household.household_id,
       household_name: household.name,
-    }))
+    })),
   );
 }
 
@@ -73,7 +73,7 @@ export async function updateHouseholdMemberRole(
   apiClient,
   householdId,
   userId,
-  role
+  role,
 ) {
   return apiClient.request("/api/household/members/role", {
     method: "PUT",
@@ -84,7 +84,7 @@ export async function updateHouseholdMemberRole(
 export async function transferHouseholdOwnership(
   apiClient,
   householdId,
-  newOwnerUserId
+  newOwnerUserId,
 ) {
   return apiClient.request("/api/household/transfer-ownership", {
     method: "POST",
