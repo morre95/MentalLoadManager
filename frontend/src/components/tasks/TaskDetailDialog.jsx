@@ -10,11 +10,31 @@ import {
   Tag,
   Flag,
   PauseCircle,
+  ChevronRight,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -28,6 +48,7 @@ import {
   fetchHouseholdCategories,
   fetchKanbanAssignees,
   resolveCurrentHouseholdId,
+  cn,
 } from "@/lib/utils";
 
 import useFokus from '@/hooks/useFocus';
@@ -50,6 +71,23 @@ const UNASSIGNED_ASSIGNEE_VALUE = "__unassigned__";
 const CUSTOM_CATEGORY_VALUE = "__custom__";
 const ARCHIVE_STATUS = "archive";
 const FALLBACK_CATEGORY = "Other";
+const fieldCardClassName =
+  "widget-card group flex w-full items-start gap-3 p-4 text-left";
+const fieldValueClassName = "mt-1 text-sm font-medium text-foreground";
+const emptyValueClassName = "mt-1 text-sm italic text-muted-foreground";
+
+const priorityLabels = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+};
+
+const statusBadgeClasses = {
+  todo: "status-badge-todo",
+  "in-progress": "status-badge-doing",
+  archive: "bg-lavender-light text-lavender border border-lavender/30",
+  done: "status-badge-done",
+};
 
 function toDateInputValue(value) {
   if (!value) return "";
@@ -59,6 +97,17 @@ function toDateInputValue(value) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return "";
   return parsed.toISOString().slice(0, 10);
+}
+
+function formatDisplayDate(value) {
+  if (!value) return "No due date";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "No due date";
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(parsed);
 }
 
 const TaskDetailDialog = ({
@@ -86,8 +135,6 @@ const TaskDetailDialog = ({
     return matchedHousehold?.name || task?.householdName || "Unknown household";
   }, [households, task?.householdId, task?.householdName]);
 
-  const status = statusConfig[task?.status] || statusConfig.todo;
-  const StatusIcon = status.icon;
   const [assignees, setAssignees] = useState([]);
   const [availableCategories, setAvailableCategories] = useState([FALLBACK_CATEGORY]);
   const [assigneesError, setAssigneesError] = useState("");
@@ -204,74 +251,146 @@ const TaskDetailDialog = ({
 
   if (!task) return null;
 
-  const handleSave = async () => {
-    if (isSaving) return;
+  const activeStatus = statusConfig[statusDraft] || statusConfig.todo;
+  const ActiveStatusIcon = activeStatus.icon;
+  const selectedAssignee = assignees.find((member) => member.user_id === assigneeIdDraft);
+  const assigneeLabel =
+    selectedAssignee?.display_name || selectedAssignee?.username || "Unassigned";
+  const categoryLabel =
+    categoryDraft === CUSTOM_CATEGORY_VALUE ? (customCategoryDraft || "Other") : categoryDraft;
+  const hasDescription = Boolean(descriptionDraft.trim());
+  const displayDueDate = formatDisplayDate(dueDateDraft);
 
-    const nextTitle = titleDraft.trim() || task.title || "";
-    const nextDescription = descriptionDraft.trim();
-    const nextCategory =
-      categoryDraft === CUSTOM_CATEGORY_VALUE
-        ? customCategoryDraft.trim() || "Other"
-        : categoryDraft;
-    const nextAssigneeId =
-      assigneeIdDraft === UNASSIGNED_ASSIGNEE_VALUE ? null : assigneeIdDraft;
-    const selectedAssignee = assignees.find(
-      (member) => member.user_id === nextAssigneeId
-    );
-    const nextAssigneeLabel =
-      selectedAssignee?.display_name || selectedAssignee?.username || "Unassigned";
-
+  const runTaskUpdate = async (updater) => {
     setIsSaving(true);
     try {
-      if (nextTitle !== (task.title || "")) {
-        if (onUpdateTaskTitle) await onUpdateTaskTitle(task.id, nextTitle);
-        else onUpdateTask?.(task.id, { title: nextTitle });
-      }
-
-      if (statusDraft !== (task.status || "todo")) {
-        await onUpdateTaskStatus?.(task.id, statusDraft);
-      }
-
-      if (priorityDraft !== normalizedPriority) {
-        await onUpdateTaskPriority?.(task.id, priorityDraft);
-      }
-
-      if (nextDescription !== (task.description || "")) {
-        if (onUpdateTaskDescription) {
-          await onUpdateTaskDescription(task.id, nextDescription || null);
-        } else {
-          onUpdateTask?.(task.id, { description: nextDescription });
-        }
-      }
-
-      if ((nextAssigneeId || undefined) !== task.assigneeId) {
-        await onUpdateTaskAssignee?.(
-          task.id,
-          nextAssigneeId,
-          nextAssigneeLabel,
-          selectedAssignee || null
-        );
-      }
-
-      if (nextCategory !== (task.category || "Other")) {
-        if (onUpdateTaskCategory) await onUpdateTaskCategory(task.id, nextCategory);
-        else onUpdateTask?.(task.id, { category: nextCategory });
-      }
-
-      if (dueDateDraft !== toDateInputValue(task.dueDate)) {
-        if (onUpdateTaskDueDate) await onUpdateTaskDueDate(task.id, dueDateDraft || null);
-        else {
-          const dueDate = dueDateDraft
-            ? new Date(`${dueDateDraft}T00:00:00`).toLocaleDateString()
-            : undefined;
-          onUpdateTask?.(task.id, { dueDate });
-        }
-      }
-
-      onOpenChange(false);
+      await updater();
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSave = () => {
+    if (isSaving) return;
+    onOpenChange(false);
+  };
+
+  const handleTitleBlur = async (value) => {
+    const nextTitle = value.trim() || task.title || "";
+    setTitleDraft(nextTitle);
+    setEditingField(null);
+
+    if (nextTitle === (task.title || "")) return;
+
+    await runTaskUpdate(async () => {
+      if (onUpdateTaskTitle) await onUpdateTaskTitle(task.id, nextTitle);
+      else onUpdateTask?.(task.id, { title: nextTitle });
+    });
+  };
+
+  const handleDescriptionBlur = async (value) => {
+    const nextDescription = value.trim();
+    setDescriptionDraft(nextDescription);
+    setEditingField(null);
+
+    if (nextDescription === (task.description || "")) return;
+
+    await runTaskUpdate(async () => {
+      if (onUpdateTaskDescription) {
+        await onUpdateTaskDescription(task.id, nextDescription || null);
+      } else {
+        onUpdateTask?.(task.id, { description: nextDescription });
+      }
+    });
+  };
+
+  const handleStatusChange = async (value) => {
+    setStatusDraft(value);
+    setIsStatusOpen(false);
+    setEditingField(null);
+
+    if (value === (task.status || "todo")) return;
+    await runTaskUpdate(async () => onUpdateTaskStatus?.(task.id, value));
+  };
+
+  const handlePriorityChange = async (value) => {
+    setPriorityDraft(value);
+    setIsPriorityOpen(false);
+    setEditingField(null);
+
+    if (value === normalizedPriority) return;
+    await runTaskUpdate(async () => onUpdateTaskPriority?.(task.id, value));
+  };
+
+  const handleAssigneeChange = async (value) => {
+    setAssigneeIdDraft(value);
+    setIsAssigneeOpen(false);
+    setEditingField(null);
+
+    const nextAssigneeId = value === UNASSIGNED_ASSIGNEE_VALUE ? null : value;
+    const nextSelectedAssignee = assignees.find((member) => member.user_id === nextAssigneeId);
+    const nextAssigneeLabel =
+      nextSelectedAssignee?.display_name || nextSelectedAssignee?.username || "Unassigned";
+
+    if ((nextAssigneeId || undefined) === task.assigneeId) return;
+
+    await runTaskUpdate(async () => {
+      await onUpdateTaskAssignee?.(
+        task.id,
+        nextAssigneeId,
+        nextAssigneeLabel,
+        nextSelectedAssignee || null
+      );
+    });
+  };
+
+  const handleCategoryChange = async (value) => {
+    setCategoryDraft(value);
+    if (value === CUSTOM_CATEGORY_VALUE) {
+      setIsCategoryOpen(false);
+      requestAnimationFrame(() => setCustomCategoryFocus());
+      return;
+    }
+
+    setIsCategoryOpen(false);
+    setEditingField(null);
+
+    if (value === (task.category || "Other")) return;
+
+    await runTaskUpdate(async () => {
+      if (onUpdateTaskCategory) await onUpdateTaskCategory(task.id, value);
+      else onUpdateTask?.(task.id, { category: value });
+    });
+  };
+
+  const handleCustomCategoryBlur = async () => {
+    const nextCategory = customCategoryDraft.trim() || "Other";
+    setCustomCategoryDraft(nextCategory);
+    setEditingField(null);
+
+    if (nextCategory === (task.category || "Other")) return;
+
+    await runTaskUpdate(async () => {
+      if (onUpdateTaskCategory) await onUpdateTaskCategory(task.id, nextCategory);
+      else onUpdateTask?.(task.id, { category: nextCategory });
+    });
+  };
+
+  const handleDueDateChange = async (value) => {
+    setDueDateDraft(value);
+    setEditingField(null);
+
+    if (value === toDateInputValue(task.dueDate)) return;
+
+    await runTaskUpdate(async () => {
+      if (onUpdateTaskDueDate) await onUpdateTaskDueDate(task.id, value || null);
+      else {
+        const dueDate = value
+          ? new Date(`${value}T00:00:00`).toLocaleDateString()
+          : undefined;
+        onUpdateTask?.(task.id, { dueDate });
+      }
+    });
   };
 
   const handleArchive = async () => {
@@ -288,142 +407,181 @@ const TaskDetailDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg" key={task.id}>
-        <DialogHeader>
-          <DialogTitle className="font-display text-xl flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${status.color}`} />
-            {editingField === "title" ? (
-              <Input
-                ref={titleRef}
-                value={titleDraft}
-                onChange={(e) => setTitleDraft(e.target.value)}
-                onBlur={(e) => {
-                  setTitleDraft(e.target.value);
-                  setEditingField(null);
-                }}
-                className="h-9"
-              />
-            ) : (
-              <div
-                className="text-left cursor-pointer"
-                onClick={() => {
-                  setEditingField("title");
-                  requestAnimationFrame(() => setTitleFocus());
-                }}
-              >
-                {titleDraft}
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl" key={task.id}>
+        <DialogHeader className="space-y-4 border-b pb-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className={cn("gap-1.5", priorityColors[priorityDraft] || priorityColors.medium)}
+                >
+                  <Flag className="h-3 w-3" />
+                  {priorityLabels[priorityDraft] || "Medium"} priority
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className={cn("gap-1.5", statusBadgeClasses[statusDraft] || statusBadgeClasses.todo)}
+                >
+                  <ActiveStatusIcon className="h-3 w-3" />
+                  {activeStatus.label}
+                </Badge>
               </div>
-            )}
-          </DialogTitle>
+
+              <DialogTitle className="font-semibold tracking-tight font-display text-xl">
+                {editingField === "title" ? (
+                  <Input
+                  ref={titleRef}
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  onBlur={(e) => handleTitleBlur(e.target.value)}
+                  className="h-10 font-semibold tracking-tight font-display text-xl"
+                />
+                ) : (
+                  <div
+                    className="group flex cursor-pointer items-center gap-2 text-left"
+                    onClick={() => {
+                      setEditingField("title");
+                      requestAnimationFrame(() => setTitleFocus());
+                    }}
+                  >
+                    <span>{titleDraft || "Untitled task"}</span>
+                    <Pencil className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                  </div>
+                )}
+              </DialogTitle>
+
+              <DialogDescription className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                <span>{householdName}</span>
+                <span>{assigneeLabel}</span>
+                <span>{displayDueDate}</span>
+              </DialogDescription>
+            </div>
+
+            <div className={cn("hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white shadow-widget sm:flex", activeStatus.color)}>
+              <ActiveStatusIcon className="h-5 w-5" />
+            </div>
+          </div>
         </DialogHeader>
 
         <Motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="space-y-5 mt-2"
+          className="mt-2 space-y-6"
         >
-          <div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">Description</p>
-            {editingField == "description" ?
-              (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="font-semibold tracking-tight font-display text-base">
+                Details
+              </p>
+              <span className="text-xs text-muted-foreground">Click any field to edit</span>
+            </div>
+
+            {editingField === "description" ? (
+              <div className="widget-card rounded-xl p-4">
                 <Textarea
                   ref={descRef}
                   value={descriptionDraft}
                   onChange={(e) => setDescriptionDraft(e.target.value)}
-                  onBlur={(e) => {
-                    setDescriptionDraft(e.target.value)
-                    setEditingField(null);
-                  }}
-                  rows={4}
+                  onBlur={(e) => handleDescriptionBlur(e.target.value)}
+                  rows={5}
+                  placeholder="Add a description..."
+                  className="min-h-28 resize-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
                 />
-              ) : (
-                <div
-                  className="text-foreground text-left w-full rounded-md hover:bg-muted/40 p-2 -ml-2 cursor-pointer"
-                  onClick={() => {
-                    setEditingField("description");
-                    requestAnimationFrame(() => setDescFocus());
-                  }}
-                >
-                  {descriptionDraft}
-                </div>
-              )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            {editingField === "status" ? (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <StatusIcon className="h-4 w-4 text-muted-foreground" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Status</p>
-
-                  <Select
-                    value={statusDraft}
-                    open={isStatusOpen}
-                    onOpenChange={(open) => {
-                      setIsStatusOpen(open);
-                      if (!open) setEditingField(null);
-                    }}
-                    onValueChange={(value) => {
-                      setStatusDraft(value);
-                      setIsStatusOpen(false);
-                      setEditingField(null);
-                    }}
-                  >
-                    <SelectTrigger className="h-8 mt-1 w-44">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todo">To Do</SelectItem>
-                      <SelectItem value="in-progress">In Progress</SelectItem>
-                      <SelectItem value="archive">Archive</SelectItem>
-                      <SelectItem value="done">Done</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
             ) : (
-              <div
-                className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer"
+              <button
+                type="button"
+                className="widget-card group w-full rounded-xl p-4 text-left"
                 onClick={() => {
-                  setEditingField("status");
-                  setIsStatusOpen(true);
+                  setEditingField("description");
+                  requestAnimationFrame(() => setDescFocus());
                 }}
               >
-                <StatusIcon className="h-4 w-4 text-muted-foreground" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Status</p>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-sm font-medium text-foreground">Description</p>
+                  <Pencil className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                </div>
+                <p className={hasDescription ? "text-sm leading-6 text-foreground" : emptyValueClassName}>
+                  {hasDescription ? descriptionDraft : "Add a description..."}
+                </p>
+              </button>
+            )}
+          </section>
 
-                  <div
-                    className="text-left"
+          <section className="space-y-3">
+            <p className="font-semibold tracking-tight font-display text-base">
+              Properties
+            </p>
 
-                  >
-                    {statusDraft}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {editingField === "status" ? (
+                <div className={cn(fieldCardClassName, "border-primary/30 bg-primary/5 shadow-none")}>
+                  <ActiveStatusIcon className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</p>
+                    <Select
+                      value={statusDraft}
+                      open={isStatusOpen}
+                      onOpenChange={(openValue) => {
+                        setIsStatusOpen(openValue);
+                        if (!openValue) setEditingField(null);
+                      }}
+                      onValueChange={handleStatusChange}
+                    >
+                      <SelectTrigger className="mt-2 h-9 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todo">To Do</SelectItem>
+                        <SelectItem value="in-progress">In Progress</SelectItem>
+                        <SelectItem value="archive">Archive</SelectItem>
+                        <SelectItem value="done">Done</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                <button
+                  type="button"
+                  className={cn(fieldCardClassName, "hover:border-primary/30")}
+                  onClick={() => {
+                    setEditingField("status");
+                    setIsStatusOpen(true);
+                  }}
+                >
+                  <ActiveStatusIcon className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</p>
+                    <div className={fieldValueClassName}>
+                      <Badge
+                        variant="outline"
+                        className={cn("gap-1.5", statusBadgeClasses[statusDraft] || statusBadgeClasses.todo)}
+                      >
+                        <ActiveStatusIcon className="h-3 w-3" />
+                        {activeStatus.label}
+                      </Badge>
+                    </div>
+                  </div>
+                  <ChevronRight className="mt-0.5 h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </button>
+              )}
 
-            {editingField == "priority" ?
-              (
-
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                  <Flag className="h-4 w-4 text-muted-foreground" />
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">Priority</p>
+              {editingField === "priority" ? (
+                <div className={cn(fieldCardClassName, "border-primary/30 bg-primary/5 shadow-none")}>
+                  <Flag className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Priority</p>
                     <Select
                       value={priorityDraft}
                       open={isPriorityOpen}
-                      onOpenChange={(open) => {
-                        setIsPriorityOpen(open);
-                        if (!open) setEditingField(null);
+                      onOpenChange={(openValue) => {
+                        setIsPriorityOpen(openValue);
+                        if (!openValue) setEditingField(null);
                       }}
-                      onValueChange={(value) => {
-                        setPriorityDraft(value);
-                        setIsPriorityOpen(false);
-                        setEditingField(null);
-                      }}
+                      onValueChange={handlePriorityChange}
                     >
-                      <SelectTrigger className="h-8 mt-1 w-36">
+                      <SelectTrigger className="mt-2 h-9 w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -434,256 +592,245 @@ const TaskDetailDialog = ({
                     </Select>
                   </div>
                 </div>
-
               ) : (
-                <div
-                  className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer"
+                <button
+                  type="button"
+                  className={cn(fieldCardClassName, "hover:border-primary/30")}
                   onClick={() => {
                     setEditingField("priority");
                     setIsPriorityOpen(true);
                   }}
-
                 >
-                  <Flag className="h-4 w-4 text-muted-foreground" />
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">Priority</p>
-
-                    <div className="text-left">
+                  <Flag className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Priority</p>
+                    <div className={fieldValueClassName}>
                       <Badge
                         variant="outline"
-                        className={`text-xs ${priorityColors[priorityDraft] || priorityColors.medium}`}
+                        className={priorityColors[priorityDraft] || priorityColors.medium}
                       >
-                        {priorityDraft}
+                        {priorityLabels[priorityDraft] || "Medium"}
                       </Badge>
                     </div>
                   </div>
-                </div>
-
+                  <ChevronRight className="mt-0.5 h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </button>
               )}
 
-
-            {editingField === "assignee" ? (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Assigned to</p>
-                  <Select
-                    value={assigneeIdDraft}
-                    open={isAssigneeOpen}
-                    onOpenChange={(open) => {
-                      setIsAssigneeOpen(open);
-                      if (!open) setEditingField(null);
-                    }}
-                    onValueChange={(value) => {
-                      setAssigneeIdDraft(value);
-                      setIsAssigneeOpen(false);
-                      setEditingField(null);
-                    }}
-                  >
-                    <SelectTrigger className="h-8 mt-1 w-44">
-                      <SelectValue placeholder="Select assignee" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={UNASSIGNED_ASSIGNEE_VALUE}>Unassigned</SelectItem>
-                      {assignees.map((member) => (
-                        <SelectItem key={member.user_id} value={member.user_id}>
-                          {member.display_name || member.username}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {assigneesError ? (
-                    <p className="text-xs text-destructive mt-1">{assigneesError}</p>
-                  ) : null}
-
-                </div>
-              </div>
-
-            ) : (
-              <div
-                className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer"
-                onClick={() => {
-                  setEditingField("assignee");
-                  setIsAssigneeOpen(true);
-                }}
-              >
-                <User className="h-4 w-4 text-muted-foreground" />
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Assigned to</p>
-                  <div
-                    className="text-left"
-
-                  >
-                    {assignees.find((member) => member.user_id === assigneeIdDraft)?.display_name
-                      || assignees.find((member) => member.user_id === assigneeIdDraft)?.username
-                      || "Unassigned"}
+              {editingField === "assignee" ? (
+                <div className={cn(fieldCardClassName, "border-primary/30 bg-primary/5 shadow-none")}>
+                  <User className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Assigned to</p>
+                    <Select
+                      value={assigneeIdDraft}
+                      open={isAssigneeOpen}
+                      onOpenChange={(openValue) => {
+                        setIsAssigneeOpen(openValue);
+                        if (!openValue) setEditingField(null);
+                      }}
+                      onValueChange={handleAssigneeChange}
+                    >
+                      <SelectTrigger className="mt-2 h-9 w-full">
+                        <SelectValue placeholder="Select assignee" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={UNASSIGNED_ASSIGNEE_VALUE}>Unassigned</SelectItem>
+                        {assignees.map((member) => (
+                          <SelectItem key={member.user_id} value={member.user_id}>
+                            {member.display_name || member.username}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {assigneesError ? (
+                      <p className="mt-2 text-xs text-destructive">{assigneesError}</p>
+                    ) : null}
                   </div>
                 </div>
-              </div>
+              ) : (
+                <button
+                  type="button"
+                  className={cn(fieldCardClassName, "hover:border-primary/30")}
+                  onClick={() => {
+                    setEditingField("assignee");
+                    setIsAssigneeOpen(true);
+                  }}
+                >
+                  <User className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Assigned to</p>
+                    <p className={fieldValueClassName}>{assigneeLabel}</p>
+                    {assigneesError ? (
+                      <p className="mt-2 text-xs text-destructive">{assigneesError}</p>
+                    ) : null}
+                  </div>
+                  <ChevronRight className="mt-0.5 h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </button>
+              )}
 
-            )}
+              {editingField === "category" ? (
+                <div className={cn(fieldCardClassName, "border-primary/30 bg-primary/5 shadow-none")}>
+                  <Tag className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div className="min-w-0 w-full flex-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Category</p>
+                    <Select
+                      value={categoryDraft}
+                      open={isCategoryOpen}
+                      onOpenChange={(openValue) => {
+                        setIsCategoryOpen(openValue);
+                        if (!openValue && categoryDraft !== CUSTOM_CATEGORY_VALUE) {
+                          setEditingField(null);
+                        }
+                      }}
+                      onValueChange={handleCategoryChange}
+                    >
+                      <SelectTrigger className="mt-2 h-9 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableCategories.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {cat}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value={CUSTOM_CATEGORY_VALUE}>Custom...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {categoryDraft === CUSTOM_CATEGORY_VALUE ? (
+                      <Input
+                        ref={customCategoryRef}
+                        value={customCategoryDraft}
+                        onChange={(e) => setCustomCategoryDraft(e.target.value)}
+                        onBlur={handleCustomCategoryBlur}
+                        placeholder="Write category"
+                        className="mt-2 h-9 w-full"
+                      />
+                    ) : null}
+                    {categoriesError ? (
+                      <p className="mt-2 text-xs text-destructive">{categoriesError}</p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className={cn(fieldCardClassName, "hover:border-primary/30")}
+                  onClick={() => {
+                    setEditingField("category");
+                    setIsCategoryOpen(true);
+                  }}
+                >
+                  <Tag className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Category</p>
+                    <p className={fieldValueClassName}>{categoryLabel}</p>
+                    {categoriesError ? (
+                      <p className="mt-2 text-xs text-destructive">{categoriesError}</p>
+                    ) : null}
+                  </div>
+                  <ChevronRight className="mt-0.5 h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </button>
+              )}
 
-
-            {editingField === "category" ? (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <Tag className="h-4 w-4 text-muted-foreground" />
-                <div className="min-w-0 w-full">
-                  <p className="text-xs text-muted-foreground">Category</p>
-                  <Select
-                    value={categoryDraft}
-                    open={isCategoryOpen}
-                    onOpenChange={(open) => {
-                      setIsCategoryOpen(open);
-                      if (!open && categoryDraft !== CUSTOM_CATEGORY_VALUE) {
-                        setEditingField(null);
-                      }
-                    }}
-                    onValueChange={(value) => {
-                      setCategoryDraft(value);
-                      if (value === CUSTOM_CATEGORY_VALUE) {
-                        setIsCategoryOpen(false);
-                        requestAnimationFrame(() => setCustomCategoryFocus());
-                        return;
-                      }
-                      setIsCategoryOpen(false);
-                      setEditingField(null);
-                    }}
-                  >
-                    <SelectTrigger className="h-8 mt-1 w-44">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableCategories.map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value={CUSTOM_CATEGORY_VALUE}>Custom...</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {categoriesError ? (
-                    <p className="text-xs text-destructive mt-1">{categoriesError}</p>
-                  ) : null}
-                  {categoryDraft === CUSTOM_CATEGORY_VALUE ? (
+              {editingField === "dueDate" ? (
+                <div className={cn(fieldCardClassName, "border-primary/30 bg-primary/5 shadow-none")}>
+                  <Calendar className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div className="min-w-0 w-full flex-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Due date</p>
                     <Input
-                      ref={customCategoryRef}
-                      value={customCategoryDraft}
-                      onChange={(e) => setCustomCategoryDraft(e.target.value)}
+                      ref={dueDateRef}
+                      type="date"
+                      value={dueDateDraft}
+                      onChange={(e) => handleDueDateChange(e.target.value)}
                       onBlur={() => setEditingField(null)}
-                      placeholder="Write category"
-                      className="h-8 mt-2 w-44"
+                      className="mt-2 h-9 w-full"
                     />
-                  ) : null}
-                </div>
-              </div>
-
-            ) : (
-              <div
-                className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer"
-                onClick={() => {
-                  setEditingField("category");
-                  setIsCategoryOpen(true);
-                }}
-              >
-                <Tag className="h-4 w-4 text-muted-foreground" />
-                <div className="min-w-0 w-full">
-                  <p className="text-xs text-muted-foreground">Category</p>
-                  <div
-                    className="text-left"
-                  >
-                    {categoryDraft === CUSTOM_CATEGORY_VALUE
-                      ? (customCategoryDraft || "Other")
-                      : categoryDraft}
                   </div>
                 </div>
-              </div>
-
-            )}
-
-            {editingField === "dueDate" ? (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <div className="min-w-0 w-full">
-                  <p className="text-xs text-muted-foreground">Due Date</p>
-                  <Input
-                    ref={dueDateRef}
-                    type="date"
-                    value={dueDateDraft}
-                    onChange={(e) => setDueDateDraft(e.target.value)}
-                    onBlur={() => setEditingField(null)}
-                    className="h-8 mt-1 w-44"
-                  />
-                </div>
-              </div>
-
-            ) : (
-              <div
-                className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-pointer"
-                onClick={() => {
-                  setEditingField("dueDate");
-                  requestAnimationFrame(() => setDueDateFocus());
-                }}
-              >
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <div className="min-w-0 w-full">
-                  <p className="text-xs text-muted-foreground">Due Date</p>
-                  <div
-                    className="text-left"
-                  >
-                    {dueDateDraft || "No due date"}
+              ) : (
+                <button
+                  type="button"
+                  className={cn(fieldCardClassName, "hover:border-primary/30")}
+                  onClick={() => {
+                    setEditingField("dueDate");
+                    requestAnimationFrame(() => setDueDateFocus());
+                  }}
+                >
+                  <Calendar className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Due date</p>
+                    <p className={dueDateDraft ? fieldValueClassName : emptyValueClassName}>
+                      {displayDueDate}
+                    </p>
                   </div>
+                  <ChevronRight className="mt-0.5 h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </button>
+              )}
+
+              <div className={cn(fieldCardClassName, "cursor-default bg-card")}>
+                <Home className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Household</p>
+                  <p className={fieldValueClassName}>{householdName}</p>
                 </div>
-              </div>
-
-            )}
-
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 cursor-not-allowed">
-              <Home className="h-4 w-4 text-muted-foreground" />
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">Household</p>
-                <p className="text-sm truncate">{householdName}</p>
               </div>
             </div>
+          </section>
 
-          </div>
+          <section className="flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              {statusDraft === "done" ? (
+                <Button
+                  variant="outline"
+                  className="border-terracotta/30 text-terracotta hover:bg-terracotta/10 hover:text-terracotta"
+                  onClick={handleArchive}
+                  disabled={isSaving}
+                >
+                  Archive task
+                </Button>
+              ) : (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      disabled={isSaving}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete task
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete this task?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        &quot;{task.title}&quot; will be permanently removed. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={() => onDeleteTask(task.id)}
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
 
-          <div className="grid grid-cols-2 gap-4">
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
-              Close
-            </Button>
-            <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? "Saving..." : "Save"}
-            </Button>
-
-            {task.status === "done" ? (
-              <Button
-                variant="destructive"
-                className="bg-terracotta hover:bg-terracotta/90"
-                onClick={handleArchive}
-                disabled={isSaving}
-              >
-                Archive
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+                Cancel
               </Button>
-            ) : (
-              <Button
-                variant="destructive"
-                className="bg-terracotta hover:bg-terracotta/90"
-                onClick={() => {
-                  const confirmed = window.confirm(
-                    `Delete "${task.title}"? This cannot be undone.`
-                  );
-                  if (!confirmed) return;
-                  onDeleteTask(task.id);
-                }}
-                disabled={isSaving}
-              >
-                Delete
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving ? "Saving..." : "Save"}
               </Button>
-            )}
-          </div>
+            </div>
+          </section>
         </Motion.div>
       </DialogContent>
     </Dialog>
