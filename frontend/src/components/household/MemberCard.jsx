@@ -126,23 +126,6 @@ export default function MemberCard({
 
   return (
     <div ref={cardRef} className="relative p-4 pr-6 rounded-xl border border-border bg-card">
-      {canEditRole ? (
-        <button
-          type="button"
-          className={`absolute top-2 ${showRemoveButton ? "right-12" : "right-2"} rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${roleBadgeClass} hover:opacity-90 transition cursor-pointer`}
-          onClick={() => setIsRoleEditorOpen((prev) => !prev)}
-          disabled={isUpdatingRole}
-        >
-          {role}
-        </button>
-      ) : (
-        <span
-          className={`absolute top-2 ${showRemoveButton ? "right-12" : "right-2"} rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${roleBadgeClass}`}
-        >
-          {role}
-        </span>
-      )}
-
       {canEditRole && isRoleEditorOpen && (
         <div className="absolute top-11 right-2 z-20 rounded-lg border border-border bg-card p-2 shadow-md w-40 space-y-2">
           <select
@@ -199,7 +182,7 @@ export default function MemberCard({
       )}
 
       {/* Main content */}
-      <div className={`flex items-start gap-4 transition ${isConfirming ? "opacity-50" : ""}`}>
+      <div className={`flex items-center gap-4 transition ${isConfirming ? "opacity-50" : ""}`}>
         <Avatar className="h-12 w-12 shrink-0">
           {/* <AvatarFallback className={`${colors[idx % colors.length]} font-semibold`}> */}
           <AvatarFallback className={`${idx === 0 ? colors[0] : colors[1]} font-semibold`}>
@@ -207,7 +190,7 @@ export default function MemberCard({
           </AvatarFallback>
         </Avatar>
 
-        <div className="min-w-0 flex-1 pr-4">
+        <div className="min-w-0 flex-1 pr-4 flex flex-col justify-center">
           <p className="font-medium text-foreground truncate">
             {name}
           </p>
@@ -216,6 +199,23 @@ export default function MemberCard({
             <p className="text-sm text-muted-foreground truncate">
               {member.email}
             </p>
+          )}
+
+          {canEditRole ? (
+            <button
+              type="button"
+              className={`mt-2 w-fit rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${roleBadgeClass} hover:opacity-90 transition cursor-pointer`}
+              onClick={() => setIsRoleEditorOpen((prev) => !prev)}
+              disabled={isUpdatingRole}
+            >
+              {role}
+            </button>
+          ) : (
+            <span
+              className={`mt-2 w-fit rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${roleBadgeClass}`}
+            >
+              {role}
+            </span>
           )}
         </div>
       </div>
