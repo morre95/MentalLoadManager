@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -497,14 +497,6 @@ const Calendar = () => {
     const isDragTarget = draggedTaskId && dragOverDayKey === dayKey;
     const isDayView = view === "day";
     const showSelectedStyle = isSelected && !isDayView;
-    const monthDensityClass =
-      dayEvents.length >= 5
-        ? "bg-terracotta/15"
-        : dayEvents.length >= 3
-          ? "bg-status-todo/10"
-          : dayEvents.length >= 1
-            ? "bg-sky/10"
-            : "";
     const dotTooltip = dayEvents
       .slice(0, 3)
       .map((event) => event.title)
@@ -530,9 +522,11 @@ const Calendar = () => {
             : showSelectedStyle
               ? "bg-primary text-primary-foreground"
               : isCurrentDay
-                ? "bg-sage-light"
+                ? view === "month"
+                  ? "bg-sky/10"
+                  : "bg-sage-light"
                 : "hover:bg-muted"
-          } ${view === "month" && !showSelectedStyle ? monthDensityClass : ""} ${!isInRange ? "opacity-40" : ""} ${isDragTarget ? "ring-2 ring-primary/60 bg-primary/10" : ""
+          } ${!isInRange ? "opacity-40" : ""} ${isDragTarget ? "ring-2 ring-primary/60 bg-primary/10" : ""
           }`}
         whileHover={isDayView ? undefined : { scale: 1.03 }}
         whileTap={isDayView ? undefined : { scale: 0.98 }}
@@ -552,7 +546,7 @@ const Calendar = () => {
               openQuickAddForDate(day);
             }
           }}
-          className="absolute right-3 top-2 text-xs leading-none text-muted-foreground/70 hover:text-foreground/90"
+          className="absolute right-3 top-2 text-xs leading-none text-muted-foreground/70 hover:text-foreground/90 hover:font-bold hover:text-lg cursor-pointer"
           title={`Add task on ${format(day, "MMM d")}`}
           aria-label={`Add task on ${format(day, "MMM d")}`}
         >
@@ -590,9 +584,6 @@ const Calendar = () => {
                     } ${isDraggingTask ? "opacity-60 ring-2 ring-primary/40" : ""}`}
                   title={`${event.title} • ${event.householdName}`}
                 >
-                  {isWeekView ? (
-                    <GripVertical className="pointer-events-none absolute left-1.5 top-1.5 h-3 w-3 opacity-70" />
-                  ) : null}
                   <div className="font-medium leading-snug">{event.title}</div>
                   <div className="text-xs opacity-80 mt-0.5">{category}</div>
                 </div>
