@@ -16,7 +16,7 @@ const HabitGridTracker = ({ target, name, trainingDays, onToggleDay }) => {
             <h4 className="font-medium text-foreground mb-4 text-center">{name}</h4>
 
             <div className="w-full max-w-sm">
-                <div className="grid grid-cols-7 gap-2">
+                <div className="grid grid-cols-7 gap-1.5">
                     {days.map((day, i) => {
                         const isCompleted = normalizedDays[i];
                         const isToday = i === todayIndex;
@@ -40,11 +40,11 @@ const HabitGridTracker = ({ target, name, trainingDays, onToggleDay }) => {
                                 </span>
 
                                 <motion.div
-                                    className={`relative flex h-16 w-full min-w-[42px] items-center justify-center rounded-2xl border transition-colors ${
+                                    className={`relative flex h-14 w-full items-center justify-center rounded-xl border transition-colors ${
                                         isCompleted
                                             ? "border-sage bg-sage text-primary-foreground shadow-[0_8px_20px_-12px_hsl(var(--sage))]"
                                             : "border-border bg-muted/25 text-muted-foreground/60 hover:border-sky/50 hover:bg-sky-light/40 hover:text-sky"
-                                    } ${isToday ? "ring-2 ring-sky/30 ring-offset-2 ring-offset-background" : ""}`}
+                                    } ${isToday ? "border-sky shadow-[inset_0_0_0_1px_hsl(var(--sky))]" : ""}`}
                                     animate={isCompleted ? { y: [0, -2, 0], scale: [1, 1.03, 1] } : undefined}
                                     transition={isCompleted ? { delay: i * 0.04, duration: 0.35 } : undefined}
                                 >
