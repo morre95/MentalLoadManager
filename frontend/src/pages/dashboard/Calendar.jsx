@@ -474,13 +474,6 @@ const Calendar = () => {
     setCurrentMonth(nextDate);
   };
 
-  const goToToday = () => {
-    const now = new Date();
-    setCurrentMonth(now);
-    setCurrentWeek(now);
-    setSelectedDate(now);
-  };
-
   const headerTitle =
     view === "month"
       ? format(currentMonth, "MMMM yyyy")
@@ -489,6 +482,8 @@ const Calendar = () => {
         : format(selectedDate, "EEEE, MMM d, yyyy");
 
   const todayStart = startOfDay(new Date());
+  const isSelectedDateToday = selectedDate ? isToday(selectedDate) : false;
+  const dayViewTaskCountLabel = `${selectedDateEvents.length} task${selectedDateEvents.length === 1 ? "" : "s"}`;
 
   const renderDayCell = (day, isInRange = true) => {
     const dayEvents = getEventsForDate(day);
@@ -521,7 +516,11 @@ const Calendar = () => {
           if (dragOverDayKey === dayKey) setDragOverDayKey(null);
         }}
         onDrop={(dragEvent) => handleDayDrop(dragEvent, day)}
-        className={`p-1 rounded-lg relative transition-colors ${view === "month" ? "aspect-square" : "min-h-[100px] flex flex-col items-start"
+        className={`relative transition-colors ${view === "month"
+          ? "aspect-square p-1 rounded-lg"
+          : isDayView
+            ? "min-h-[420px] rounded-xl border border-border bg-muted/20 p-4 md:p-5 flex flex-col items-start"
+            : "min-h-[100px] p-1 rounded-lg flex flex-col items-start"
           } ${isDayView
             ? "hover:bg-muted/30"
             : showSelectedStyle
@@ -531,8 +530,8 @@ const Calendar = () => {
                 : "hover:bg-muted"
           } ${view === "month" && !showSelectedStyle ? monthDensityClass : ""} ${!isInRange ? "opacity-40" : ""} ${isDragTarget ? "ring-2 ring-primary/60 bg-primary/10" : ""
           }`}
-        whileHover={{ scale: 1.03 }}
-        whileTap={{ scale: 0.98 }}
+        whileHover={isDayView ? undefined : { scale: 1.03 }}
+        whileTap={isDayView ? undefined : { scale: 0.98 }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
       >
         <span
@@ -555,8 +554,10 @@ const Calendar = () => {
         >
           +
         </span>
-        <span className={`text-sm font-medium ${!isInRange ? "text-muted-foreground/50" : ""}`}>
-          {format(day, "d")}
+        <span
+          className={`${isDayView ? "text-base md:text-lg" : "text-sm"} font-medium ${!isInRange ? "text-muted-foreground/50" : ""}`}
+        >
+          {isDayView ? format(day, "EEEE, MMMM d") : format(day, "d")}
         </span>
 
         {(view === "week" || view === "day") && dayEvents.length > 0 ? (
@@ -581,6 +582,7 @@ const Calendar = () => {
                     ? "bg-primary-foreground/20 text-primary-foreground"
                     : eventColorClasses[event.color]
                     } ${isWeekView ? "cursor-grab active:cursor-grabbing border-dashed hover:shadow-md hover:-translate-y-0.5" : ""
+                    } ${isDayView ? "cursor-pointer border shadow-sm hover:shadow-md" : ""
                     } ${isDraggingTask ? "opacity-60 ring-2 ring-primary/40" : ""}`}
                   title={`${event.title} • ${event.householdName}`}
                 >
@@ -592,6 +594,12 @@ const Calendar = () => {
                 </div>
               );
             })}
+          </div>
+        ) : null}
+
+        {isDayView && dayEvents.length === 0 ? (
+          <div className="mt-4 w-full rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
+            No tasks scheduled for this day.
           </div>
         ) : null}
 
@@ -842,19 +850,22 @@ const Calendar = () => {
           <Card className="border-border">
             <CardContent className="p-4 md:p-6">
               <div className="flex items-center justify-between mb-6">
-                <Button variant="ghost" size="icon" onClick={navigateBack}>
-                  <ChevronLeft className="h-5 w-5" />
-                </Button>
+                {view === "day" ? (
+                  <Button variant="outline" size="sm" onClick={navigateBack} className="gap-1.5">
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous day
+                  </Button>
+                ) : (
+                  <Button variant="ghost" size="icon" onClick={navigateBack}>
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                )}
 
                 <div className="flex items-center gap-4">
                   <h2 className="font-display text-lg md:text-xl font-semibold text-foreground">
                     {headerTitle}
                   </h2>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={goToToday}>
-                      Today
-                    </Button>
-
                     <Tabs
                       value={view}
                       onValueChange={(nextView) => {
@@ -868,14 +879,26 @@ const Calendar = () => {
                         }
                       }}
                     >
-                      <TabsList className="h-8">
-                        <TabsTrigger value="month" className="text-xs px-3">
+                      <TabsList className="h-9 rounded-full bg-muted p-1">
+                        <TabsTrigger
+                          value="month"
+                          className="h-7 cursor-pointer rounded-full px-3 text-xs data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                          style={{ cursor: "pointer" }}
+                        >
                           Month
                         </TabsTrigger>
-                        <TabsTrigger value="week" className="text-xs px-3">
+                        <TabsTrigger
+                          value="week"
+                          className="h-7 cursor-pointer rounded-full px-3 text-xs data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                          style={{ cursor: "pointer" }}
+                        >
                           Week
                         </TabsTrigger>
-                        <TabsTrigger value="day" className="text-xs px-3">
+                        <TabsTrigger
+                          value="day"
+                          className="h-7 cursor-pointer rounded-full px-3 text-xs data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                          style={{ cursor: "pointer" }}
+                        >
                           Day
                         </TabsTrigger>
                       </TabsList>
@@ -883,21 +906,50 @@ const Calendar = () => {
                   </div>
                 </div>
 
-                <Button variant="ghost" size="icon" onClick={navigateForward}>
-                  <ChevronRight className="h-5 w-5" />
-                </Button>
+                {view === "day" ? (
+                  <Button variant="outline" size="sm" onClick={navigateForward} className="gap-1.5">
+                    Next day
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button variant="ghost" size="icon" onClick={navigateForward}>
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
+                )}
               </div>
 
-              <div className="grid grid-cols-7 gap-1 mb-2">
-                {weekdayLabels.map((day) => (
-                  <div
-                    key={day}
-                    className="text-center text-xs md:text-sm font-medium text-muted-foreground py-2"
-                  >
-                    {day}
+              {view !== "day" ? (
+                <div className="grid grid-cols-7 gap-1 mb-2">
+                  {weekdayLabels.map((day) => (
+                    <div
+                      key={day}
+                      className="text-center text-xs md:text-sm font-medium text-muted-foreground py-2"
+                    >
+                      {day}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {view === "day" ? (
+                <div className="mb-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm md:text-base font-medium text-foreground">
+                        {format(selectedDate, "EEEE, MMMM d, yyyy")}
+                      </p>
+                      {isSelectedDateToday ? (
+                        <Badge variant="outline" className="text-xs">
+                          Today
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <span className="text-xs md:text-sm text-muted-foreground">
+                      {dayViewTaskCountLabel}
+                    </span>
                   </div>
-                ))}
-              </div>
+                </div>
+              ) : null}
 
               {view === "month" ? (
                 <div className="grid grid-cols-7 gap-1">
