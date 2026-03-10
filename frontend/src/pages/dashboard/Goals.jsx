@@ -14,6 +14,90 @@ import {
     updateGoalProgress as updateGoalProgressRequest,
 } from "@/lib/utils";
 
+const TRAINING_STORAGE_KEY = "goal-training-days-v1";
+
+const getCurrentWeekKey = () => {
+    const now = new Date();
+    const currentDay = now.getDay();
+    const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+    const monday = new Date(now);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(now.getDate() + diffToMonday);
+    return monday.toISOString().slice(0, 10);
+};
+
+const readTrainingSelections = () => {
+    if (typeof window === "undefined") {
+        return {};
+    }
+
+    try {
+        const rawValue = window.localStorage.getItem(TRAINING_STORAGE_KEY);
+        const parsedValue = rawValue ? JSON.parse(rawValue) : {};
+        return parsedValue && typeof parsedValue === "object" ? parsedValue : {};
+    } catch {
+        return {};
+    }
+};
+
+const writeTrainingSelections = (selections) => {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    window.localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(selections));
+};
+
+const countCompletedDays = (days) => days.filter(Boolean).length;
+
+const buildTrainingDaysFromCount = (currentValue) => {
+    const days = Array(7).fill(false);
+    const clampedValue = Math.max(0, Math.min(7, Number(currentValue) || 0));
+    const today = new Date();
+    const todayIndex = (today.getDay() + 6) % 7;
+
+    for (let i = 0; i < clampedValue; i += 1) {
+        const dayIndex = todayIndex - i;
+        if (dayIndex < 0) {
+            break;
+        }
+        days[dayIndex] = true;
+    }
+
+    return days;
+};
+
+const normalizeTrainingGoal = (goal, selections) => {
+    if (goal.type !== "training") {
+        return goal;
+    }
+
+    const weekKey = getCurrentWeekKey();
+    const backendProgressData =
+        goal.progressData && typeof goal.progressData === "object" ? goal.progressData : {};
+    const storedEntry = selections[goal.id];
+    const trainingDays =
+        backendProgressData.week_key === weekKey &&
+        Array.isArray(backendProgressData.training_days) &&
+        backendProgressData.training_days.length === 7
+            ? backendProgressData.training_days.map(Boolean)
+            : storedEntry?.weekKey === weekKey && Array.isArray(storedEntry?.days) && storedEntry.days.length === 7
+            ? storedEntry.days.map(Boolean)
+            : buildTrainingDaysFromCount(goal.current);
+
+    return {
+        ...goal,
+        current: countCompletedDays(trainingDays),
+        trainingDays,
+        trainingWeekKey: weekKey,
+        progressData: {
+            ...backendProgressData,
+            week_key: weekKey,
+            training_days: trainingDays,
+        },
+    };
+};
+
 const Goals = () => {
     const navigate = useNavigate();
     const [goals, setGoals] = useState([]);
@@ -31,7 +115,10 @@ const Goals = () => {
                 fetchGoalsRequest(),
                 fetchAchievementsRequest(),
             ]);
-            setGoals(Array.isArray(goalsData?.goals) ? goalsData.goals : []);
+            const trainingSelections = readTrainingSelections();
+            const rawGoals = Array.isArray(goalsData?.goals) ? goalsData.goals : [];
+            const normalizedGoals = rawGoals.map((goal) => normalizeTrainingGoal(goal, trainingSelections));
+            setGoals(normalizedGoals);
             setAchievements(
                 Array.isArray(achievementsData?.achievements)
                     ? achievementsData.achievements
@@ -62,11 +149,19 @@ const Goals = () => {
             target_value: newGoal.target,
             tracking_style: newGoal.trackingStyle,
             current_value: newGoal.current ?? 0,
+            progress_data:
+                newGoal.type === "training"
+                    ? {
+                        week_key: getCurrentWeekKey(),
+                        training_days: Array(7).fill(false),
+                    }
+                    : {},
         };
 
         createGoalRequest(payload)
             .then((createdGoal) => {
-                setGoals((prev) => [createdGoal, ...prev]);
+                const normalizedGoal = normalizeTrainingGoal(createdGoal, readTrainingSelections());
+                setGoals((prev) => [normalizedGoal, ...prev]);
             })
             .catch((error) => {
                 if (error?.status === 401) {
@@ -83,8 +178,9 @@ const Goals = () => {
 
         try {
             const updatedGoal = await updateGoalProgressRequest(id, newValue);
+            const normalizedGoal = normalizeTrainingGoal(updatedGoal, readTrainingSelections());
             setGoals((prev) =>
-                prev.map((goal) => (goal.id === id ? updatedGoal : goal))
+                prev.map((goal) => (goal.id === id ? normalizedGoal : goal))
             );
         } catch (error) {
             if (error?.status === 401) {
@@ -96,11 +192,85 @@ const Goals = () => {
         }
     };
 
+    const handleToggleTrainingDay = async (id, dayIndex) => {
+        const trainingSelections = readTrainingSelections();
+        const previousGoal = goals.find((goal) => goal.id === id);
+
+        if (!previousGoal || previousGoal.type !== "training") {
+            return;
+        }
+
+        const currentDays =
+            Array.isArray(previousGoal.trainingDays) && previousGoal.trainingDays.length === 7
+                ? [...previousGoal.trainingDays]
+                : buildTrainingDaysFromCount(previousGoal.current);
+        const nextDays = currentDays.map((value, index) => (index === dayIndex ? !value : value));
+        const nextCurrent = countCompletedDays(nextDays);
+        const nextSelections = {
+            ...trainingSelections,
+            [id]: {
+                weekKey: getCurrentWeekKey(),
+                days: nextDays,
+            },
+        };
+        const nextProgressData = {
+            week_key: getCurrentWeekKey(),
+            training_days: nextDays,
+        };
+
+        setSyncError(null);
+        setGoals((prev) =>
+            prev.map((goal) =>
+                goal.id === id
+                    ? {
+                        ...goal,
+                        current: nextCurrent,
+                        trainingDays: nextDays,
+                        trainingWeekKey: getCurrentWeekKey(),
+                        progressData: nextProgressData,
+                    }
+                    : goal
+            )
+        );
+        writeTrainingSelections(nextSelections);
+
+        try {
+            const updatedGoal = await updateGoalProgressRequest(id, {
+                current_value: nextCurrent,
+                progress_data: nextProgressData,
+            });
+            const normalizedGoal = normalizeTrainingGoal(updatedGoal, nextSelections);
+            setGoals((prev) => prev.map((goal) => (goal.id === id ? normalizedGoal : goal)));
+        } catch (error) {
+            writeTrainingSelections(trainingSelections);
+            setGoals((prev) =>
+                prev.map((goal) =>
+                    goal.id === id
+                        ? normalizeTrainingGoal(previousGoal, trainingSelections)
+                        : goal
+                )
+            );
+
+            if (error?.status === 401) {
+                navigate("/login", { replace: true });
+                return;
+            }
+
+            setSyncError("Could not update training days.");
+        }
+    };
+
     const handleDeleteGoal = async (id) => {
         setSyncError(null);
 
         try {
             await deleteGoalRequest(id);
+            const trainingSelections = readTrainingSelections();
+            if (trainingSelections[id]) {
+                const nextSelections = { ...trainingSelections };
+                delete nextSelections[id];
+                writeTrainingSelections(nextSelections);
+            }
             setGoals((prev) => prev.filter((goal) => goal.id !== id));
         } catch (error) {
             if (error?.status === 401) {
@@ -157,6 +327,7 @@ const Goals = () => {
                             key={goal.id}
                             goal={goal}
                             onUpdateProgress={handleUpdateProgress}
+                            onToggleTrainingDay={handleToggleTrainingDay}
                             onDelete={handleDeleteGoal}
                         />
                     ))}

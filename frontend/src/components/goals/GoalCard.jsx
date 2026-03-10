@@ -6,9 +6,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import GoalTrackerRenderer from "./GoalTrackerRenderer";
 
-const GoalCard = ({ goal, onUpdateProgress, onDelete }) => {
+const GoalCard = ({ goal, onUpdateProgress, onToggleTrainingDay, onDelete }) => {
     const [isHovered, setIsHovered] = useState(false);
     const shouldSpanTwoColumns = goal.type === "reading" && Number(goal.target) > 69;
+    const isTrainingGoal = goal.type === "training";
 
     const handleIncrement = () => {
         onUpdateProgress(goal.id, Math.min(goal.current + 1, goal.target * 2));
@@ -47,33 +48,35 @@ const GoalCard = ({ goal, onUpdateProgress, onDelete }) => {
                     </motion.div>
 
                     <div className="flex justify-center py-4 w-full">
-                        <GoalTrackerRenderer goal={goal} />
+                        <GoalTrackerRenderer goal={goal} onToggleTrainingDay={onToggleTrainingDay} />
                     </div>
 
-                    <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-border">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-10 w-10 rounded-full"
-                            onClick={handleDecrement}
-                            disabled={goal.current <= 0}
-                        >
-                            <Minus className="h-4 w-4" />
-                        </Button>
+                    {!isTrainingGoal && (
+                        <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-border">
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-10 w-10 rounded-full"
+                                onClick={handleDecrement}
+                                disabled={goal.current <= 0}
+                            >
+                                <Minus className="h-4 w-4" />
+                            </Button>
 
-                        <div className="text-center min-w-[60px]">
-                            <p className="text-sm text-muted-foreground">Progress</p>
+                            <div className="text-center min-w-[60px]">
+                                <p className="text-sm text-muted-foreground">Progress</p>
+                            </div>
+
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-10 w-10 rounded-full"
+                                onClick={handleIncrement}
+                            >
+                                <Plus className="h-4 w-4" />
+                            </Button>
                         </div>
-
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-10 w-10 rounded-full"
-                            onClick={handleIncrement}
-                        >
-                            <Plus className="h-4 w-4" />
-                        </Button>
-                    </div>
+                    )}
 
                     <div className="flex justify-center mt-3">
                         <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground capitalize">

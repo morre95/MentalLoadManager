@@ -9,7 +9,7 @@ import WaterBottleTracker from "./WaterBottleTracker";
 import SkillTreeTracker from "./SkillTreeTracker";
 import StreakFlameTracker from "./StreakFlameTracker";
 
-const GoalTrackerRenderer = ({ goal }) => {
+const GoalTrackerRenderer = ({ goal, onToggleTrainingDay }) => {
     const trackerMap = {
         savings: (
             <SavingsJarTracker
@@ -30,6 +30,8 @@ const GoalTrackerRenderer = ({ goal }) => {
                 current={goal.current}
                 target={goal.target}
                 name={goal.name}
+                trainingDays={goal.trainingDays}
+                onToggleDay={(dayIndex) => onToggleTrainingDay?.(goal.id, dayIndex)}
             />
         ),
         tasks: (

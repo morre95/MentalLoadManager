@@ -6,6 +6,10 @@ export function mapApiGoalToUi(goal) {
     current: Number(goal.current_value || 0),
     target: Number(goal.target_value || 0),
     trackingStyle: String(goal.tracking_style || "total"),
+    progressData:
+      goal?.progress_data && typeof goal.progress_data === "object"
+        ? goal.progress_data
+        : {},
     createdAt: goal.created_at ? new Date(goal.created_at) : null,
   };
 }
@@ -39,10 +43,22 @@ export async function createGoal(apiClient, payload) {
   return mapApiGoalToUi(data);
 }
 
-export async function updateGoalProgress(apiClient, goalId, currentValue) {
+export async function updateGoalProgress(apiClient, goalId, currentValueOrPayload) {
+  const payload =
+    typeof currentValueOrPayload === "object" && currentValueOrPayload !== null
+      ? {
+          current_value: Number(currentValueOrPayload.current_value || 0),
+          progress_data:
+            currentValueOrPayload.progress_data &&
+            typeof currentValueOrPayload.progress_data === "object"
+              ? currentValueOrPayload.progress_data
+              : undefined,
+        }
+      : { current_value: Number(currentValueOrPayload || 0) };
+
   const data = await apiClient.request(`/api/goals/${goalId}/progress`, {
     method: "PATCH",
-    body: JSON.stringify({ current_value: currentValue }),
+    body: JSON.stringify(payload),
   });
   return mapApiGoalToUi(data);
 }

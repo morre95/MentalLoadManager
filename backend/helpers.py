@@ -5,7 +5,7 @@ from jwt.exceptions import InvalidTokenError
 from datetime import datetime, timedelta, timezone
 from pwdlib import PasswordHash
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy import create_engine, func, or_, select
+from sqlalchemy import create_engine, func, inspect, or_, select, text
 from sqlalchemy.orm import sessionmaker
 
 from config import settings
@@ -41,6 +41,20 @@ engine = create_engine(database_url, pool_pre_ping=True)
 
 def setup_db_and_tables() -> None:
     Base.metadata.create_all(bind=engine)
+    inspector = inspect(engine)
+
+    try:
+        goal_columns = {column["name"] for column in inspector.get_columns("goals")}
+    except Exception:
+        goal_columns = set()
+
+    if "progress_data" not in goal_columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE goals ADD COLUMN IF NOT EXISTS progress_data JSON NOT NULL DEFAULT '{}'"
+                )
+            )
 
 
 def get_session_local() -> sessionmaker:

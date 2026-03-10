@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import datetime
 
 from pydantic import BaseModel, Field
@@ -10,6 +11,7 @@ class GoalResponse(BaseModel):
     current_value: int
     target_value: int
     tracking_style: str
+    progress_data: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime | None
 
 
@@ -37,10 +39,12 @@ class CreateGoalRequest(BaseModel):
     target_value: int = Field(gt=0)
     tracking_style: str
     current_value: int = Field(default=0, ge=0)
+    progress_data: dict[str, Any] = Field(default_factory=dict)
 
 
 class UpdateGoalProgressRequest(BaseModel):
     current_value: int = Field(ge=0)
+    progress_data: dict[str, Any] | None = None
 
 
 class DeleteGoalResponse(BaseModel):

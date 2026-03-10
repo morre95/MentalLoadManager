@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -39,8 +40,42 @@ def _to_goal_response(goal) -> GoalResponse:
         current_value=goal.current_value,
         target_value=goal.target_value,
         tracking_style=goal.tracking_style,
+        progress_data=goal.progress_data or {},
         created_at=goal.created_at,
     )
+
+
+def _normalize_progress_data(
+    goal_type: str,
+    progress_data: dict[str, Any] | None,
+    current_value: int,
+) -> tuple[int, dict[str, Any]]:
+    normalized_data = dict(progress_data or {})
+
+    if goal_type != "training":
+        return current_value, normalized_data
+
+    training_days = normalized_data.get("training_days")
+    if training_days is None:
+        return current_value, normalized_data
+
+    if not isinstance(training_days, list) or len(training_days) != 7:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="training progress_data.training_days must contain 7 boolean values",
+        )
+
+    normalized_days = [bool(day) for day in training_days]
+    normalized_data["training_days"] = normalized_days
+
+    week_key = normalized_data.get("week_key")
+    if week_key is not None and not isinstance(week_key, str):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="training progress_data.week_key must be a string",
+        )
+
+    return sum(normalized_days), normalized_data
 
 
 def _next_milestone(value: int, milestones: list[int]) -> int:
@@ -415,6 +450,12 @@ def create_my_goal(payload: CreateGoalRequest, current_user: UserEmail) -> GoalR
             detail="Goal type and name are required",
         )
 
+    current_value, progress_data = _normalize_progress_data(
+        goal_type,
+        payload.progress_data,
+        payload.current_value,
+    )
+
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
@@ -429,9 +470,10 @@ def create_my_goal(payload: CreateGoalRequest, current_user: UserEmail) -> GoalR
             user_id=current_user.user_id,
             type=goal_type,
             name=name,
-            current_value=payload.current_value,
+            current_value=current_value,
             target_value=payload.target_value,
             tracking_style=tracking_style,
+            progress_data=progress_data,
         )
 
         try:
@@ -468,7 +510,13 @@ def update_my_goal_progress(
                 detail="Goal was not found",
             )
 
-        goal.current_value = payload.current_value
+        current_value, progress_data = _normalize_progress_data(
+            goal.type,
+            payload.progress_data if payload.progress_data is not None else goal.progress_data,
+            payload.current_value,
+        )
+        goal.current_value = current_value
+        goal.progress_data = progress_data
         goal.updated_at = datetime.now(timezone.utc)
 
         try:

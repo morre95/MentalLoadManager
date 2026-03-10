@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, text
+from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, Integer, String, text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -46,6 +46,12 @@ class Goals(Base):
     )
     target_value: Mapped[int] = mapped_column(Integer, nullable=False)
     tracking_style: Mapped[str] = mapped_column(String(20), nullable=False)
+    progress_data: Mapped[dict] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'"),
+    )
     created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         server_default=text("NOW()"),

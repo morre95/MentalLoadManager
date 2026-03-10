@@ -32,6 +32,7 @@ def create_goal(
     current_value: int,
     target_value: int,
     tracking_style: str,
+    progress_data: dict | None = None,
 ) -> Goals:
     goal = Goals(
         user_id=user_id,
@@ -40,6 +41,7 @@ def create_goal(
         current_value=current_value,
         target_value=target_value,
         tracking_style=tracking_style,
+        progress_data=progress_data or {},
     )
     db.add(goal)
     return goal
