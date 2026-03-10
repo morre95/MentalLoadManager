@@ -546,7 +546,11 @@ const Calendar = () => {
               openQuickAddForDate(day);
             }
           }}
-          className="absolute right-3 top-2 text-xs leading-none text-muted-foreground/70 hover:text-foreground/90 hover:font-bold hover:text-lg cursor-pointer"
+          className={`absolute right-3 top-2 text-xs leading-none hover:font-bold hover:text-lg cursor-pointer ${
+            showSelectedStyle
+              ? "text-primary-foreground/90 hover:text-primary-foreground"
+              : "text-muted-foreground/70 hover:text-foreground/90"
+          }`}
           title={`Add task on ${format(day, "MMM d")}`}
           aria-label={`Add task on ${format(day, "MMM d")}`}
         >
