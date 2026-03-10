@@ -21,6 +21,7 @@ import {
   subWeeks,
   isToday,
   getDay,
+  getWeek,
   isBefore,
   startOfDay,
 } from "date-fns";
@@ -484,6 +485,9 @@ const Calendar = () => {
   const todayStart = startOfDay(new Date());
   const isSelectedDateToday = selectedDate ? isToday(selectedDate) : false;
   const dayViewTaskCountLabel = `${selectedDateEvents.length} task${selectedDateEvents.length === 1 ? "" : "s"}`;
+  const weekNumber = getWeek(weekStart, { weekStartsOn, firstWeekContainsDate: 1 });
+  const weekViewTaskCount = daysInWeek.reduce((sum, day) => sum + getEventsForDate(day).length, 0);
+  const weekViewTaskCountLabel = `${weekViewTaskCount} task${weekViewTaskCount === 1 ? "" : "s"}`;
 
   const renderDayCell = (day, isInRange = true) => {
     const dayEvents = getEventsForDate(day);
@@ -554,11 +558,11 @@ const Calendar = () => {
         >
           +
         </span>
-        <span
-          className={`${isDayView ? "text-base md:text-lg" : "text-sm"} font-medium ${!isInRange ? "text-muted-foreground/50" : ""}`}
-        >
-          {isDayView ? format(day, "EEEE, MMMM d") : format(day, "d")}
-        </span>
+        {!isDayView ? (
+          <span className={`text-sm font-medium ${!isInRange ? "text-muted-foreground/50" : ""}`}>
+            {format(day, "d")}
+          </span>
+        ) : null}
 
         {(view === "week" || view === "day") && dayEvents.length > 0 ? (
           <div className="mt-2 space-y-2 w-full">
@@ -917,6 +921,21 @@ const Calendar = () => {
                   </Button>
                 )}
               </div>
+
+              {view === "week" ? (
+                <div className="mb-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm md:text-base font-medium text-foreground">
+                        {`Week ${weekNumber}`}
+                      </p>
+                    </div>
+                    <span className="text-xs md:text-sm text-muted-foreground">
+                      {weekViewTaskCountLabel}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
 
               {view !== "day" ? (
                 <div className="grid grid-cols-7 gap-1 mb-2">
