@@ -15,6 +15,7 @@ import {
 } from "@/lib/utils";
 
 const TRAINING_STORAGE_KEY = "goal-training-days-v1";
+const GOAL_MILESTONES_UPDATED_EVENT = "goals:changed";
 
 const getCurrentWeekKey = () => {
     const now = new Date();
@@ -46,6 +47,14 @@ const writeTrainingSelections = (selections) => {
     }
 
     window.localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(selections));
+};
+
+const emitGoalMilestonesUpdated = () => {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    window.dispatchEvent(new Event(GOAL_MILESTONES_UPDATED_EVENT));
 };
 
 const countCompletedDays = (days) => days.filter(Boolean).length;
@@ -162,6 +171,7 @@ const Goals = () => {
             .then((createdGoal) => {
                 const normalizedGoal = normalizeTrainingGoal(createdGoal, readTrainingSelections());
                 setGoals((prev) => [normalizedGoal, ...prev]);
+                emitGoalMilestonesUpdated();
             })
             .catch((error) => {
                 if (error?.status === 401) {
@@ -182,6 +192,7 @@ const Goals = () => {
             setGoals((prev) =>
                 prev.map((goal) => (goal.id === id ? normalizedGoal : goal))
             );
+            emitGoalMilestonesUpdated();
         } catch (error) {
             if (error?.status === 401) {
                 navigate("/login", { replace: true });
@@ -241,6 +252,7 @@ const Goals = () => {
             });
             const normalizedGoal = normalizeTrainingGoal(updatedGoal, nextSelections);
             setGoals((prev) => prev.map((goal) => (goal.id === id ? normalizedGoal : goal)));
+            emitGoalMilestonesUpdated();
         } catch (error) {
             writeTrainingSelections(trainingSelections);
             setGoals((prev) =>
@@ -272,6 +284,7 @@ const Goals = () => {
                 writeTrainingSelections(nextSelections);
             }
             setGoals((prev) => prev.filter((goal) => goal.id !== id));
+            emitGoalMilestonesUpdated();
         } catch (error) {
             if (error?.status === 401) {
                 navigate("/login", { replace: true });

@@ -92,6 +92,7 @@ const SettingRow = ({ label, description, children }) => (
 const CALENDAR_DATE_FORMAT_STORAGE_KEY = "calendar_date_format";
 const CALENDAR_FIRST_DAY_STORAGE_KEY = "calendar_first_day_of_week";
 const THEME_STORAGE_KEY = "theme_preference";
+const GOAL_MILESTONE_SETTINGS_UPDATED_EVENT = "goal-milestones:settings-changed";
 
 const Settings = () => {
   const [categories, setCategories] = useState([]);
@@ -418,6 +419,13 @@ const Settings = () => {
       setGoalMilestones(Boolean(updated?.goal_milestones));
       setHouseholdUpdates(Boolean(updated?.household_updates));
       setWeeklyAnalytics(Boolean(updated?.weekly_analytics_email));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent(GOAL_MILESTONE_SETTINGS_UPDATED_EVENT, {
+            detail: updated,
+          })
+        );
+      }
     } catch (error) {
       toast.error(error?.message || "Could not save notification settings");
     } finally {
