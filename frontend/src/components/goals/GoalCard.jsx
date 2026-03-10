@@ -3,10 +3,12 @@ import { motion } from "framer-motion";
 import { Plus, Minus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import GoalTrackerRenderer from "./GoalTrackerRenderer";
 
 const GoalCard = ({ goal, onUpdateProgress, onDelete }) => {
     const [isHovered, setIsHovered] = useState(false);
+    const shouldSpanTwoColumns = goal.type === "reading" && Number(goal.target) > 69;
 
     const handleIncrement = () => {
         onUpdateProgress(goal.id, Math.min(goal.current + 1, goal.target * 2));
@@ -19,6 +21,7 @@ const GoalCard = ({ goal, onUpdateProgress, onDelete }) => {
     return (
         <motion.div
             layout
+            className={cn(shouldSpanTwoColumns && "lg:col-span-2")}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
@@ -43,7 +46,7 @@ const GoalCard = ({ goal, onUpdateProgress, onDelete }) => {
                         </Button>
                     </motion.div>
 
-                    <div className="flex justify-center py-4">
+                    <div className="flex justify-center py-4 w-full">
                         <GoalTrackerRenderer goal={goal} />
                     </div>
 

@@ -4,6 +4,7 @@ import { Droplet } from "lucide-react";
 const WaterBottleTracker = ({ current, target, name }) => {
     const safeTarget = Math.max(1, Number(target) || 1);
     const safeCurrent = Math.max(0, Number(current) || 0);
+    const guideCount = 10;
 
     const percentage = Math.min((safeCurrent / safeTarget) * 100, 100);
     const fillRatio = Math.min(safeCurrent / safeTarget, 1);
@@ -20,8 +21,7 @@ const WaterBottleTracker = ({ current, target, name }) => {
     const innerHeight = bottleHeight;
     const fillHeight = innerHeight * fillRatio;
     const fillY = innerY + innerHeight - fillHeight;
-
-    //const _segments = Array.from({ length: target }, (_, i) => i < current);
+    const guideValues = Array.from({ length: guideCount }, (_, i) => (i + 1) / guideCount);
 
     return (
         <div className="flex flex-col items-center">
@@ -46,12 +46,11 @@ const WaterBottleTracker = ({ current, target, name }) => {
                         className="fill-card"
                     />
 
-                    {Array.from({ length: safeTarget - 1 }).map((_, i) => {
-                        const segmentHeight = innerHeight / safeTarget;
-                        const y = innerY + innerHeight - (i + 1) * segmentHeight;
+                    {guideValues.map((value) => {
+                        const y = innerY + innerHeight - innerHeight * value;
                         return (
                             <line
-                                key={i}
+                                key={`guide-${value}`}
                                 x1={innerX}
                                 y1={y}
                                 x2={innerX + innerWidth}
@@ -105,16 +104,15 @@ const WaterBottleTracker = ({ current, target, name }) => {
                         />
                     )}
 
-                    {Array.from({ length: safeTarget }).map((_, i) => {
-                        const segmentHeight = innerHeight / safeTarget;
-                        const y = innerY + innerHeight - (i + 1) * segmentHeight;
+                    {guideValues.map((value) => {
+                        const y = innerY + innerHeight - innerHeight * value;
                         return (
-                            <g key={`label-${i}`}>
+                            <g key={`label-${value}`}>
                                 <line
                                     x1="10"
-                                    y1={y + segmentHeight / 2}
+                                    y1={y}
                                     x2="14"
-                                    y2={y + segmentHeight / 2}
+                                    y2={y}
                                     className="stroke-border"
                                     strokeWidth="1"
                                 />

@@ -3,32 +3,74 @@ import { useMemo } from "react";
 
 const BookshelfTracker = ({ current, target, name }) => {
     const colors = ["fill-sage", "fill-terracotta", "fill-lavender", "fill-sky", "fill-status-todo"];
-    const booksToShow = Math.min(current, target);
+    const safeTarget = Math.max(1, Number(target) || 1);
+    const safeCurrent = Math.max(0, Number(current) || 0);
+    const booksToShow = Math.min(safeCurrent, safeTarget);
+    const isWideLayout = safeTarget > 69;
+    const trackerWidth = isWideLayout ? 640 : 320;
+    const innerWidth = trackerWidth - 20;
 
-    const booksPerShelf = target <= 12 ? target : Math.ceil(target / Math.ceil(target / 12));
-    const numShelves = Math.ceil(target / booksPerShelf);
-    const shelfHeight = 70;
+    const bookWidth = safeTarget >= 1000 ? 3 : safeTarget >= 500 ? 4 : safeTarget >= 241 ? 6 : safeTarget >= 101 ? 8 : 10;
+    const bookGap = safeTarget >= 500 ? 1 : 2;
+    const shelfPadding = 10;
+    const booksPerShelf = Math.min(
+        safeTarget,
+        Math.max(isWideLayout ? 18 : 10, Math.floor((innerWidth - shelfPadding * 2) / (bookWidth + bookGap)))
+    );
+    const numShelves = Math.ceil(safeTarget / booksPerShelf);
+    const shelfHeight = safeTarget >= 1000 ? 30 : safeTarget >= 500 ? 36 : safeTarget >= 241 ? 46 : safeTarget >= 101 ? 60 : 70;
+    const emptyBookHeight = Math.max(18, shelfHeight - 22);
     const svgHeight = numShelves * shelfHeight + 20;
-    const svgWidth = Math.max(160, booksPerShelf * 12 + 20);
+    const svgWidth = Math.max(160, booksPerShelf * (bookWidth + bookGap) + shelfPadding * 2);
 
     const bookHeights = useMemo(
-        () => Array.from({ length: target }, (_, i) => 40 + ((i * 7 + 13) % 20)),
-        [target]
+        () =>
+            Array.from({ length: safeTarget }, (_, i) => {
+                const minHeight = Math.max(16, shelfHeight - 26);
+                const variation = Math.max(6, Math.round(shelfHeight * 0.3));
+                return minHeight + ((i * 7 + 13) % variation);
+            }),
+        [safeTarget, shelfHeight]
+    );
+
+    const bookColors = useMemo(
+        () => {
+            let seed = safeTarget * 214013 + 2531011;
+            let previousIndex = -1;
+
+            const nextRandom = () => {
+                seed = (seed * 1664525 + 1013904223) % 4294967296;
+                return seed / 4294967296;
+            };
+
+            return Array.from({ length: safeTarget }, (_, index) => {
+                if (colors.length === 1) {
+                    return colors[0];
+                }
+
+                let randomIndex = Math.floor(nextRandom() * colors.length);
+
+                if (randomIndex === previousIndex) {
+                    randomIndex = (randomIndex + 1 + (index % (colors.length - 1))) % colors.length;
+                }
+
+                previousIndex = randomIndex;
+                return colors[randomIndex];
+            });
+        },
+        [safeTarget]
     );
 
     return (
-        <div className="flex flex-col items-center">
+        <div className="flex w-full flex-col items-center">
             <h4 className="font-medium text-foreground mb-4 text-center">{name}</h4>
 
-            <div
-                className="relative"
-                style={{ width: Math.min(svgWidth, 240), height: Math.min(svgHeight, 250) }}
-            >
-                <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-full">
+            <div className="relative w-full">
+                <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="block w-full h-auto">
                     {Array.from({ length: numShelves }).map((_, shelfIndex) => {
                         const shelfY = (shelfIndex + 1) * shelfHeight;
                         const startBook = shelfIndex * booksPerShelf;
-                        const endBook = Math.min(startBook + booksPerShelf, target);
+                        const endBook = Math.min(startBook + booksPerShelf, safeTarget);
 
                         return (
                             <g key={shelfIndex}>
@@ -50,7 +92,7 @@ const BookshelfTracker = ({ current, target, name }) => {
 
                                 {Array.from({ length: endBook - startBook }).map((_, i) => {
                                     const bookIndex = startBook + i;
-                                    const x = 10 + i * 12;
+                                    const x = shelfPadding + i * (bookWidth + bookGap);
                                     const isRead = bookIndex < booksToShow;
                                     const height = bookHeights[bookIndex];
 
@@ -60,21 +102,21 @@ const BookshelfTracker = ({ current, target, name }) => {
                                                 <motion.rect
                                                     x={x}
                                                     y={shelfY - 5 - height}
-                                                    width="10"
+                                                    width={bookWidth}
                                                     height={height}
                                                     rx="1"
-                                                    className={colors[bookIndex % colors.length]}
+                                                    className={bookColors[bookIndex]}
                                                     initial={{ scaleY: 0 }}
                                                     animate={{ scaleY: 1 }}
-                                                    transition={{ delay: bookIndex * 0.05, duration: 0.4 }}
-                                                    style={{ transformOrigin: `${x + 5}px ${shelfY - 5}px` }}
+                                                    transition={{ delay: Math.min(bookIndex * 0.01, 0.5), duration: 0.25 }}
+                                                    style={{ transformOrigin: `${x + bookWidth / 2}px ${shelfY - 5}px` }}
                                                 />
                                             ) : (
                                                 <rect
                                                     x={x}
-                                                    y={shelfY - 5 - 45}
-                                                    width="10"
-                                                    height="45"
+                                                    y={shelfY - 5 - emptyBookHeight}
+                                                    width={bookWidth}
+                                                    height={emptyBookHeight}
                                                     rx="1"
                                                     className="fill-muted/30 stroke-border"
                                                     strokeWidth="1"
@@ -97,10 +139,10 @@ const BookshelfTracker = ({ current, target, name }) => {
                     animate={{ scale: 1 }}
                     transition={{ delay: 0.3 }}
                 >
-                    {current}/{target}
+                    {safeCurrent}/{safeTarget}
                 </motion.p>
                 <p className="text-sm text-muted-foreground">books read</p>
-                {current >= target && (
+                {safeCurrent >= safeTarget && (
                     <motion.p
                         className="text-xs font-medium text-lavender mt-1"
                         initial={{ opacity: 0, scale: 0 }}
