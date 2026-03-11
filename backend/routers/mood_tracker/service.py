@@ -21,7 +21,7 @@ from .schemas import (
     UpsertMoodEntryRequest,
 )
 
-WEEKLY_IMAGE_IDS = ["weekly-bloom", "weekly-butterfly", "weekly-seaside"]
+WEEKLY_IMAGE_IDS = ["weekly-bloom", "weekly-butterfly", "weekly-cactus", "weekly-seaside"]
 MONTHLY_IMAGE_IDS = ["monthly-mosaic", "monthly-garden", "monthly-lanterns"]
 ALLOWED_COLOR_TOKENS = {
     "sage",
