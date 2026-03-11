@@ -2,23 +2,41 @@ import { motion } from "framer-motion";
 import { Zap } from "lucide-react";
 
 const SkillTreeTracker = ({ current, target, name }) => {
-    const nodes = target;
-    const completed = Math.min(current, nodes);
+    const safeTarget = Math.max(1, Number(target) || 1);
+    const safeCurrent = Math.max(0, Number(current) || 0);
+    const displayMode = safeTarget <= 9 ? "lesson" : safeTarget <= 40 ? "module" : "milestone";
+    const nodes =
+        displayMode === "lesson"
+            ? safeTarget
+            : displayMode === "module"
+              ? Math.min(12, Math.max(7, Math.ceil(safeTarget / 4)))
+              : Math.min(10, Math.max(7, safeTarget));
+    const displayedProgress = Math.min((safeCurrent / safeTarget) * nodes, nodes);
+    const unitsPerNode = safeTarget / nodes;
+    const roundedUnitsPerNode = Math.max(1, Math.round(unitsPerNode));
+    const completed = Math.min(Math.floor(displayedProgress), nodes);
+    const partialProgress =
+        completed < nodes ? displayedProgress - completed : 0;
 
-    const generatePositions = (count) => {
-        const positions = [];
-        let level = 0;
-        const maxY = 95;
-        const minY = 10;
-
+    const buildLevels = (count) => {
         const levels = [];
-        let r = count;
-        while (r > 0) {
-            const nodesInLevel = Math.min(r, level === 0 ? 1 : Math.min(level + 1, 4));
+        let level = 0;
+        let remaining = count;
+
+        while (remaining > 0) {
+            const nodesInLevel = Math.min(remaining, level === 0 ? 1 : Math.min(level + 1, 4));
             levels.push(nodesInLevel);
-            r -= nodesInLevel;
+            remaining -= nodesInLevel;
             level++;
         }
+
+        return levels;
+    };
+
+    const generatePositions = (levels) => {
+        const positions = [];
+        const maxY = 88;
+        const minY = 8;
 
         const totalLevels = levels.length;
         const ySpacing = totalLevels > 1 ? (maxY - minY) / (totalLevels - 1) : 0;
@@ -36,19 +54,18 @@ const SkillTreeTracker = ({ current, target, name }) => {
         return positions;
     };
 
-    const positions = generatePositions(nodes);
+    const levels = buildLevels(nodes);
+    const positions = generatePositions(levels);
+    const itemLabel =
+        displayMode === "lesson"
+            ? safeTarget === 1
+                ? "lesson"
+                : "lessons"
+            : displayMode === "module"
+              ? "lessons per module"
+              : "lessons per milestone";
 
     const connections = [];
-    const levels = [];
-    let lvl = 0;
-    let r = nodes;
-
-    while (r > 0) {
-        const n = Math.min(r, lvl === 0 ? 1 : Math.min(lvl + 1, 4));
-        levels.push(n);
-        r -= n;
-        lvl++;
-    }
 
     let prevStart = 0;
     for (let l = 1; l < levels.length; l++) {
@@ -57,7 +74,11 @@ const SkillTreeTracker = ({ current, target, name }) => {
         const currCount = levels[l];
 
         for (let i = 0; i < currCount; i++) {
-            const parentIdx = prevStart + Math.min(i, prevCount - 1);
+            const parentSlot =
+                currCount === 1
+                    ? (prevCount - 1) / 2
+                    : (i * (prevCount - 1)) / (currCount - 1);
+            const parentIdx = prevStart + Math.round(parentSlot);
             connections.push([parentIdx, currStart + i]);
         }
         prevStart = currStart;
@@ -67,8 +88,8 @@ const SkillTreeTracker = ({ current, target, name }) => {
         <div className="flex flex-col items-center">
             <h4 className="font-medium text-foreground mb-4 text-center">{name}</h4>
 
-            <div className="relative w-36 h-36">
-                <svg viewBox="0 0 100 100" className="w-full h-full">
+            <div className="relative w-36 h-40">
+                <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible">
                     {connections.map(([from, to], i) => {
                         if (from >= positions.length || to >= positions.length) return null;
                         const fromPos = positions[from];
@@ -93,6 +114,7 @@ const SkillTreeTracker = ({ current, target, name }) => {
 
                     {positions.map((pos, i) => {
                         const isCompleted = i < completed;
+                        const isPartial = i === completed && partialProgress > 0 && completed < nodes;
                         return (
                             <motion.g key={i}>
                                 <motion.circle
@@ -105,6 +127,24 @@ const SkillTreeTracker = ({ current, target, name }) => {
                                     animate={{ scale: 1 }}
                                     transition={{ delay: i * 0.05, type: "spring" }}
                                 />
+                                {isPartial && (
+                                    <motion.circle
+                                        cx={pos.x}
+                                        cy={pos.y}
+                                        r="7"
+                                        fill="none"
+                                        className="stroke-sage"
+                                        strokeWidth="3"
+                                        strokeLinecap="round"
+                                        initial={{ pathLength: 0 }}
+                                        animate={{ pathLength: partialProgress }}
+                                        transition={{ delay: i * 0.05, duration: 0.35 }}
+                                        style={{
+                                            rotate: -90,
+                                            transformOrigin: `${pos.x}px ${pos.y}px`,
+                                        }}
+                                    />
+                                )}
                                 {isCompleted && (
                                     <motion.circle
                                         cx={pos.x}
@@ -138,11 +178,15 @@ const SkillTreeTracker = ({ current, target, name }) => {
                         animate={{ scale: 1 }}
                         transition={{ delay: 0.3 }}
                     >
-                        {current}/{target}
+                        {safeCurrent}/{safeTarget}
                     </motion.p>
                 </div>
-                <p className="text-sm text-muted-foreground">lessons completed</p>
-                {current >= target && (
+                <p className="text-sm text-muted-foreground">
+                    {displayMode === "lesson"
+                        ? "lessons completed"
+                        : `${roundedUnitsPerNode} ${itemLabel}`}
+                </p>
+                {safeCurrent >= safeTarget && (
                     <motion.p
                         className="text-xs font-medium text-sage mt-1"
                         initial={{ opacity: 0, scale: 0 }}
