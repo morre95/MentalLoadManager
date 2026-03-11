@@ -8,13 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn, fetchMoodTrackerPeriod, upsertMoodTrackerEntry } from "@/lib/utils";
 
 const MOOD_OPTIONS = [
-  { token: "status-todo", label: "Joyful", swatchClass: "bg-status-todo" },
+  { token: "accent", label: "Joyful", swatchClass: "bg-accent" },
   { token: "sky", label: "Calm", swatchClass: "bg-sky" },
   { token: "sage", label: "Balanced", swatchClass: "bg-sage" },
   { token: "lavender", label: "Dreamy", swatchClass: "bg-lavender" },
   { token: "terracotta", label: "Warm", swatchClass: "bg-terracotta" },
-  { token: "accent", label: "Energized", swatchClass: "bg-accent" },
-  { token: "status-doing", label: "Focused", swatchClass: "bg-status-doing" },
+  { token: "status-todo", label: "Energized", swatchClass: "bg-status-todo" },
+  { token: "primary", label: "Focused", swatchClass: "bg-primary" },
   { token: "status-done", label: "Proud", swatchClass: "bg-status-done" },
 ];
 
@@ -168,18 +168,20 @@ export default function MoodTracker() {
           <p className="text-sm font-medium text-sage">Mood Tracker</p>
           <h1 className="font-display text-3xl text-foreground">Paint your days</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Weekly and monthly views stay in sync because each painted day is stored once by date
-            and projected into both artworks.
+            Pick a day, choose a color, and fill in the artwork as the week or month unfolds.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 rounded-full border border-border bg-card p-1">
+        <div className="flex items-center gap-2 rounded-full border border-border bg-muted/50 p-1">
           {PERIOD_OPTIONS.map((option) => (
             <Button
               key={option.value}
               type="button"
               variant={periodType === option.value ? "default" : "ghost"}
-              className="rounded-full"
+              className={cn(
+                "rounded-full",
+                periodType === option.value && "bg-card text-foreground shadow-none hover:bg-card"
+              )}
               onClick={() => setPeriodType(option.value)}
             >
               {option.label}
@@ -190,7 +192,7 @@ export default function MoodTracker() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <Card className="overflow-hidden border-border">
-          <CardHeader className="border-b border-border bg-gradient-to-r from-sage-light via-card to-sky-light/70">
+          <CardHeader className="border-b border-border bg-card">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <CardTitle className="font-display text-2xl">
@@ -198,8 +200,8 @@ export default function MoodTracker() {
                 </CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {periodType === "weekly"
-                    ? "Choose a day, then paint any open region in this week's illustration."
-                    : "Choose a day, then paint any open region in this month's illustration."}
+                    ? "Choose a day and paint one open part of this week's artwork."
+                    : "Choose a day and paint one open part of this month's artwork."}
                 </p>
               </div>
 
@@ -342,8 +344,7 @@ export default function MoodTracker() {
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Click an available region in the artwork to paint the currently selected day.
-                Painted days automatically appear in both weekly and monthly views.
+                Click any open part of the artwork to save the color for the selected day.
               </p>
             </CardContent>
           </Card>
@@ -376,7 +377,7 @@ export default function MoodTracker() {
                 </motion.div>
               ) : (
                 <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-                  Hover a painted region to see which date it represents.
+                  Hover over a painted part to see its day.
                 </div>
               )}
 
