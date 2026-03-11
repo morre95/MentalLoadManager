@@ -191,7 +191,11 @@ const DashboardHeader = ({ onAddTask }) => {
     markNotificationsAsRead([notification.id]);
     setIsNotificationsOpen(false);
     if (notification.type === "goal_milestone") {
-      navigate("/dashboard/goals");
+      navigate("/dashboard/goals", {
+        state: {
+          highlightGoalId: notification.entityId,
+        },
+      });
     }
   };
 
