@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Target, Plus, Trophy } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import GoalCard from "@/components/goals/GoalCard";
 import AddGoalDialog from "@/components/goals/AddGoalDialog";
@@ -109,11 +109,13 @@ const normalizeTrainingGoal = (goal, selections) => {
 
 const Goals = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [goals, setGoals] = useState([]);
     const [achievements, setAchievements] = useState([]);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [syncError, setSyncError] = useState(null);
+    const [highlightedGoalId, setHighlightedGoalId] = useState(() => String(location.state?.highlightGoalId || ""));
 
     const loadGoals = useCallback(async () => {
         setIsLoading(true);
@@ -163,6 +165,41 @@ const Goals = () => {
             window.removeEventListener(GOAL_MILESTONES_UPDATED_EVENT, handleGoalUpdates);
         };
     }, [loadGoals]);
+
+    useEffect(() => {
+        const nextHighlightedGoalId = String(location.state?.highlightGoalId || "");
+        if (!nextHighlightedGoalId) {
+            return;
+        }
+
+        setHighlightedGoalId(nextHighlightedGoalId);
+        navigate(location.pathname, { replace: true, state: {} });
+    }, [location.pathname, location.state, navigate]);
+
+    useEffect(() => {
+        if (!highlightedGoalId || isLoading) {
+            return undefined;
+        }
+
+        const highlightedGoalExists = goals.some((goal) => goal.id === highlightedGoalId);
+        if (!highlightedGoalExists) {
+            return undefined;
+        }
+
+        const scrollTimer = window.setTimeout(() => {
+            const element = document.getElementById(`goal-card-${highlightedGoalId}`);
+            element?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 120);
+
+        const clearTimer = window.setTimeout(() => {
+            setHighlightedGoalId("");
+        }, 3200);
+
+        return () => {
+            window.clearTimeout(scrollTimer);
+            window.clearTimeout(clearTimer);
+        };
+    }, [goals, highlightedGoalId, isLoading]);
 
     const handleAddGoal = (newGoal) => {
         setSyncError(null);
@@ -357,6 +394,7 @@ const Goals = () => {
                             onUpdateProgress={handleUpdateProgress}
                             onToggleTrainingDay={handleToggleTrainingDay}
                             onDelete={handleDeleteGoal}
+                            isHighlighted={goal.id === highlightedGoalId}
                         />
                     ))}
                 </AnimatePresence>

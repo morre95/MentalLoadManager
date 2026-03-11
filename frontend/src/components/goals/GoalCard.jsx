@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import GoalTrackerRenderer from "./GoalTrackerRenderer";
 
-const GoalCard = ({ goal, onUpdateProgress, onToggleTrainingDay, onDelete }) => {
+const GoalCard = ({ goal, onUpdateProgress, onToggleTrainingDay, onDelete, isHighlighted = false }) => {
     const [isHovered, setIsHovered] = useState(false);
     const shouldSpanTwoColumns =
         (goal.type === "reading" && Number(goal.target) > 69) ||
@@ -25,6 +25,7 @@ const GoalCard = ({ goal, onUpdateProgress, onToggleTrainingDay, onDelete }) => 
     return (
         <motion.div
             layout
+            id={`goal-card-${goal.id}`}
             className={cn(shouldSpanTwoColumns && "lg:col-span-2")}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -33,7 +34,12 @@ const GoalCard = ({ goal, onUpdateProgress, onToggleTrainingDay, onDelete }) => 
             onHoverStart={() => setIsHovered(true)}
             onHoverEnd={() => setIsHovered(false)}
         >
-            <Card className="border-border overflow-hidden h-full">
+            <Card
+                className={cn(
+                    "border-border overflow-hidden h-full transition-all duration-500",
+                    isHighlighted && "ring-2 ring-primary shadow-[0_0_0_1px_hsl(var(--primary)),0_18px_45px_-24px_hsl(var(--primary))]"
+                )}
+            >
                 <CardContent className="p-6 relative">
                     <motion.div
                         className="absolute top-2 right-2 z-10"
