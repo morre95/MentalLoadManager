@@ -3,6 +3,7 @@ import {
   ListTodo,
   BarChart3,
   Calendar,
+  Palette,
   Settings,
   Users,
   LogOut,
@@ -41,6 +42,7 @@ const mainItems = [
   { title: "Tasks", url: "/dashboard/tasks", icon: ListTodo },
   { title: "Calendar", url: "/dashboard/calendar", icon: Calendar },
   { title: "Goals", url: "/dashboard/goals", icon: Target },
+  { title: "Mood", url: "/dashboard/mood", icon: Palette },
   { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
 ];
 

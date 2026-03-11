@@ -1,0 +1,329 @@
+from __future__ import annotations
+
+from datetime import date, datetime, timedelta, timezone
+from uuid import UUID
+
+from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
+
+from helpers import get_session_local
+from models import UserEmail
+
+from .repository import (
+    create_mood_entry,
+    get_mood_entry_for_user_and_date,
+    list_mood_entries_for_date_range,
+)
+from .schemas import (
+    MoodTrackerDateStatusResponse,
+    MoodTrackerDayResponse,
+    MoodTrackerPeriodResponse,
+    UpsertMoodEntryRequest,
+)
+
+WEEKLY_IMAGE_IDS = ["weekly-bloom", "weekly-butterfly", "weekly-seaside"]
+MONTHLY_IMAGE_IDS = ["monthly-mosaic", "monthly-garden", "monthly-lanterns"]
+ALLOWED_COLOR_TOKENS = {
+    "sage",
+    "terracotta",
+    "lavender",
+    "sky",
+    "primary",
+    "accent",
+    "status-todo",
+    "status-doing",
+    "status-done",
+    "sand",
+}
+
+
+def _parse_anchor_date(anchor_date_raw: str | None) -> date:
+    if not anchor_date_raw:
+        return datetime.now(timezone.utc).date()
+
+    try:
+        return date.fromisoformat(anchor_date_raw)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="anchor_date must be a valid ISO date",
+        ) from exc
+
+
+def _normalize_period_type(period_type: str) -> str:
+    normalized = str(period_type or "").strip().lower()
+    if normalized not in {"weekly", "monthly"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="period_type must be one of: weekly, monthly",
+        )
+    return normalized
+
+
+def _period_bounds(period_type: str, anchor_date: date) -> tuple[date, date]:
+    if period_type == "weekly":
+        start_date = anchor_date - timedelta(days=anchor_date.weekday())
+        end_date = start_date + timedelta(days=6)
+        return start_date, end_date
+
+    start_date = anchor_date.replace(day=1)
+    if start_date.month == 12:
+        next_month = start_date.replace(year=start_date.year + 1, month=1)
+    else:
+        next_month = start_date.replace(month=start_date.month + 1)
+    end_date = next_month - timedelta(days=1)
+    return start_date, end_date
+
+
+def _period_key(period_type: str, start_date: date) -> str:
+    if period_type == "weekly":
+        iso_year, iso_week, _ = start_date.isocalendar()
+        return f"{iso_year}-W{iso_week:02d}"
+    return f"{start_date.year}-{start_date.month:02d}"
+
+
+def _period_label(period_type: str, start_date: date, end_date: date) -> str:
+    if period_type == "weekly":
+        return f"{start_date.strftime('%b %d')} - {end_date.strftime('%b %d, %Y')}"
+    return start_date.strftime("%B %Y")
+
+
+def _region_ids(period_type: str, start_date: date, end_date: date) -> list[str]:
+    count = (end_date - start_date).days + 1
+    prefix = "week" if period_type == "weekly" else "month"
+    return [f"{prefix}-region-{index + 1}" for index in range(count)]
+
+
+def _theme_id(period_type: str, period_key: str) -> str:
+    pool = WEEKLY_IMAGE_IDS if period_type == "weekly" else MONTHLY_IMAGE_IDS
+    seed = sum((index + 1) * ord(char) for index, char in enumerate(period_key))
+    return pool[seed % len(pool)]
+
+
+def _region_field_name(period_type: str) -> str:
+    return "weekly_region_id" if period_type == "weekly" else "monthly_region_id"
+
+
+def _pick_region_for_date(
+    *,
+    period_key: str,
+    entry_date: date,
+    available_region_ids: list[str],
+) -> str:
+    if not available_region_ids:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No mood tracker regions are available for this period",
+        )
+
+    seed = sum((index + 1) * ord(char) for index, char in enumerate(f"{period_key}:{entry_date.isoformat()}"))
+    return available_region_ids[seed % len(available_region_ids)]
+
+
+def _validate_entry_date(period_type: str, entry_date: date, start_date: date, end_date: date):
+    today = datetime.now(timezone.utc).date()
+    if entry_date < start_date or entry_date > end_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="entry_date is outside the selected period",
+        )
+    if entry_date > today:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Future dates cannot be painted yet",
+        )
+
+
+def get_mood_tracker_period(
+    *,
+    period_type: str,
+    anchor_date_raw: str | None,
+    current_user: UserEmail,
+) -> MoodTrackerPeriodResponse:
+    normalized_period_type = _normalize_period_type(period_type)
+    anchor_date = _parse_anchor_date(anchor_date_raw)
+    start_date, end_date = _period_bounds(normalized_period_type, anchor_date)
+    period_key = _period_key(normalized_period_type, start_date)
+    image_id = _theme_id(normalized_period_type, period_key)
+    region_ids = _region_ids(normalized_period_type, start_date, end_date)
+    region_field_name = _region_field_name(normalized_period_type)
+
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        entries = list_mood_entries_for_date_range(
+            db,
+            user_id=current_user.user_id,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        assigned_region_ids = {
+            getattr(entry, region_field_name)
+            for entry in entries
+            if getattr(entry, region_field_name)
+        }
+
+        for entry in entries:
+            if getattr(entry, region_field_name):
+                continue
+
+            available_region_ids = [region_id for region_id in region_ids if region_id not in assigned_region_ids]
+            selected_region_id = _pick_region_for_date(
+                period_key=period_key,
+                entry_date=entry.entry_date,
+                available_region_ids=available_region_ids,
+            )
+            setattr(entry, region_field_name, selected_region_id)
+            entry.updated_at = datetime.now(timezone.utc)
+            assigned_region_ids.add(selected_region_id)
+
+        db.commit()
+
+        entries = list_mood_entries_for_date_range(
+            db,
+            user_id=current_user.user_id,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        entries_by_date = {entry.entry_date: entry for entry in entries}
+        today = datetime.now(timezone.utc).date()
+        dates = []
+        painted_days = []
+        current_date = start_date
+
+        while current_date <= end_date:
+            entry = entries_by_date.get(current_date)
+            color_token = entry.color_token if entry else None
+            mood_label = entry.mood_label if entry else None
+            is_painted = entry is not None
+            is_future = current_date > today
+            dates.append(
+                MoodTrackerDateStatusResponse(
+                    date=current_date,
+                    is_painted=is_painted,
+                    is_future=is_future,
+                    color_token=color_token,
+                    mood_label=mood_label,
+                )
+            )
+
+            if entry is not None:
+                painted_days.append(
+                    MoodTrackerDayResponse(
+                        date=entry.entry_date,
+                        color_token=entry.color_token,
+                        mood_label=entry.mood_label,
+                        region_id=getattr(entry, region_field_name),
+                    )
+                )
+
+            current_date += timedelta(days=1)
+
+        return MoodTrackerPeriodResponse(
+            period_type=normalized_period_type,
+            period_key=period_key,
+            period_label=_period_label(normalized_period_type, start_date, end_date),
+            anchor_date=anchor_date,
+            start_date=start_date,
+            end_date=end_date,
+            image_id=image_id,
+            region_ids=region_ids,
+            painted_days=painted_days,
+            dates=dates,
+        )
+
+
+def upsert_mood_tracker_entry(
+    payload: UpsertMoodEntryRequest,
+    current_user: UserEmail,
+) -> MoodTrackerPeriodResponse:
+    period_type = _normalize_period_type(payload.period_type)
+    color_token = payload.color_token.strip()
+    if color_token not in ALLOWED_COLOR_TOKENS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid mood color token",
+        )
+
+    mood_label = payload.mood_label.strip() if payload.mood_label else None
+    start_date, end_date = _period_bounds(period_type, payload.entry_date)
+    period_key = _period_key(period_type, start_date)
+    region_ids = _region_ids(period_type, start_date, end_date)
+    if payload.region_id not in region_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="region_id is invalid for the selected period",
+        )
+
+    _validate_entry_date(period_type, payload.entry_date, start_date, end_date)
+
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    region_field_name = _region_field_name(period_type)
+    with session_local() as db:
+        entry = get_mood_entry_for_user_and_date(
+            db,
+            user_id=current_user.user_id,
+            entry_date=payload.entry_date,
+        )
+        if entry is None:
+            entry = create_mood_entry(
+                db,
+                user_id=current_user.user_id,
+                entry_date=payload.entry_date,
+                color_token=color_token,
+                mood_label=mood_label,
+            )
+        else:
+            entry.color_token = color_token
+            entry.mood_label = mood_label
+
+        sibling_entries = list_mood_entries_for_date_range(
+            db,
+            user_id=current_user.user_id,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        for sibling_entry in sibling_entries:
+            sibling_region_id = getattr(sibling_entry, region_field_name)
+            if sibling_region_id != payload.region_id:
+                continue
+            if sibling_entry.entry_date == payload.entry_date:
+                continue
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="That region is already painted for another date in this period",
+            )
+
+        setattr(entry, region_field_name, payload.region_id)
+        entry.updated_at = datetime.now(timezone.utc)
+
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Unable to save mood entry",
+            ) from exc
+
+    return get_mood_tracker_period(
+        period_type=period_type,
+        anchor_date_raw=start_date.isoformat(),
+        current_user=current_user,
+    )

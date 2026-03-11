@@ -64,3 +64,18 @@ ALTER TABLE preferences
 
 ALTER TABLE preferences
   ADD COLUMN IF NOT EXISTS first_day_of_week TEXT NOT NULL DEFAULT 'monday';
+
+CREATE TABLE IF NOT EXISTS mood_entries (
+  mood_entry_id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id            UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  entry_date         DATE NOT NULL,
+  color_token        VARCHAR(50) NOT NULL CHECK (char_length(color_token) > 0),
+  mood_label         VARCHAR(50),
+  weekly_region_id   VARCHAR(50),
+  monthly_region_id  VARCHAR(50),
+  created_at         TIMESTAMPTZ DEFAULT NOW(),
+  updated_at         TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT uq_mood_entries_user_date UNIQUE (user_id, entry_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_mood_entries_user_date ON mood_entries(user_id, entry_date);

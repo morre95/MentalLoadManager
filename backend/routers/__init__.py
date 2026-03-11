@@ -1,5 +1,6 @@
 from .users import router as users_router
 from .login import router as login_router
+from .mood_tracker import router as mood_tracker_router
 from .kanban import router as kanban_router
 from .calendar import router as calendar_router
 from .contact import router as contact_router
@@ -14,6 +15,7 @@ from .settings import router as settings_router
 all_routers = [
     users_router,
     login_router,
+    mood_tracker_router,
     kanban_router,
     calendar_router,
     contact_router,

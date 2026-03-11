@@ -8,6 +8,7 @@ from .goals import Goals
 from .households import Households
 from .invitations import Invitations
 from .monthly_reports import MonthlyReports
+from .mood_entries import MoodEntries
 from .notification_settings import NotificationSettings
 from .oauth_accounts import OAuthAccounts
 from .password_refresh_token import PasswordRefreshToken
@@ -46,6 +47,7 @@ __all__ = [
     "Reminders",
     "WeeklyReports",
     "MonthlyReports",
+    "MoodEntries",
     "DailyReports",
     "AISummaries",
     "ContactMessages",

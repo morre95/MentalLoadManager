@@ -192,6 +192,19 @@ CREATE TABLE IF NOT EXISTS reminders (
   active            BOOLEAN NOT NULL DEFAULT TRUE
 );
 
+CREATE TABLE IF NOT EXISTS mood_entries (
+  mood_entry_id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id            UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  entry_date         DATE NOT NULL,
+  color_token        VARCHAR(50) NOT NULL CHECK (char_length(color_token) > 0),
+  mood_label         VARCHAR(50),
+  weekly_region_id   VARCHAR(50),
+  monthly_region_id  VARCHAR(50),
+  created_at         TIMESTAMPTZ DEFAULT NOW(),
+  updated_at         TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT uq_mood_entries_user_date UNIQUE (user_id, entry_date)
+);
+
 -- =========================
 -- Reports + AI summaries
 -- =========================
@@ -252,6 +265,7 @@ CREATE TABLE IF NOT EXISTS contact_messages (
 CREATE INDEX IF NOT EXISTS idx_tasks_group_due ON tasks(household_id, due_date);
 CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assigns_to);
 CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
+CREATE INDEX IF NOT EXISTS idx_mood_entries_user_date ON mood_entries(user_id, entry_date);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_lower ON users (LOWER(username));
 CREATE INDEX IF NOT EXISTS idx_links_connection ON task_calendar_links(connection_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_category ON tasks(category_id);

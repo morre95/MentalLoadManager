@@ -184,6 +184,25 @@ export async function fetchAchievements() {
   return sharedFetchAchievements(apiClient);
 }
 
+export async function fetchMoodTrackerPeriod(periodType, anchorDate) {
+  const params = new URLSearchParams({
+    period_type: String(periodType || "weekly"),
+  });
+
+  if (anchorDate) {
+    params.set("anchor_date", String(anchorDate));
+  }
+
+  return apiFetch(`/api/mood-tracker?${params.toString()}`, { method: "GET" });
+}
+
+export async function upsertMoodTrackerEntry(payload) {
+  return apiFetch("/api/mood-tracker/entries", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function createGoal(payload) {
   return sharedCreateGoal(apiClient, payload);
 }
