@@ -1,8 +1,17 @@
 import { motion } from "framer-motion";
 import { useMemo } from "react";
 
+const BOOK_COLORS = ["fill-sage", "fill-terracotta", "fill-lavender", "fill-sky", "fill-status-todo"];
+
+const pseudoRandomIndex = (seed, index, length) => {
+    const value = index + 1;
+    const mixed = Math.imul(seed ^ Math.imul(value, 374761393), 668265263);
+    const scrambled = (mixed ^ (mixed >>> 13)) >>> 0;
+    const finalValue = Math.imul(scrambled ^ (scrambled >>> 15), 2246822519) >>> 0;
+    return finalValue % length;
+};
+
 const BookshelfTracker = ({ current, target, name }) => {
-    const colors = ["fill-sage", "fill-terracotta", "fill-lavender", "fill-sky", "fill-status-todo"];
     const safeTarget = Math.max(1, Number(target) || 1);
     const safeCurrent = Math.max(0, Number(current) || 0);
     const booksToShow = Math.min(safeCurrent, safeTarget);
@@ -35,28 +44,22 @@ const BookshelfTracker = ({ current, target, name }) => {
 
     const bookColors = useMemo(
         () => {
-            let seed = safeTarget * 214013 + 2531011;
-            let previousIndex = -1;
-
-            const nextRandom = () => {
-                seed = (seed * 1664525 + 1013904223) % 4294967296;
-                return seed / 4294967296;
-            };
-
-            return Array.from({ length: safeTarget }, (_, index) => {
-                if (colors.length === 1) {
-                    return colors[0];
+            return Array.from({ length: safeTarget }).reduce((result, _, index) => {
+                if (BOOK_COLORS.length === 1) {
+                    result.push(BOOK_COLORS[0]);
+                    return result;
                 }
 
-                let randomIndex = Math.floor(nextRandom() * colors.length);
+                const previousColor = result[result.length - 1];
+                let randomIndex = pseudoRandomIndex(safeTarget * 214013 + 2531011, index, BOOK_COLORS.length);
 
-                if (randomIndex === previousIndex) {
-                    randomIndex = (randomIndex + 1 + (index % (colors.length - 1))) % colors.length;
+                if (BOOK_COLORS[randomIndex] === previousColor) {
+                    randomIndex = (randomIndex + 1 + pseudoRandomIndex(safeTarget * 1103515245 + 12345, index, BOOK_COLORS.length - 1)) % BOOK_COLORS.length;
                 }
 
-                previousIndex = randomIndex;
-                return colors[randomIndex];
-            });
+                result.push(BOOK_COLORS[randomIndex]);
+                return result;
+            }, []);
         },
         [safeTarget]
     );
