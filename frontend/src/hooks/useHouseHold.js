@@ -7,6 +7,7 @@ import {
   leaveHousehold as sharedLeaveHousehold,
   removeHouseholdMember as sharedRemoveHouseholdMember,
   transferHouseholdOwnership as sharedTransferHouseholdOwnership,
+  updateHousehold as sharedUpdateHousehold,
   updateHouseholdMemberRole as sharedUpdateHouseholdMemberRole,
 } from "../../../shared/index.js";
 import { apiClient } from "@/lib/utils";
@@ -166,4 +167,8 @@ export async function transferHouseholdOwnership(householdId, newOwnerUserId) {
 
 export async function updateHouseholdMemberRole(householdId, userId, role) {
   return sharedUpdateHouseholdMemberRole(apiClient, householdId, userId, role);
+}
+
+export async function updateHousehold(householdId, name) {
+  return sharedUpdateHousehold(apiClient, householdId, name);
 }

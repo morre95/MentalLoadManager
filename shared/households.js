@@ -41,6 +41,13 @@ export async function createHousehold(apiClient, name) {
   });
 }
 
+export async function updateHousehold(apiClient, householdId, name) {
+  return apiClient.request("/api/household", {
+    method: "PUT",
+    body: JSON.stringify({ household_id: householdId, name }),
+  });
+}
+
 export async function createHouseholdInvite(apiClient, householdId) {
   return apiClient.request("/api/household/invite", {
     method: "POST",

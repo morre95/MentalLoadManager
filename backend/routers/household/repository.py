@@ -73,6 +73,10 @@ def find_households_for_user(db: Session, user_id: UUID):
     ).all()
 
 
+def find_household_by_id(db: Session, household_id: UUID):
+    return db.scalar(select(Households).where(Households.household_id == household_id))
+
+
 def list_household_member_rows(db: Session, household_ids: Sequence[UUID]):
     return db.execute(
         select(

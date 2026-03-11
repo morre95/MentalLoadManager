@@ -6,6 +6,7 @@ import {
     removeHouseholdMember,
     leaveHousehold,
     transferHouseholdOwnership,
+    updateHousehold,
     updateHouseholdMemberRole,
 } from "@/hooks/useHouseHold";
 import { getUserFromLocalStorage } from "@/lib/auth";
@@ -43,6 +44,7 @@ export function useHouseholdPage() {
     const [isJoiningUI, setIsJoiningUI] = useState(false);
     const [joinCodeOrLink, setJoinCodeOrLink] = useState("");
     const [joining, setJoining] = useState(false);
+    const [renamingHouseholdId, setRenamingHouseholdId] = useState(null);
 
     const memberKey = (householdId, userId) => `${householdId}:${userId}`;
 
@@ -221,6 +223,25 @@ export function useHouseholdPage() {
         }
     };
 
+    const handleRenameHousehold = async (householdId, name) => {
+        const trimmedName = String(name || "").trim();
+        if (!trimmedName) {
+            throw new Error("Household name is required.");
+        }
+
+        setRenamingHouseholdId(householdId);
+
+        try {
+            await updateHousehold(householdId, trimmedName);
+            await refetch();
+        } catch (err) {
+            alert(err?.message || "Could not rename household.");
+            throw err;
+        } finally {
+            setRenamingHouseholdId(null);
+        }
+    };
+
     // Sorted members helper (you first, then alphabetical by display name)
     const householdsWithSortedMembers = useMemo(() => {
         return (households || []).map((h) => {
@@ -257,6 +278,7 @@ export function useHouseholdPage() {
         setLeaveConfirmHouseholdId,
         leavingHouseholdId,
         updatingRoleKey,
+        renamingHouseholdId,
 
         // create modal
         isCreatingUI,
@@ -280,6 +302,7 @@ export function useHouseholdPage() {
         handleRemoveMember,
         handleLeave,
         handleTransferOwnership,
+        handleRenameHousehold,
         handleUpdateMemberRole,
 
         refetch,

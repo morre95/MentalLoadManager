@@ -30,6 +30,8 @@ from .schemas import (
     MyHouseholdsResponse,
     RemoveHouseholdMemberRequest,
     TransferOwnershipRequest,
+    UpdateHouseholdRequest,
+    UpdateHouseholdResponse,
     UpdateHouseholdMemberRoleRequest,
 )
 from .service import (
@@ -42,6 +44,7 @@ from .service import (
     list_household_members,
     remove_household_member,
     transfer_household_ownership,
+    update_household,
     update_household_member_role,
 )
 
@@ -59,6 +62,14 @@ def create_household_route(
     current_user: UserEmail = Depends(get_current_user),
 ):
     return create_household(payload, current_user)
+
+
+@router.put("", response_model=UpdateHouseholdResponse)
+def update_household_route(
+    payload: UpdateHouseholdRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    return update_household(payload, current_user)
 
 
 @router.post("/members", response_model=HouseholdMember, status_code=status.HTTP_201_CREATED)

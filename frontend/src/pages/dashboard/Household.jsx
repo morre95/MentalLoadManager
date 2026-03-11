@@ -1,4 +1,5 @@
-import { ArrowRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, Pencil } from "lucide-react";
 import { motion } from "framer-motion";
 import { Users, UserPlus, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,88 @@ import MemberCard from "@/components/household/MemberCard";
 import { useHouseholdPage } from "@/hooks/useHouseholdPage";
 
 const colors = ["bg-sage text-sage-light", "bg-terracotta text-white"];
+
+function EditableHouseholdName({ household, canRename, isSaving, onSave }) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [draftName, setDraftName] = useState(household.name);
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        if (isEditing) {
+            inputRef.current?.focus();
+            inputRef.current?.select();
+        }
+    }, [isEditing]);
+
+    const cancelEditing = () => {
+        setDraftName(household.name);
+        setIsEditing(false);
+    };
+
+    const submitEditing = async () => {
+        const trimmedName = draftName.trim();
+        if (!trimmedName || trimmedName === household.name) {
+            cancelEditing();
+            return;
+        }
+
+        try {
+            await onSave(trimmedName);
+            setIsEditing(false);
+        } catch {
+            inputRef.current?.focus();
+            inputRef.current?.select();
+        }
+    };
+
+    if (!canRename) {
+        return (
+            <h2 className="font-display text-xl font-bold text-foreground truncate">
+                {household.name}
+            </h2>
+        );
+    }
+
+    if (isEditing) {
+        return (
+            <input
+                ref={inputRef}
+                value={draftName}
+                onChange={(event) => setDraftName(event.target.value)}
+                onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                        event.preventDefault();
+                        void submitEditing();
+                    }
+                    if (event.key === "Escape") {
+                        event.preventDefault();
+                        cancelEditing();
+                    }
+                }}
+                onBlur={cancelEditing}
+                disabled={isSaving}
+                className="w-full rounded-md border border-border bg-background px-2 py-1 font-display text-xl font-bold text-foreground outline-none focus:border-primary"
+                aria-label={`Rename ${household.name}`}
+            />
+        );
+    }
+
+    return (
+        <button
+            type="button"
+            onClick={() => {
+                setDraftName(household.name);
+                setIsEditing(true);
+            }}
+            className="group flex max-w-full items-center gap-2 rounded-md text-left"
+        >
+            <h2 className="font-display text-xl font-bold text-foreground truncate cursor-pointer">
+                {household.name}
+            </h2>
+            <Pencil className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+        </button>
+    );
+}
 
 export default function Household() {
     const {
@@ -23,7 +106,9 @@ export default function Household() {
 
         leaveConfirmHouseholdId,
         setLeaveConfirmHouseholdId,
+        leavingHouseholdId,
         updatingRoleKey,
+        renamingHouseholdId,
 
         isCreatingUI,
         setIsCreatingUI,
@@ -44,6 +129,7 @@ export default function Household() {
         handleRemoveMember,
         handleLeave,
         handleTransferOwnership,
+        handleRenameHousehold,
         handleUpdateMemberRole,
     } = useHouseholdPage();
 
@@ -83,6 +169,7 @@ export default function Household() {
                     const myRole = myMembership?.role || "member";
                     const canManageMembers =
                         myRole === "owner" || myRole === "admin";
+                    const canRenameHousehold = canManageMembers;
 
 
                     return (
@@ -94,9 +181,12 @@ export default function Household() {
                         >
                             <div className="flex items-baseline justify-between gap-4">
                                 <div className="min-w-0">
-                                    <h2 className="font-display text-xl font-bold text-foreground truncate">
-                                        {h.name}
-                                    </h2>
+                                    <EditableHouseholdName
+                                        household={h}
+                                        canRename={canRenameHousehold}
+                                        isSaving={renamingHouseholdId === h.household_id}
+                                        onSave={(name) => handleRenameHousehold(h.household_id, name)}
+                                    />
                                     <p className="text-sm text-muted-foreground">
                                         {h.members?.length ?? 0} member{(h.members?.length ?? 0) === 1 ? "" : "s"}
                                     </p>
@@ -123,6 +213,7 @@ export default function Household() {
                                             setConfirmKey(null);
                                             setLeaveConfirmHouseholdId(h.household_id);
                                         }}
+                                        disabled={leavingHouseholdId === h.household_id}
                                     >
                                         Leave
                                     </Button>

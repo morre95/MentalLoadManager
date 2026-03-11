@@ -13,6 +13,7 @@ from models import Households, Invitations, UserEmail, UsersHouseholds
 from .repository import (
     count_household_members,
     delete_household,
+    find_household_by_id,
     find_households_for_user,
     find_invite_by_code,
     find_membership,
@@ -38,6 +39,8 @@ from .schemas import (
     MyHouseholdsResponse,
     RemoveHouseholdMemberRequest,
     TransferOwnershipRequest,
+    UpdateHouseholdRequest,
+    UpdateHouseholdResponse,
     UpdateHouseholdMemberRoleRequest,
 )
 from config import settings
@@ -127,6 +130,40 @@ def create_household(
         return CreateHouseholdResponse(
             household_id=str(new_household.household_id),
             name=new_household.name,
+        )
+
+
+def update_household(
+    payload: UpdateHouseholdRequest,
+    current_user: UserEmail,
+) -> UpdateHouseholdResponse:
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Household name is required")
+
+    session_local = get_session_local()
+
+    with session_local() as db:
+        me = _get_db_user(db, current_user)
+        my_membership = find_membership(db, me.user_id, payload.household_id)
+        if not my_membership:
+            raise HTTPException(status_code=403, detail="Not a member of that household")
+        if my_membership.role not in PRIVILEGED_HOUSEHOLD_ROLES:
+            raise HTTPException(
+                status_code=403,
+                detail="Only owners and admins can rename the household",
+            )
+
+        household = find_household_by_id(db, payload.household_id)
+        if not household:
+            raise HTTPException(status_code=404, detail="Household not found")
+
+        household.name = name
+        db.commit()
+
+        return UpdateHouseholdResponse(
+            household_id=str(household.household_id),
+            name=household.name,
         )
 
 

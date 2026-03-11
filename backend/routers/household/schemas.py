@@ -34,6 +34,16 @@ class CreateHouseholdResponse(BaseModel):
     name: str
 
 
+class UpdateHouseholdRequest(BaseModel):
+    household_id: UUID
+    name: str
+
+
+class UpdateHouseholdResponse(BaseModel):
+    household_id: str
+    name: str
+
+
 class HouseholdWithMembers(BaseModel):
     household_id: str
     name: str

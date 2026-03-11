@@ -31,6 +31,7 @@ export {
   normalizeHousehold,
   removeHouseholdMember,
   transferHouseholdOwnership,
+  updateHousehold,
   updateHouseholdMemberRole,
 } from "./households.js";
 
