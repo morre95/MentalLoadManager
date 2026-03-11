@@ -43,6 +43,13 @@ const API_BASE_URL = getApiBaseUrl({
   locationHref: typeof window !== "undefined" ? window.location?.href : "",
 });
 
+const GOAL_MILESTONES_UPDATED_EVENT = "goals:changed";
+
+function emitGoalMilestonesUpdated() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(GOAL_MILESTONES_UPDATED_EVENT));
+}
+
 export function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
@@ -198,7 +205,9 @@ export async function acceptHouseholdInvite(code) {
 }
 
 export async function updateKanbanTaskStatus(taskId, status) {
-  return sharedUpdateKanbanTaskStatus(apiClient, taskId, status);
+  const result = await sharedUpdateKanbanTaskStatus(apiClient, taskId, status);
+  emitGoalMilestonesUpdated();
+  return result;
 }
 
 export async function updateKanbanTaskOrder(status, orderedTaskIds) {

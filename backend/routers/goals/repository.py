@@ -1,6 +1,7 @@
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from models import Categories, Goals, Tasks, UsersHouseholds
@@ -110,3 +111,32 @@ def list_available_category_names_for_user_households(db: Session, user_id: UUID
             ),
         )
     ).all()
+
+
+def count_completed_personal_tasks_in_window(
+    db: Session,
+    user_id: UUID,
+    *,
+    start_at: datetime,
+    end_at: datetime,
+) -> int:
+    return (
+        db.scalar(
+            select(func.count(Tasks.task_id))
+            .join(
+                UsersHouseholds,
+                and_(
+                    UsersHouseholds.household_id == Tasks.household_id,
+                    UsersHouseholds.user_id == user_id,
+                ),
+            )
+            .where(
+                Tasks.assigns_to == user_id,
+                Tasks.complete_date.is_not(None),
+                Tasks.complete_date >= start_at,
+                Tasks.complete_date < end_at,
+                Tasks.status == "done",
+            )
+        )
+        or 0
+    )

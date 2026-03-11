@@ -149,6 +149,21 @@ const Goals = () => {
         loadGoals();
     }, [loadGoals]);
 
+    useEffect(() => {
+        if (typeof window === "undefined") {
+            return undefined;
+        }
+
+        const handleGoalUpdates = () => {
+            loadGoals();
+        };
+
+        window.addEventListener(GOAL_MILESTONES_UPDATED_EVENT, handleGoalUpdates);
+        return () => {
+            window.removeEventListener(GOAL_MILESTONES_UPDATED_EVENT, handleGoalUpdates);
+        };
+    }, [loadGoals]);
+
     const handleAddGoal = (newGoal) => {
         setSyncError(null);
 

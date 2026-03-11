@@ -10,6 +10,7 @@ from helpers import get_session_local
 from models import UserEmail
 
 from .repository import (
+    count_completed_personal_tasks_in_window,
     create_goal,
     get_goal_for_user,
     list_available_category_names_for_user_households,
@@ -43,6 +44,28 @@ def _to_goal_response(goal) -> GoalResponse:
         progress_data=goal.progress_data or {},
         created_at=goal.created_at,
     )
+
+
+def _sync_derived_goal_progress(db, goal, user_id: UUID):
+    if goal.type != "tasks":
+        return goal
+
+    now_utc = datetime.now(timezone.utc)
+    day_start = datetime.combine(now_utc.date(), datetime.min.time(), tzinfo=timezone.utc)
+    day_end = day_start + timedelta(days=1)
+    completed_today = count_completed_personal_tasks_in_window(
+        db,
+        user_id,
+        start_at=day_start,
+        end_at=day_end,
+    )
+
+    if goal.current_value != completed_today:
+        goal.current_value = completed_today
+        goal.updated_at = now_utc
+        db.flush()
+
+    return goal
 
 
 def _normalize_progress_data(
@@ -430,6 +453,8 @@ def list_my_goals(current_user: UserEmail) -> GoalsResponse:
 
     with session_local() as db:
         goals = list_goals_for_user(db, current_user.user_id)
+        goals = [_sync_derived_goal_progress(db, goal, current_user.user_id) for goal in goals]
+        db.commit()
         return GoalsResponse(goals=[_to_goal_response(goal) for goal in goals])
 
 
@@ -508,6 +533,12 @@ def update_my_goal_progress(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Goal was not found",
+            )
+
+        if goal.type == "tasks":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Task goals are updated automatically from completed tasks",
             )
 
         current_value, progress_data = _normalize_progress_data(

@@ -8,8 +8,11 @@ import GoalTrackerRenderer from "./GoalTrackerRenderer";
 
 const GoalCard = ({ goal, onUpdateProgress, onToggleTrainingDay, onDelete }) => {
     const [isHovered, setIsHovered] = useState(false);
-    const shouldSpanTwoColumns = goal.type === "reading" && Number(goal.target) > 69;
+    const shouldSpanTwoColumns =
+        (goal.type === "reading" && Number(goal.target) > 69) ||
+        (goal.type === "tasks" && Number(goal.target) > 20);
     const isTrainingGoal = goal.type === "training";
+    const isAutoTrackedGoal = goal.type === "tasks";
 
     const handleIncrement = () => {
         onUpdateProgress(goal.id, Math.min(goal.current + 1, goal.target * 2));
@@ -51,7 +54,7 @@ const GoalCard = ({ goal, onUpdateProgress, onToggleTrainingDay, onDelete }) => 
                         <GoalTrackerRenderer goal={goal} onToggleTrainingDay={onToggleTrainingDay} />
                     </div>
 
-                    {!isTrainingGoal && (
+                    {!isTrainingGoal && !isAutoTrackedGoal && (
                         <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-border">
                             <Button
                                 variant="outline"
