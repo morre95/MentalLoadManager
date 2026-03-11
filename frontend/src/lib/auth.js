@@ -1,5 +1,6 @@
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
+const AUTH_STATE_KEY = "is_authenticated";
 
 function dispatchAuthChanged() {
   if (typeof window !== "undefined") {
@@ -8,24 +9,22 @@ function dispatchAuthChanged() {
 }
 
 export function getAccessToken() {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(ACCESS_TOKEN_KEY);
+  return null;
 }
 
 export function getRefreshToken() {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
+  return null;
 }
 
 export function setAuthToken(token, refreshToken = null) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(ACCESS_TOKEN_KEY, token);
 
-  if (refreshToken) {
-    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-  } else {
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
-  }
+  void token;
+  void refreshToken;
+
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.setItem(AUTH_STATE_KEY, "1");
 
   localStorage.removeItem("token");
   localStorage.removeItem("auth_token");
@@ -35,14 +34,10 @@ export function setAuthToken(token, refreshToken = null) {
 export function setAuthTokens(tokens) {
   if (typeof window === "undefined") return;
 
-  const accessToken = tokens?.accessToken;
-  if (accessToken) {
-    localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-  }
-
-  if (tokens?.refreshToken) {
-    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
-  }
+  void tokens;
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.setItem(AUTH_STATE_KEY, "1");
 
   dispatchAuthChanged();
 }
@@ -60,12 +55,14 @@ export function clearAuth() {
   localStorage.removeItem("households");
   localStorage.removeItem("household");
   localStorage.removeItem("display_name");
+  localStorage.removeItem(AUTH_STATE_KEY);
 
   dispatchAuthChanged();
 }
 
 export function isUserLoggedIn() {
-  return Boolean(getAccessToken());
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(AUTH_STATE_KEY) === "1";
 }
 
 export function getUserFromLocalStorage() {
@@ -96,6 +93,8 @@ export function saveUserToLocalStorage(user) {
   } else {
     localStorage.removeItem("display_name");
   }
+
+  localStorage.setItem(AUTH_STATE_KEY, "1");
 
   window.dispatchEvent(new Event("user:changed"));
 }

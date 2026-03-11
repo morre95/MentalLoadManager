@@ -40,15 +40,12 @@ const QuickStats = () => {
     const [data, setData] = useState(mockResponse);
 
     useEffect(() => {
-        const token = localStorage.getItem("access_token");
-        if (!token) return;
-
         let cancelled = false;
 
         async function load() {
             try {
                 const res = await fetch(`${API_BASE_URL}/dashboard/quick-stats?range=week`, {
-                    headers: { Authorization: `Bearer ${token}` },
+                    credentials: "include",
                 });
 
                 if (!res.ok) return;

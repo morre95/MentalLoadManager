@@ -2,11 +2,8 @@ import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import {
   clearAuth,
-  getAccessToken,
-  getRefreshToken,
   getUserFromLocalStorage,
   saveUserToLocalStorage,
-  setAuthTokens,
 } from "./auth";
 import {
   acceptHouseholdInvite as sharedAcceptHouseholdInvite,
@@ -63,9 +60,6 @@ function getHouseholdIdFromStoredValue(value) {
 
 
 export const apiClient = createApiClient({
-  getAccessToken,
-  getRefreshToken,
-  setAuthTokens,
   onUnauthorized: clearAuth,
   envOptions: {
     locationHref: typeof window !== "undefined" ? window.location?.href : "",
@@ -73,11 +67,7 @@ export const apiClient = createApiClient({
 });
 
 export const fetchMe = async () => {
-  const token = getAccessToken();
-  if (!token) return null;
-
   const cached = getUserFromLocalStorage();
-  if (cached?.username && cached?.email && cached?.display_name) return cached;
 
   try {
     const data = await sharedFetchMe(apiClient);
@@ -90,9 +80,10 @@ export const fetchMe = async () => {
   } catch (error) {
     if (error?.status === 401) {
       clearAuth();
+      return null;
     }
     console.error("[fetchMe] error:", error);
-    return null;
+    return cached?.username ? cached : null;
   }
 };
 

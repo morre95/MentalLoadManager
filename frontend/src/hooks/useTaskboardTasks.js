@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { isUserLoggedIn } from "@/lib/auth";
 import { fetchKanbanTasks } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -15,12 +14,6 @@ export function useTaskboardTasks(householdId) {
   const loadTasks = useCallback(async () => {
     setLoading(true);
     setError(null);
-
-    if (!isUserLoggedIn()) {
-      setTasks([]);
-      setLoading(false);
-      return [];
-    }
 
     try {
       const data = await fetchKanbanTasks(householdId || undefined);

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { isUserLoggedIn } from "@/lib/auth";
 import { acceptHouseholdInvite } from "@/lib/utils";
 
 function useQuery() {
@@ -20,18 +19,16 @@ export default function JoinHousehold() {
                 return;
             }
 
-            // Not logged in -> store code and redirect to login
-            if (!isUserLoggedIn()) {
-                localStorage.setItem("pending_invite_code", code);
-                navigate("/login", { replace: true });
-                return;
-            }
-
             try {
                 await acceptHouseholdInvite(code);
                 localStorage.removeItem("pending_invite_code");
                 navigate("/dashboard/household", { replace: true });
             } catch (e) {
+                if (e?.status === 401) {
+                    localStorage.setItem("pending_invite_code", code);
+                    navigate("/login", { replace: true });
+                    return;
+                }
                 setStatus(e?.message || "Could not accept invite.");
             }
         }

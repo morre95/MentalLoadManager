@@ -3,12 +3,13 @@ import hashlib
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Literal, cast
 from urllib.parse import urlencode
 from uuid import UUID, uuid4
 
 import jwt
 import requests
-from fastapi import HTTPException, Query, Request, status
+from fastapi import HTTPException, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -34,6 +35,17 @@ logger = logging.getLogger(__name__)
 
 FRONTEND_URL = (settings.FRONTEND_URL or "http://localhost:5173").rstrip("/")
 BACKEND_URL = (settings.BACKEND_URL or "").rstrip("/")
+ACCESS_TOKEN_COOKIE_KEY = "access_token"
+REFRESH_TOKEN_COOKIE_KEY = "refresh_token"
+AUTH_COOKIE_SECURE = settings.SESSION_COOKIE_SECURE
+AUTH_COOKIE_SAMESITE = (settings.SESSION_COOKIE_SAMESITE or "lax").strip().lower()
+if AUTH_COOKIE_SAMESITE not in {"lax", "strict", "none"}:
+    AUTH_COOKIE_SAMESITE = "lax"
+AUTH_COOKIE_SAMESITE_VALUE = cast(
+    Literal["lax", "strict", "none"], AUTH_COOKIE_SAMESITE
+)
+ACCESS_TOKEN_COOKIE_MAX_AGE_SECONDS = int(ACCESS_TOKEN_EXPIRE_MINUTES * 60)
+REFRESH_TOKEN_COOKIE_MAX_AGE_SECONDS = int(REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60)
 REDIRECT_URIS_BY_PROVIDER = {
     "google": (settings.GOOGLE_REDIRECT_URI or "").rstrip("/"),
 }
@@ -153,14 +165,66 @@ def issue_login_redirect(username: str, request: Request) -> RedirectResponse:
             detail=f"Failed to issue refresh token: {exc}",
         ) from exc
 
-    params = urlencode(
-        {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "refresh_token": raw_refresh_token,
-        }
+    response = RedirectResponse(url=f"{FRONTEND_URL}/dashboard")
+    set_auth_cookies(
+        response,
+        access_token=access_token,
+        refresh_token=raw_refresh_token,
     )
-    return RedirectResponse(url=f"{FRONTEND_URL}/login#{params}")
+    return response
+
+
+def set_auth_cookies(
+    response: Response,
+    *,
+    access_token: str,
+    refresh_token: str | None,
+) -> None:
+    response.set_cookie(
+        key=ACCESS_TOKEN_COOKIE_KEY,
+        value=access_token,
+        max_age=ACCESS_TOKEN_COOKIE_MAX_AGE_SECONDS,
+        httponly=True,
+        secure=AUTH_COOKIE_SECURE,
+        samesite=AUTH_COOKIE_SAMESITE_VALUE,
+        path="/",
+    )
+
+    if refresh_token:
+        response.set_cookie(
+            key=REFRESH_TOKEN_COOKIE_KEY,
+            value=refresh_token,
+            max_age=REFRESH_TOKEN_COOKIE_MAX_AGE_SECONDS,
+            httponly=True,
+            secure=AUTH_COOKIE_SECURE,
+            samesite=AUTH_COOKIE_SAMESITE_VALUE,
+            path="/",
+        )
+    else:
+        response.delete_cookie(
+            key=REFRESH_TOKEN_COOKIE_KEY,
+            httponly=True,
+            secure=AUTH_COOKIE_SECURE,
+            samesite=AUTH_COOKIE_SAMESITE_VALUE,
+            path="/",
+        )
+
+
+def clear_auth_cookies(response: Response) -> None:
+    response.delete_cookie(
+        key=ACCESS_TOKEN_COOKIE_KEY,
+        httponly=True,
+        secure=AUTH_COOKIE_SECURE,
+        samesite=AUTH_COOKIE_SAMESITE_VALUE,
+        path="/",
+    )
+    response.delete_cookie(
+        key=REFRESH_TOKEN_COOKIE_KEY,
+        httponly=True,
+        secure=AUTH_COOKIE_SECURE,
+        samesite=AUTH_COOKIE_SAMESITE_VALUE,
+        path="/",
+    )
 
 
 def require_env(name: str) -> str:
@@ -499,8 +563,17 @@ def login(form: OAuth2PasswordRequestForm, request: Request) -> Token:
     )
 
 
-def refresh_password_session(payload: RefreshTokenRequest, request: Request) -> Token:
-    incoming_refresh_token = (payload.refresh_token or "").strip()
+def refresh_password_session(
+    payload: RefreshTokenRequest | None,
+    request: Request,
+) -> Token:
+    incoming_refresh_token = (payload.refresh_token if payload else "") or ""
+    incoming_refresh_token = incoming_refresh_token.strip()
+    if not incoming_refresh_token:
+        incoming_refresh_token = (
+            request.cookies.get(REFRESH_TOKEN_COOKIE_KEY) or ""
+        ).strip()
+
     if not incoming_refresh_token:
         logger.warning(
             "refresh_password_session: missing refresh token in request payload"

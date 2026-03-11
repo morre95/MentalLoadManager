@@ -1,5 +1,5 @@
 from uuid import UUID
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 import jwt
 from jwt.exceptions import InvalidTokenError
 from datetime import datetime, timedelta, timezone
@@ -14,7 +14,8 @@ from pwdlib.hashers.argon2 import Argon2Hasher
 from models import User, UserDB, UserEmail, Base
 
 password_hasher = PasswordHash([Argon2Hasher()])
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/token")
+ACCESS_TOKEN_COOKIE_KEY = "access_token"
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/token", auto_error=False)
 
 
 SECRET_KEY = settings.JWT_SECRET
@@ -116,16 +117,22 @@ def _resolve_user_from_token_subject(db, subject: str | None) -> UserDB | None:
     return db.scalar(select(UserDB).where(UserDB.user_id == subject_uuid))
 
 
+def _resolve_request_token(request: Request, bearer_token: str | None) -> str | None:
+    if bearer_token:
+        return bearer_token
+    return request.cookies.get(ACCESS_TOKEN_COOKIE_KEY)
+
+
 def get_user_id_from_token(
-    token: str | None = Depends(
-        OAuth2PasswordBearer(tokenUrl="/api/token", auto_error=False)
-    ),
+    request: Request,
+    token: str | None = Depends(oauth2_scheme),
 ) -> UUID | None:
     """Return the user_id if a valid token is present, otherwise None."""
-    if not token:
+    resolved_token = _resolve_request_token(request, token)
+    if not resolved_token:
         return None
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(resolved_token, SECRET_KEY, algorithms=[ALGORITHM])
         subject = payload.get("sub")
         if not subject:
             return None
@@ -142,9 +149,20 @@ def get_user_id_from_token(
         return user.user_id if user else None
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> UserEmail:
+def get_current_user(
+    request: Request,
+    token: str | None = Depends(oauth2_scheme),
+) -> UserEmail:
+    resolved_token = _resolve_request_token(request, token)
+    if not resolved_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(resolved_token, SECRET_KEY, algorithms=[ALGORITHM])
         subject = payload.get("sub")
         if not subject:
             raise ValueError("Missing subject")

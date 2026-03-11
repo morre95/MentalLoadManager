@@ -30,15 +30,17 @@ export function createApiClient(options = {}) {
 
     const refreshPromise = (async () => {
       const refreshToken = await getRefreshToken();
-      if (!refreshToken) {
-        throw new Error("No refresh token available");
+      const refreshRequestOptions = {
+        method: "POST",
+        credentials: "include",
+      };
+
+      if (refreshToken) {
+        refreshRequestOptions.headers = { "Content-Type": "application/json" };
+        refreshRequestOptions.body = JSON.stringify({ refresh_token: refreshToken });
       }
 
-      const response = await fetch(`${baseUrl}${refreshPath}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      });
+      const response = await fetch(`${baseUrl}${refreshPath}`, refreshRequestOptions);
 
       const body = await parseResponseBody(response);
       if (!response.ok) {
@@ -48,16 +50,14 @@ export function createApiClient(options = {}) {
         throw error;
       }
 
-      if (!body?.access_token) {
-        throw new Error("Token refresh response missing access token");
+      if (body?.access_token || body?.refresh_token) {
+        await setAuthTokens({
+          accessToken: body.access_token,
+          refreshToken: body.refresh_token,
+        });
       }
 
-      await setAuthTokens({
-        accessToken: body.access_token,
-        refreshToken: body.refresh_token,
-      });
-
-      return body.access_token;
+      return body?.access_token || null;
     })().finally(() => {
       refreshPromisesByKey.delete(refreshKey);
     });
@@ -88,6 +88,7 @@ export function createApiClient(options = {}) {
       const response = await fetch(url, {
         ...requestOptions,
         headers,
+        credentials: requestOptions.credentials || "include",
       });
       const body = await parseResponseBody(response);
       return { response, body };
