@@ -51,13 +51,25 @@ def _sync_derived_goal_progress(db, goal, user_id: UUID):
         return goal
 
     now_utc = datetime.now(timezone.utc)
+    tracking_style = (goal.tracking_style or "daily").strip().lower()
     day_start = datetime.combine(now_utc.date(), datetime.min.time(), tzinfo=timezone.utc)
-    day_end = day_start + timedelta(days=1)
+
+    if tracking_style == "weekly":
+        weekday = day_start.weekday()
+        start_at = day_start - timedelta(days=weekday)
+        end_at = start_at + timedelta(days=7)
+    elif tracking_style == "total":
+        start_at = None
+        end_at = None
+    else:
+        start_at = day_start
+        end_at = day_start + timedelta(days=1)
+
     completed_today = count_completed_personal_tasks_in_window(
         db,
         user_id,
-        start_at=day_start,
-        end_at=day_end,
+        start_at=start_at,
+        end_at=end_at,
     )
 
     if goal.current_value != completed_today:

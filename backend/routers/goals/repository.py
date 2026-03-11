@@ -117,9 +117,21 @@ def count_completed_personal_tasks_in_window(
     db: Session,
     user_id: UUID,
     *,
-    start_at: datetime,
-    end_at: datetime,
+    start_at: datetime | None = None,
+    end_at: datetime | None = None,
 ) -> int:
+    conditions = [
+        Tasks.assigns_to == user_id,
+        Tasks.complete_date.is_not(None),
+        Tasks.status == "done",
+    ]
+
+    if start_at is not None:
+        conditions.append(Tasks.complete_date >= start_at)
+
+    if end_at is not None:
+        conditions.append(Tasks.complete_date < end_at)
+
     return (
         db.scalar(
             select(func.count(Tasks.task_id))
@@ -130,13 +142,7 @@ def count_completed_personal_tasks_in_window(
                     UsersHouseholds.user_id == user_id,
                 ),
             )
-            .where(
-                Tasks.assigns_to == user_id,
-                Tasks.complete_date.is_not(None),
-                Tasks.complete_date >= start_at,
-                Tasks.complete_date < end_at,
-                Tasks.status == "done",
-            )
+            .where(*conditions)
         )
         or 0
     )
