@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS goals (
   name            VARCHAR(255) NOT NULL,
   current_value   INTEGER NOT NULL DEFAULT 0 CHECK (current_value >= 0),
   target_value    INTEGER NOT NULL CHECK (target_value > 0),
-  tracking_style  VARCHAR(20) NOT NULL CHECK (tracking_style IN ('daily', 'weekly', 'total')),
+  tracking_style  VARCHAR(20) NOT NULL CHECK (tracking_style IN ('daily', 'weekly', 'monthly', 'total')),
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW()
 );

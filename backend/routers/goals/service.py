@@ -28,7 +28,7 @@ from .schemas import (
     UpdateGoalProgressRequest,
 )
 
-ALLOWED_TRACKING_STYLES = {"daily", "weekly", "total"}
+ALLOWED_TRACKING_STYLES = {"daily", "weekly", "monthly", "total"}
 COMPLETED_STATUSES = {"done", "archive"}
 PERIOD_MILESTONES_DAYS = [7, 30, 60, 90, 180, 365]
 
@@ -58,6 +58,12 @@ def _sync_derived_goal_progress(db, goal, user_id: UUID):
         weekday = day_start.weekday()
         start_at = day_start - timedelta(days=weekday)
         end_at = start_at + timedelta(days=7)
+    elif tracking_style == "monthly":
+        start_at = day_start.replace(day=1)
+        if start_at.month == 12:
+            end_at = start_at.replace(year=start_at.year + 1, month=1)
+        else:
+            end_at = start_at.replace(month=start_at.month + 1)
     elif tracking_style == "total":
         start_at = None
         end_at = None
@@ -475,7 +481,7 @@ def create_my_goal(payload: CreateGoalRequest, current_user: UserEmail) -> GoalR
     if tracking_style not in ALLOWED_TRACKING_STYLES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="tracking_style must be one of: daily, weekly, total",
+            detail="tracking_style must be one of: daily, weekly, monthly, total",
         )
 
     goal_type = payload.type.strip().lower()

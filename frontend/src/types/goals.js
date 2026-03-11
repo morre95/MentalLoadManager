@@ -11,7 +11,7 @@ export const GOAL_TYPES = [
     "streak",
 ];
 
-export const TRACKING_STYLES = ["daily", "weekly", "total"];
+export const TRACKING_STYLES = ["daily", "weekly", "monthly", "total"];
 
 export const goalTemplates = [
     {

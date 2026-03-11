@@ -41,12 +41,22 @@ CREATE TABLE IF NOT EXISTS goals (
   name            VARCHAR(255) NOT NULL,
   current_value   INTEGER NOT NULL DEFAULT 0 CHECK (current_value >= 0),
   target_value    INTEGER NOT NULL CHECK (target_value > 0),
-  tracking_style  VARCHAR(20) NOT NULL CHECK (tracking_style IN ('daily', 'weekly', 'total')),
+  tracking_style  VARCHAR(20) NOT NULL CHECK (tracking_style IN ('daily', 'weekly', 'monthly', 'total')),
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
+
+ALTER TABLE goals
+DROP CONSTRAINT IF EXISTS goals_tracking_style_check;
+
+ALTER TABLE goals
+DROP CONSTRAINT IF EXISTS goals_tracking_style_valid;
+
+ALTER TABLE goals
+ADD CONSTRAINT goals_tracking_style_check
+CHECK (tracking_style IN ('daily', 'weekly', 'monthly', 'total'));
 
 
 ALTER TABLE preferences

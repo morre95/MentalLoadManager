@@ -14,7 +14,7 @@ class Goals(Base):
     __tablename__ = "goals"
     __table_args__ = (
         CheckConstraint(
-            "tracking_style IN ('daily', 'weekly', 'total')",
+            "tracking_style IN ('daily', 'weekly', 'monthly', 'total')",
             name="goals_tracking_style_check",
         ),
         CheckConstraint(
