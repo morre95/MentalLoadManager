@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 import { GET_API_BASE_URL } from "@/components/ui/base_url";
-import { getAccessToken, isUserLoggedIn } from "@/lib/auth";
 
 const API_BASE_URL = GET_API_BASE_URL();
 
@@ -34,21 +33,14 @@ const Contact = () => {
     setError(null);
 
     try {
-      const token = getAccessToken();
-
-      const headers = {
-        "Content-Type": "application/json",
-      };
-
-      if (isUserLoggedIn() && token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
       const response = await fetch(
         `${API_BASE_URL}/api/contact/send/message`,
         {
           method: "POST",
-          headers,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
           body: JSON.stringify({ name, email, message }),
         }
       );

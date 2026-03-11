@@ -52,15 +52,12 @@ const CalendarWidget = () => {
     );
 
     useEffect(() => {
-        const token = localStorage.getItem("access_token");
-        if (!token) return;
-
         let cancelled = false;
 
         async function load() {
             try {
                 const res = await fetch(`${API_BASE_URL}/calendar-widget`, {
-                    headers: { Authorization: `Bearer ${token}` },
+                    credentials: "include",
                 });
 
                 if (!res.ok) return;

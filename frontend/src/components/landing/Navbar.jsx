@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { isUserLoggedIn } from "@/lib/auth";
 import { fetchMe as fetchUser, getInitials } from "../../lib/utils";
 import { useEffect, useState } from "react";
 
@@ -17,12 +16,7 @@ const Navbar = () => {
   const [user, setUser] = useState(null);
 
   const refreshUser = async () => {
-    if (!isUserLoggedIn()) {
-      setUser(null);
-      return;
-    }
     const user = await fetchUser();
-    console.log("after fetch" + user);
     setUser(user);
   };
 
@@ -51,7 +45,7 @@ const Navbar = () => {
     };
   }, []);
 
-  const loggedIn = isUserLoggedIn();
+  const loggedIn = Boolean(user?.username);
 
   return (
     <motion.header

@@ -20,15 +20,12 @@ const ResponsibilityChart = () => {
     const [chartData, setChartData] = useState(mockData);
 
     useEffect(() => {
-        const token = localStorage.getItem("access_token");
-        if (!token) return;
-
         let cancelled = false;
 
         async function load() {
             try {
                 const res = await fetch(`${API_BASE_URL}/responsibility-split`, {
-                    headers: { Authorization: `Bearer ${token}` },
+                    credentials: "include",
                 });
 
                 if (!res.ok) return;

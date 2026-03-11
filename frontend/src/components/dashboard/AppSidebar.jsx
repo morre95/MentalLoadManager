@@ -15,6 +15,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import {
+  apiFetch,
   getInitials,
 } from "@/lib/utils";
 import { clearAuth, getUserFromLocalStorage } from "@/lib/auth";
@@ -68,7 +69,13 @@ export function AppSidebar() {
     };
   }, []);
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    try {
+      await apiFetch("/api/password/logout", { method: "POST" });
+    } catch {
+      // Ignore logout API errors and continue local cleanup.
+    }
+
     clearAuth();
     queryClient.clear();
     navigate("/", { replace: true });

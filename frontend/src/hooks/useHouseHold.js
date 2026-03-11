@@ -10,22 +10,27 @@ import {
   updateHouseholdMemberRole as sharedUpdateHouseholdMemberRole,
 } from "../../../shared/index.js";
 import { apiClient } from "@/lib/utils";
-import { getAccessToken } from "@/lib/auth";
+import { getUserFromLocalStorage } from "@/lib/auth";
 
 const LS_HOUSEHOLDS_KEY = "households";
 let householdsCache = null;
 let householdsPromise = null;
 let hasFetchedHouseholds = false;
-let householdsCacheToken = null;
+let householdsCacheUser = null;
+
+function getCacheUserKey() {
+  const user = getUserFromLocalStorage();
+  return user?.username || null;
+}
 
 function syncHouseholdCacheWithAuth() {
-  const currentToken = getAccessToken();
-  if (currentToken === householdsCacheToken) return;
+  const currentUser = getCacheUserKey();
+  if (currentUser === householdsCacheUser) return;
 
   householdsCache = null;
   householdsPromise = null;
   hasFetchedHouseholds = false;
-  householdsCacheToken = currentToken;
+  householdsCacheUser = currentUser;
 
   if (typeof window !== "undefined") {
     localStorage.removeItem(LS_HOUSEHOLDS_KEY);
@@ -36,7 +41,7 @@ function syncHouseholdCacheWithAuth() {
 function readHouseholdsFromStorage() {
   syncHouseholdCacheWithAuth();
 
-  if (!householdsCacheToken) {
+  if (!householdsCacheUser) {
     return [];
   }
 
@@ -51,7 +56,7 @@ function readHouseholdsFromStorage() {
 async function fetchHouseholdsShared(force = false) {
   syncHouseholdCacheWithAuth();
 
-  if (!householdsCacheToken) {
+  if (!householdsCacheUser) {
     return [];
   }
 
@@ -68,7 +73,7 @@ async function fetchHouseholdsShared(force = false) {
     const list = Array.isArray(data?.households) ? data.households : [];
     householdsCache = list;
     hasFetchedHouseholds = true;
-    householdsCacheToken = getAccessToken();
+    householdsCacheUser = getCacheUserKey();
     localStorage.setItem(LS_HOUSEHOLDS_KEY, JSON.stringify(list));
     return list;
   })().finally(() => {
@@ -98,7 +103,7 @@ export function useHousehold() {
       const normalized = Array.isArray(resolved) ? resolved : [];
       householdsCache = normalized;
       hasFetchedHouseholds = true;
-      householdsCacheToken = getAccessToken();
+      householdsCacheUser = getCacheUserKey();
       localStorage.setItem(LS_HOUSEHOLDS_KEY, JSON.stringify(normalized));
       return normalized;
     });
