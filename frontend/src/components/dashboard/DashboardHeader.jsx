@@ -14,28 +14,36 @@ import { fetchGoals, fetchNotificationSettings } from "@/lib/utils";
 const TASK_CREATED_EVENT = "kanban-task-created";
 const GOAL_MILESTONES_UPDATED_EVENT = "goals:changed";
 const GOAL_MILESTONE_SETTINGS_UPDATED_EVENT = "goal-milestones:settings-changed";
-const GOAL_MILESTONE_SEEN_STORAGE_KEY = "goal-milestone-notifications-seen-v1";
+const NOTIFICATIONS_READ_STORAGE_KEY = "dashboard-notifications-read-v1";
+const LEGACY_GOAL_MILESTONE_SEEN_STORAGE_KEY = "goal-milestone-notifications-seen-v1";
 
 function firstLetter(name) {
   const s = String(name || "").trim();
   return s ? s[0].toUpperCase() : "?";
 }
 
-function readSeenGoalMilestones() {
+function readReadNotifications() {
   if (typeof window === "undefined") return [];
 
   try {
-    const rawValue = window.localStorage.getItem(GOAL_MILESTONE_SEEN_STORAGE_KEY);
+    const rawValue = window.localStorage.getItem(NOTIFICATIONS_READ_STORAGE_KEY);
     const parsedValue = rawValue ? JSON.parse(rawValue) : [];
-    return Array.isArray(parsedValue) ? parsedValue.map(String) : [];
+
+    if (Array.isArray(parsedValue)) {
+      return parsedValue.map(String);
+    }
+
+    const legacyRawValue = window.localStorage.getItem(LEGACY_GOAL_MILESTONE_SEEN_STORAGE_KEY);
+    const legacyParsedValue = legacyRawValue ? JSON.parse(legacyRawValue) : [];
+    return Array.isArray(legacyParsedValue) ? legacyParsedValue.map(String) : [];
   } catch {
     return [];
   }
 }
 
-function writeSeenGoalMilestones(signatures) {
+function writeReadNotifications(ids) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(GOAL_MILESTONE_SEEN_STORAGE_KEY, JSON.stringify(signatures));
+  window.localStorage.setItem(NOTIFICATIONS_READ_STORAGE_KEY, JSON.stringify(ids));
 }
 
 function getGoalMilestoneSignature(goal) {
@@ -50,8 +58,8 @@ const DashboardHeader = ({ onAddTask }) => {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   const [goalMilestonesEnabled, setGoalMilestonesEnabled] = useState(true);
-  const [goalNotifications, setGoalNotifications] = useState([]);
-  const [seenGoalMilestones, setSeenGoalMilestones] = useState(readSeenGoalMilestones);
+  const [notifications, setNotifications] = useState([]);
+  const [readNotifications, setReadNotifications] = useState(readReadNotifications);
   const notificationPanelRef = useRef(null);
 
   const handleAddClick = () => {
@@ -68,7 +76,7 @@ const DashboardHeader = ({ onAddTask }) => {
     }
   };
 
-  const loadGoalNotifications = useCallback(async () => {
+  const loadNotifications = useCallback(async () => {
     setIsLoadingNotifications(true);
 
     try {
@@ -81,19 +89,20 @@ const DashboardHeader = ({ onAddTask }) => {
       setGoalMilestonesEnabled(areGoalMilestonesEnabled);
 
       if (!areGoalMilestonesEnabled) {
-        setGoalNotifications([]);
+        setNotifications([]);
         return;
       }
 
       const goals = Array.isArray(goalsData?.goals) ? goalsData.goals : [];
-      const notifications = goals
+      const goalMilestoneNotifications = goals
         .filter((goal) => Number(goal?.current || 0) >= Number(goal?.target || 0))
         .map((goal) => ({
-          id: getGoalMilestoneSignature(goal),
-          goalId: goal.id,
+          id: `goal-milestone:${getGoalMilestoneSignature(goal)}`,
+          type: "goal_milestone",
+          entityId: goal.id,
           title: goal.name,
-          current: Number(goal.current || 0),
-          target: Number(goal.target || 0),
+          message: `Milestone reached: ${Number(goal.current || 0)} of ${Number(goal.target || 0)}`,
+          actionLabel: "Open goal",
           createdAt: goal.createdAt instanceof Date ? goal.createdAt : null,
         }))
         .sort((a, b) => {
@@ -102,21 +111,21 @@ const DashboardHeader = ({ onAddTask }) => {
           return right - left;
         });
 
-      setGoalNotifications(notifications);
+      setNotifications(goalMilestoneNotifications);
     } catch {
-      setGoalNotifications([]);
+      setNotifications([]);
     } finally {
       setIsLoadingNotifications(false);
     }
   }, []);
 
   useEffect(() => {
-    loadGoalNotifications();
-  }, [loadGoalNotifications]);
+    loadNotifications();
+  }, [loadNotifications]);
 
   useEffect(() => {
     const handleGoalUpdates = () => {
-      void loadGoalNotifications();
+      void loadNotifications();
     };
 
     window.addEventListener(GOAL_MILESTONES_UPDATED_EVENT, handleGoalUpdates);
@@ -128,7 +137,7 @@ const DashboardHeader = ({ onAddTask }) => {
       window.removeEventListener(GOAL_MILESTONE_SETTINGS_UPDATED_EVENT, handleGoalUpdates);
       window.removeEventListener("auth:changed", handleGoalUpdates);
     };
-  }, [loadGoalNotifications]);
+  }, [loadNotifications]);
 
   useEffect(() => {
     if (!isNotificationsOpen) return;
@@ -154,35 +163,36 @@ const DashboardHeader = ({ onAddTask }) => {
     };
   }, [isNotificationsOpen]);
 
-  useEffect(() => {
-    if (!isNotificationsOpen || goalNotifications.length === 0) return;
-
-    const nextSeenMilestones = Array.from(new Set([
-      ...seenGoalMilestones,
-      ...goalNotifications.map((notification) => notification.id),
-    ]));
-
-    setSeenGoalMilestones(nextSeenMilestones);
-    writeSeenGoalMilestones(nextSeenMilestones);
-  }, [goalNotifications, isNotificationsOpen, seenGoalMilestones]);
-
-  const unreadGoalNotifications = useMemo(
-    () => goalNotifications.filter((notification) => !seenGoalMilestones.includes(notification.id)),
-    [goalNotifications, seenGoalMilestones]
+  const unreadNotifications = useMemo(
+    () => notifications.filter((notification) => !readNotifications.includes(notification.id)),
+    [notifications, readNotifications]
   );
+
+  const markNotificationsAsRead = useCallback((ids) => {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+
+    setReadNotifications((currentIds) => {
+      const nextIds = Array.from(new Set([...currentIds, ...ids.map(String)]));
+      writeReadNotifications(nextIds);
+      return nextIds;
+    });
+  }, []);
 
   const handleNotificationBellClick = async () => {
     const nextOpenState = !isNotificationsOpen;
     setIsNotificationsOpen(nextOpenState);
 
     if (nextOpenState) {
-      await loadGoalNotifications();
+      await loadNotifications();
     }
   };
 
-  const handleNotificationItemClick = () => {
+  const handleNotificationItemClick = (notification) => {
+    markNotificationsAsRead([notification.id]);
     setIsNotificationsOpen(false);
-    navigate("/dashboard/goals");
+    if (notification.type === "goal_milestone") {
+      navigate("/dashboard/goals");
+    }
   };
 
   const avatarColors = [
@@ -217,15 +227,15 @@ const DashboardHeader = ({ onAddTask }) => {
               size="icon"
               className="relative"
               onClick={() => void handleNotificationBellClick()}
-              aria-label="Open goal milestone notifications"
+              aria-label="Open notifications"
               aria-expanded={isNotificationsOpen}
             >
               <Bell className="h-4 w-4 text-muted-foreground" />
-              {unreadGoalNotifications.length > 0 ? (
+              {unreadNotifications.length > 0 ? (
                 <>
                   <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-terracotta" />
                   <span className="sr-only">
-                    {unreadGoalNotifications.length} unread goal milestone notifications
+                    {unreadNotifications.length} unread notifications
                   </span>
                 </>
               ) : null}
@@ -242,16 +252,28 @@ const DashboardHeader = ({ onAddTask }) => {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-foreground">Goal milestones</p>
+                      <p className="text-sm font-semibold text-foreground">Notifications</p>
                       <p className="text-xs text-muted-foreground">
-                        Updates from your goal trackers
+                        Updates from your workspace
                       </p>
                     </div>
-                    {goalMilestonesEnabled && goalNotifications.length > 0 ? (
-                      <Badge variant="outline" className="shrink-0">
-                        {goalNotifications.length}
-                      </Badge>
-                    ) : null}
+                    <div className="flex items-center gap-2">
+                      {unreadNotifications.length > 0 ? (
+                        <Badge variant="outline" className="shrink-0">
+                          {unreadNotifications.length}
+                        </Badge>
+                      ) : null}
+                      {unreadNotifications.length > 1 ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => markNotificationsAsRead(unreadNotifications.map((notification) => notification.id))}
+                        >
+                          Mark all as read
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="mt-4 space-y-2">
@@ -265,7 +287,7 @@ const DashboardHeader = ({ onAddTask }) => {
                           Goal milestone notifications are off
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Turn them on in Settings to get alerts here when a goal reaches its target.
+                          Turn them on in Settings to get goal updates here when a target is reached.
                         </p>
                         <Button
                           variant="outline"
@@ -279,20 +301,18 @@ const DashboardHeader = ({ onAddTask }) => {
                           Open Settings
                         </Button>
                       </div>
-                    ) : goalNotifications.length === 0 ? (
+                    ) : unreadNotifications.length === 0 ? (
                       <div className="rounded-lg border border-border bg-muted/30 px-3 py-4">
-                        <p className="text-sm font-medium text-foreground">No milestone notifications</p>
+                        <p className="text-sm font-medium text-foreground">No new notifications</p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          You will see completed goal milestones here as they come in.
+                          New goal milestones and future notification types will show up here.
                         </p>
                       </div>
                     ) : (
-                      goalNotifications.map((notification) => (
-                        <button
+                      unreadNotifications.map((notification) => (
+                        <div
                           key={notification.id}
-                          type="button"
-                          onClick={handleNotificationItemClick}
-                          className="w-full rounded-lg border border-border bg-background px-3 py-3 text-left transition-colors hover:bg-muted/40"
+                          className="rounded-lg border border-border bg-background px-3 py-3"
                         >
                           <div className="flex items-start gap-3">
                             <div className="mt-0.5 rounded-lg bg-primary/10 p-2 text-primary">
@@ -303,19 +323,33 @@ const DashboardHeader = ({ onAddTask }) => {
                                 <p className="truncate text-sm font-medium text-foreground">
                                   {notification.title}
                                 </p>
-                                {!seenGoalMilestones.includes(notification.id) ? (
-                                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-terracotta" />
-                                ) : null}
                               </div>
                               <p className="mt-1 text-xs text-muted-foreground">
-                                Milestone reached: {notification.current} of {notification.target}
+                                {notification.message}
                               </p>
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                View the goal tracker for more details.
-                              </p>
+                              <div className="mt-3 flex items-center gap-2">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs text-primary hover:text-primary"
+                                  onClick={() => handleNotificationItemClick(notification)}
+                                >
+                                  {notification.actionLabel}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() => markNotificationsAsRead([notification.id])}
+                                >
+                                  Mark as read
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                        </button>
+                        </div>
                       ))
                     )}
                   </div>
