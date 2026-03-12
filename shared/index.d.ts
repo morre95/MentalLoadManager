@@ -191,6 +191,31 @@ export type Household = {
   members: HouseholdMember[];
 };
 
+export type AnalyticsRiskItem = {
+  title: string;
+  severity: "low" | "medium" | "high";
+  reason: string;
+};
+
+export type AnalyticsRecommendationItem = {
+  title: string;
+  action: string;
+  priority: "low" | "medium" | "high";
+};
+
+export type AnalyticsAIInsights = {
+  household_id: string | null;
+  timeframe: "7d" | "30d" | "12w" | string;
+  generated_at: string | null;
+  summary: string;
+  risks: AnalyticsRiskItem[];
+  recommendations: AnalyticsRecommendationItem[];
+  evidence: string[];
+  confidence: "low" | "medium" | "high" | string;
+  cached: boolean;
+  model: string | null;
+};
+
 export function normalizeHousehold(household: any): Household;
 export function flattenHouseholdMembers(households: Household[]): Array<
   HouseholdMember & {
@@ -200,6 +225,21 @@ export function flattenHouseholdMembers(households: Household[]): Array<
 >;
 
 export function fetchHouseholds(apiClient: ApiClient): Promise<{ households: Household[] }>;
+export function normalizeAnalyticsSummary(data: any): any;
+export function normalizeAnalyticsAIInsights(data: any): AnalyticsAIInsights;
+export function fetchAnalyticsSummary(
+  apiClient: ApiClient,
+  householdId?: string | null,
+  timeframe?: "7d" | "30d" | "12w" | string
+): Promise<any>;
+export function fetchAnalyticsAIInsights(
+  apiClient: ApiClient,
+  options?: {
+    householdId?: string | null;
+    timeframe?: "7d" | "30d" | "12w" | string;
+    refresh?: boolean;
+  }
+): Promise<AnalyticsAIInsights>;
 export function createHousehold(apiClient: ApiClient, name: string): Promise<any>;
 export function createHouseholdInvite(apiClient: ApiClient, householdId: string | number): Promise<any>;
 export function acceptHouseholdInvite(apiClient: ApiClient, code: string): Promise<any>;

@@ -12,6 +12,7 @@ from .base import Base
 
 
 if TYPE_CHECKING:
+    from .analytics_ai_insights_cache import AnalyticsAIInsightsCache
     from .users_households import UsersHouseholds
     from .invitations import Invitations
     from .categories import Categories
@@ -65,6 +66,11 @@ class Households(Base):
     )
     ai_summaries: Mapped[list[AISummaries]] = relationship(
         "AISummaries", back_populates="household", cascade="all, delete-orphan"
+    )
+    analytics_ai_insights: Mapped[list[AnalyticsAIInsightsCache]] = relationship(
+        "AnalyticsAIInsightsCache",
+        back_populates="household",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

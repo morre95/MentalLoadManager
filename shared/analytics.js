@@ -57,6 +57,32 @@ export function normalizeAnalyticsSummary(data) {
 }
 
 
+export function normalizeAnalyticsAIInsights(data) {
+    const safeArray = (x) => (Array.isArray(x) ? x : []);
+
+    return {
+        household_id: data?.household_id ?? null,
+        timeframe: data?.timeframe ?? "30d",
+        generated_at: data?.generated_at ?? null,
+        summary: data?.summary ?? "",
+        risks: safeArray(data?.risks).map((item) => ({
+            title: item?.title ?? "",
+            severity: item?.severity ?? "low",
+            reason: item?.reason ?? "",
+        })),
+        recommendations: safeArray(data?.recommendations).map((item) => ({
+            title: item?.title ?? "",
+            action: item?.action ?? "",
+            priority: item?.priority ?? "low",
+        })),
+        evidence: safeArray(data?.evidence).map((item) => String(item ?? "")),
+        confidence: data?.confidence ?? "low",
+        cached: Boolean(data?.cached),
+        model: data?.model ?? null,
+    };
+}
+
+
 export async function fetchAnalyticsSummary(
     apiClient,
     householdId = null,
@@ -75,4 +101,25 @@ export async function fetchAnalyticsSummary(
     );
 
     return normalizeAnalyticsSummary(data);
+}
+
+
+export async function fetchAnalyticsAIInsights(
+    apiClient,
+    {
+        householdId = null,
+        timeframe = "30d",
+        refresh = false,
+    } = {}
+) {
+    const data = await apiClient.request("/api/analytics/ai-insights", {
+        method: "POST",
+        body: JSON.stringify({
+            household_id: householdId,
+            timeframe,
+            refresh,
+        }),
+    });
+
+    return normalizeAnalyticsAIInsights(data);
 }

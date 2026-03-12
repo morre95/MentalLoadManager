@@ -123,7 +123,7 @@ export default function AnalyticsHeader({ vm }) {
                 <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => load(timeframe)}
+                    onClick={() => load(timeframe, { refreshAi: true })}
                     disabled={loading}
                     title="Refresh analytics"
                     aria-label="Refresh analytics"

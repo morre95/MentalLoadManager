@@ -1,3 +1,4 @@
+from .analytics_ai_insights_cache import AnalyticsAIInsightsCache
 from .ai_summaries import AISummaries
 from .base import Base
 from .calendar_connections import CalendarConnections
@@ -52,4 +53,5 @@ __all__ = [
     "AISummaries",
     "ContactMessages",
     "Goals",
+    "AnalyticsAIInsightsCache",
 ]

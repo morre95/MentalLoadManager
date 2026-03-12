@@ -1,11 +1,11 @@
 Add AI feature: maybe plan upcoming week with AI? 
-Weekly email, maybe textmessage if we add phonenumber? 
+ERIK : Weekly email, maybe textmessage if we add phonenumber? 
 Video on startpage? Maybe? But thats simpler than what is now, is it necessary? 
 Kunna lägga till reacurring task. 
 Kolla production, hur vill vi hosta? Just nu railway, hur skulle vi spara filer? Behöver vi ha filer någonstans av användaren? 
 
 Completa tasks direkt i mail? 
-Kanske en ruta där användaren i analysen får skriva frågor om sin data och få svar av AI?
+REBECKA: Kanske en ruta där användaren i analysen får skriva frågor om sin data och få svar av AI?
 Alternativt kryssrutor där användare kan kryssa i olika rutor för att ställa förbestämnda frågor om statistiken till AI
 STEAMA FÖR ATT SE NÄR DEN SKRIVER, KOLLA PÅ DET
 

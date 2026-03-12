@@ -35,7 +35,12 @@ export {
   updateHouseholdMemberRole,
 } from "./households.js";
 
-export { fetchAnalyticsSummary, normalizeAnalyticsSummary} from "./analytics.js";
+export {
+  fetchAnalyticsAIInsights,
+  fetchAnalyticsSummary,
+  normalizeAnalyticsAIInsights,
+  normalizeAnalyticsSummary,
+} from "./analytics.js";
 
 export { fetchCalendarMonth, fetchCalendarRange} from "./calendar.js";
 

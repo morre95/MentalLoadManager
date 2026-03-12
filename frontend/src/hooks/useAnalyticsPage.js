@@ -1,7 +1,7 @@
 // src/hooks/useAnalyticsPage.js
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useHousehold } from "@/hooks/useHouseHold";
-import { fetchAnalyticsSummary } from "../../../shared";
+import { fetchAnalyticsAIInsights, fetchAnalyticsSummary } from "../../../shared";
 import { getDisplayNameFromUsername, apiClient } from "@/lib/utils";
 
 import { CHARTS, DEFAULT_ACTIVE_CHART_IDS, TIMEFRAME_OPTIONS } from "@/lib/analytics_constants";
@@ -73,6 +73,68 @@ function computeLoadBalanceScore(rows = [], people = []) {
     return Math.max(0, Math.min(100, Math.round((1 - spread) * 100)));
 }
 
+function mapAiSeverityToForecastLevel(severity) {
+    if (severity === "high" || severity === "medium") return "risk";
+    if (severity === "low") return "good";
+    return "neutral";
+}
+
+function buildAiInsightsCards(aiInsights = {}) {
+    const cards = [];
+
+    if (aiInsights?.summary) {
+        cards.push({
+            title: "AI summary",
+            text: aiInsights.summary,
+        });
+    }
+
+    (aiInsights?.risks || []).forEach((risk) => {
+        if (!risk?.title || !risk?.reason) return;
+        cards.push({
+            title: risk.title,
+            text: risk.reason,
+        });
+    });
+
+    if ((aiInsights?.evidence || []).length) {
+        cards.push({
+            title: "Evidence",
+            text: aiInsights.evidence.slice(0, 2).join(" "),
+        });
+    }
+
+    return cards.slice(0, 3);
+}
+
+function buildAiSuggestions(aiInsights = {}) {
+    return (aiInsights?.recommendations || []).map((item) => {
+        if (!item?.title) return item?.action || "";
+        return `${item.title}: ${item.action}`;
+    }).filter(Boolean);
+}
+
+function buildAiForecast(aiInsights = {}) {
+    const topRisk = (aiInsights?.risks || [])[0];
+    if (topRisk?.title && topRisk?.reason) {
+        return {
+            level: mapAiSeverityToForecastLevel(topRisk.severity),
+            title: topRisk.title,
+            text: topRisk.reason,
+        };
+    }
+
+    if (aiInsights?.summary) {
+        return {
+            level: "neutral",
+            title: "AI outlook",
+            text: aiInsights.summary,
+        };
+    }
+
+    return null;
+}
+
 export function useAnalyticsPage() {
     const [weeklyData, setWeeklyData] = useState([]);
     const [categoryData, setCategoryData] = useState([]);
@@ -85,6 +147,9 @@ export function useAnalyticsPage() {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiError, setAiError] = useState(null);
+    const [aiInsights, setAiInsights] = useState(null);
     const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
     const [noHousehold, setNoHousehold] = useState(false);
 
@@ -155,10 +220,36 @@ export function useAnalyticsPage() {
         return (opt && opt.label) || timeframe;
     }, [timeframe]);
 
+    const loadAIInsights = useCallback(
+        async (tf = timeframe, refresh = false) => {
+            if (!selectedHouseholdId) return;
+
+            setAiLoading(true);
+            setAiError(null);
+            try {
+                const aiData = await fetchAnalyticsAIInsights(apiClient, {
+                    householdId: selectedHouseholdId,
+                    timeframe: tf,
+                    refresh,
+                });
+                setAiInsights(aiData);
+            } catch (err) {
+                console.error(err);
+                setAiError(err);
+            } finally {
+                setAiLoading(false);
+            }
+        },
+        [selectedHouseholdId, timeframe]
+    );
+
     const load = useCallback(
-        async (tf = timeframe) => {
+        async (tf = timeframe, options = {}) => {
+            const { refreshAi = false } = options;
             setLoading(true);
             setError(null);
+            setAiError(null);
+            setAiInsights(null);
             setNoHousehold(false);
             try {
                 const summary = await fetchAnalyticsSummary(apiClient, selectedHouseholdId, tf);
@@ -171,11 +262,13 @@ export function useAnalyticsPage() {
                 setStats(summary.stats || []);
                 setLabels(summary.labels || {});
                 setLastUpdatedAt(new Date());
+                void loadAIInsights(tf, refreshAi);
             } catch (err) {
                 const msg = (err && err.message) || "";
                 if (msg.toLowerCase().includes("not in a household")) {
                     setNoHousehold(true);
                     setError(null);
+                    setAiInsights(null);
                     return;
                 }
                 console.error(err);
@@ -184,7 +277,7 @@ export function useAnalyticsPage() {
                 setLoading(false);
             }
         },
-        [selectedHouseholdId, timeframe]
+        [loadAIInsights, selectedHouseholdId, timeframe]
     );
 
     useEffect(() => {
@@ -495,7 +588,7 @@ export function useAnalyticsPage() {
             .sort((a, b) => b.count - a.count);
     }, [weeklyData, sortedPeople, labels]);
 
-    const insights = useMemo(() => {
+    const fallbackInsights = useMemo(() => {
         const cards = [];
         const topPerson = personLoadRows[0];
         if (topPerson && topPerson.count > 0) {
@@ -521,7 +614,7 @@ export function useAnalyticsPage() {
         return cards.slice(0, 3);
     }, [personLoadRows, topCategory, completionData]);
 
-    const forecast = useMemo(() => {
+    const fallbackForecast = useMemo(() => {
         const rates = buildCompletionRates(completionData).slice(-7);
         const overdue = getStatNumber(stats, "Overdue Tasks") ?? 0;
         if (rates.length < 3) {
@@ -539,7 +632,7 @@ export function useAnalyticsPage() {
         return { level: "neutral", title: "Forecast", text: "Completion pace looks steady for next week." };
     }, [completionData, stats]);
 
-    const suggestions = useMemo(() => {
+    const fallbackSuggestions = useMemo(() => {
         const list = [];
         const topPerson = personLoadRows[0];
         const secondPerson = personLoadRows[1];
@@ -559,6 +652,28 @@ export function useAnalyticsPage() {
         }
         return list.slice(0, 4);
     }, [personLoadRows, stats, selectedPriorityFilter]);
+
+    const insights = useMemo(() => {
+        if (aiInsights?.summary) {
+            return buildAiInsightsCards(aiInsights);
+        }
+        return fallbackInsights;
+    }, [aiInsights, fallbackInsights]);
+
+    const forecast = useMemo(() => {
+        const aiForecast = buildAiForecast(aiInsights);
+        return aiForecast || fallbackForecast;
+    }, [aiInsights, fallbackForecast]);
+
+    const suggestions = useMemo(() => {
+        const aiSuggestions = buildAiSuggestions(aiInsights);
+        return aiSuggestions.length ? aiSuggestions : fallbackSuggestions;
+    }, [aiInsights, fallbackSuggestions]);
+
+    const insightsSource = useMemo(() => {
+        if (aiInsights?.summary) return "ai";
+        return "rules";
+    }, [aiInsights]);
 
     const handleOpenDrilldown = useCallback((title, rows) => {
         setDrilldown({ open: true, title, rows: Array.isArray(rows) ? rows : [] });
@@ -700,6 +815,10 @@ export function useAnalyticsPage() {
         households,
         loading,
         error,
+        aiLoading,
+        aiError,
+        aiInsights,
+        insightsSource,
         noHousehold,
         lastUpdatedAt,
         setLastUpdatedAt,

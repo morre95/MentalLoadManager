@@ -1,12 +1,19 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
 
-from models import Categories, Tasks, UserDB, UsersHouseholds
+from models import (
+    AnalyticsAIInsightsCache,
+    Categories,
+    Households,
+    Tasks,
+    UserDB,
+    UsersHouseholds,
+)
 
 
 def get_user_by_username(db: Session, username: str) -> UserDB | None:
@@ -15,6 +22,10 @@ def get_user_by_username(db: Session, username: str) -> UserDB | None:
 
 def get_default_household_for_user(db: Session, user_id: UUID):
     return db.scalar(select(UsersHouseholds).where(UsersHouseholds.user_id == user_id))
+
+
+def get_household_by_id(db: Session, household_id: UUID) -> Households | None:
+    return db.get(Households, household_id)
 
 
 def has_membership(db: Session, user_id: UUID, household_id: UUID) -> bool:
@@ -242,3 +253,47 @@ def count_done_in_range(
         or 0
     )
 
+
+def get_cached_ai_insight(
+    db: Session,
+    *,
+    household_id: UUID,
+    timeframe: str,
+    input_hash: str,
+) -> AnalyticsAIInsightsCache | None:
+    return db.scalar(
+        select(AnalyticsAIInsightsCache).where(
+            AnalyticsAIInsightsCache.household_id == household_id,
+            AnalyticsAIInsightsCache.timeframe == timeframe,
+            AnalyticsAIInsightsCache.input_hash == input_hash,
+        )
+    )
+
+
+def upsert_cached_ai_insight(
+    db: Session,
+    *,
+    household_id: UUID,
+    timeframe: str,
+    input_hash: str,
+    content_json: dict,
+    model: str | None,
+) -> AnalyticsAIInsightsCache:
+    cache_item = get_cached_ai_insight(
+        db,
+        household_id=household_id,
+        timeframe=timeframe,
+        input_hash=input_hash,
+    )
+    if cache_item is None:
+        cache_item = AnalyticsAIInsightsCache(
+            household_id=household_id,
+            timeframe=timeframe,
+            input_hash=input_hash,
+        )
+        db.add(cache_item)
+
+    cache_item.content_json = content_json
+    cache_item.model = model
+    cache_item.updated_at = datetime.now(timezone.utc)
+    return cache_item

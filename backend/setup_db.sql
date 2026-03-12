@@ -248,6 +248,17 @@ CREATE TABLE IF NOT EXISTS ai_summaries (
   prompt_hash     TEXT
 );
 
+CREATE TABLE IF NOT EXISTS analytics_ai_insights_cache (
+  analytics_ai_insight_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id UUID NOT NULL REFERENCES households(household_id) ON DELETE CASCADE,
+  timeframe VARCHAR(10) NOT NULL,
+  input_hash TEXT NOT NULL,
+  content_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  model VARCHAR(100),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 
 CREATE TABLE IF NOT EXISTS contact_messages (
   contact_message_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -272,3 +283,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_category ON tasks(category_id);
 CREATE INDEX IF NOT EXISTS idx_password_refresh_tokens_user_id ON password_refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_password_refresh_tokens_family_id ON password_refresh_tokens(family_id);
 CREATE INDEX IF NOT EXISTS idx_password_refresh_tokens_expires_at ON password_refresh_tokens(expires_at);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_analytics_ai_insights_cache_lookup
+ON analytics_ai_insights_cache(household_id, timeframe, input_hash);
+CREATE INDEX IF NOT EXISTS idx_analytics_ai_insights_cache_household_created
+ON analytics_ai_insights_cache(household_id, created_at DESC);
