@@ -10,6 +10,7 @@ export function getApiBaseUrl(options?: {
 export function createApiClient(options?: {
   getAccessToken?: () => string | null | Promise<string | null>;
   getRefreshToken?: () => string | null | Promise<string | null>;
+  shouldRefresh?: () => boolean | Promise<boolean>;
   setAuthTokens?: (tokens: {
     accessToken?: string | null;
     refreshToken?: string | null;

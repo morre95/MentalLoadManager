@@ -7,6 +7,7 @@ export function createApiClient(options = {}) {
   const getRefreshToken = options.getRefreshToken || (() => null);
   const setAuthTokens = options.setAuthTokens || (() => {});
   const onUnauthorized = options.onUnauthorized || (() => {});
+  const shouldRefresh = options.shouldRefresh || (() => true);
   const refreshPath = options.refreshPath || "/api/password/refresh";
   const refreshPathAlternatives = new Set([
     refreshPath,
@@ -97,6 +98,15 @@ export function createApiClient(options = {}) {
     let { response, body } = await send();
 
     if (response.status === 401 && !isRefreshRequest) {
+      const canRefresh = await shouldRefresh();
+      if (!canRefresh) {
+        onUnauthorized();
+        const error = new Error(body?.detail || body?.message || "Request failed");
+        error.status = response.status;
+        error.data = body;
+        throw error;
+      }
+
       let refreshedAccessToken;
       try {
         refreshedAccessToken = await refreshAccessToken(baseUrl);

@@ -2,6 +2,7 @@ import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import {
   clearAuth,
+  isUserLoggedIn,
   getUserFromLocalStorage,
   saveUserToLocalStorage,
 } from "./auth";
@@ -68,30 +69,65 @@ function getHouseholdIdFromStoredValue(value) {
 
 export const apiClient = createApiClient({
   onUnauthorized: clearAuth,
+  shouldRefresh: isUserLoggedIn,
   envOptions: {
     locationHref: typeof window !== "undefined" ? window.location?.href : "",
   },
 });
 
-export const fetchMe = async () => {
-  const cached = getUserFromLocalStorage();
+let fetchMeInFlight = null;
+let lastFetchMeAt = 0;
+let lastFetchMeResult = null;
+const FETCH_ME_CACHE_MS = 5000;
 
-  try {
+export const fetchMe = async (options = {}) => {
+  const { force = false } = options;
+  const cached = getUserFromLocalStorage();
+  const now = Date.now();
+
+  if (!force) {
+    if (!isUserLoggedIn() && !cached?.username) {
+      return null;
+    }
+
+    if (fetchMeInFlight) {
+      return fetchMeInFlight;
+    }
+
+    if (lastFetchMeAt && now - lastFetchMeAt < FETCH_ME_CACHE_MS) {
+      return lastFetchMeResult;
+    }
+  }
+
+  fetchMeInFlight = (async () => {
+    try {
     const data = await sharedFetchMe(apiClient);
     if (!data?.username) {
       throw new Error("No username in /api/users/me response");
     }
 
     saveUserToLocalStorage(data);
-    return data;
-  } catch (error) {
-    if (error?.status === 401) {
-      clearAuth();
-      return null;
+      lastFetchMeResult = data;
+      lastFetchMeAt = Date.now();
+      return data;
+    } catch (error) {
+      if (error?.status === 401) {
+        clearAuth();
+        lastFetchMeResult = null;
+        lastFetchMeAt = Date.now();
+        return null;
+      }
+      console.error("[fetchMe] error:", error);
+      const fallback = cached?.username ? cached : null;
+      lastFetchMeResult = fallback;
+      lastFetchMeAt = Date.now();
+      return fallback;
+    } finally {
+      fetchMeInFlight = null;
     }
-    console.error("[fetchMe] error:", error);
-    return cached?.username ? cached : null;
-  }
+  })();
+
+  return fetchMeInFlight;
 };
 
 export async function apiFetch(path, options = {}) {

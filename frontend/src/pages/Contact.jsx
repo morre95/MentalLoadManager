@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Mail, Send, Loader2 } from "lucide-react";
 
@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 import { GET_API_BASE_URL } from "@/components/ui/base_url";
+import { getUserFromLocalStorage } from "@/lib/auth";
+import { fetchMe } from "@/lib/utils";
 
 const API_BASE_URL = GET_API_BASE_URL();
 
@@ -22,6 +24,39 @@ const Contact = () => {
   const [isSending, setIsSending] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const applyUser = (user) => {
+      if (!active || !user) return;
+
+      setName((current) => current || user.display_name || user.username || "");
+      setEmail((current) => current || user.email || "");
+    };
+
+    applyUser(getUserFromLocalStorage());
+
+    const hydrateUser = async () => {
+      const user = await fetchMe();
+      applyUser(user);
+    };
+
+    void hydrateUser();
+
+    const handleUserChanged = () => {
+      applyUser(getUserFromLocalStorage());
+    };
+
+    window.addEventListener("user:changed", handleUserChanged);
+    window.addEventListener("auth:changed", handleUserChanged);
+
+    return () => {
+      active = false;
+      window.removeEventListener("user:changed", handleUserChanged);
+      window.removeEventListener("auth:changed", handleUserChanged);
+    };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -54,7 +89,7 @@ const Contact = () => {
 
       if (!response.ok) {
         throw new Error(
-          data?.message || data?.error || "Something went wrong."
+          data?.detail || data?.message || data?.error || "Something went wrong."
         );
       }
 
@@ -198,7 +233,7 @@ const Contact = () => {
                     <div>
                       <h3 className="font-semibold text-foreground">Email</h3>
                       <p className="text-sm text-muted-foreground">
-                        hello@mentalloadmanager.com
+                        mentalloadmanager@vannerbergfonster.se
                       </p>
                     </div>
                   </div>

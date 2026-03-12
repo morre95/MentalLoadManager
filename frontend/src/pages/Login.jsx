@@ -45,7 +45,7 @@ const Login = () => {
         );
 
         (async () => {
-          await fetchMe();
+          await fetchMe({ force: true });
 
           const pending = localStorage.getItem("pending_invite_code");
           if (pending) {
@@ -64,7 +64,7 @@ const Login = () => {
   const finishLogin = async () => {
     window.dispatchEvent(new Event("auth:changed"));
 
-    await fetchMe();
+    await fetchMe({ force: true });
 
     const pending = localStorage.getItem("pending_invite_code");
     if (pending) {

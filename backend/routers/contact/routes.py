@@ -15,8 +15,8 @@ router = APIRouter(
 
 
 @router.post("/send/message")
-def send_message_route(
+async def send_message_route(
     payload: SendMessageRequest,
     user_id: UUID | None = Depends(get_user_id_from_token),
 ):
-    return send_message(payload, user_id)
+    return await send_message(payload, user_id)

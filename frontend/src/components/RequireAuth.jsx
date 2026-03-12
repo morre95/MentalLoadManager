@@ -11,7 +11,7 @@ export default function RequireAuth({ children }) {
     let alive = true;
 
     const checkAuth = async () => {
-      const me = await fetchMe();
+      const me = await fetchMe({ force: true });
       if (!alive) return;
       setIsAuthenticated(Boolean(me?.username));
       setIsCheckingAuth(false);
