@@ -129,12 +129,23 @@ def _coerce_status(status_value: str | None) -> str:
     return "pending"
 
 
+def _resolve_week_end(ai_summary) -> date:
+    if ai_summary.week_end is not None:
+        return ai_summary.week_end
+    if ai_summary.week_start is not None:
+        return _week_end_exclusive(ai_summary.week_start)
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="AI summary is missing week range information",
+    )
+
+
 def _to_weekly_summary_response(ai_summary) -> WeeklySummaryResponse:
     return WeeklySummaryResponse(
         ai_summary_id=str(ai_summary.ai_summary_id),
         household_id=str(ai_summary.household_id),
         week_start=ai_summary.week_start,
-        week_end=ai_summary.week_end,
+        week_end=_resolve_week_end(ai_summary),
         status=_coerce_status(ai_summary.status),
         model=ai_summary.model or "",
         content=ai_summary.content or None,
@@ -149,7 +160,7 @@ def _to_saved_summary_item(ai_summary) -> SavedSummaryItemResponse:
         ai_summary_id=str(ai_summary.ai_summary_id),
         household_id=str(ai_summary.household_id),
         week_start=ai_summary.week_start,
-        week_end=ai_summary.week_end,
+        week_end=_resolve_week_end(ai_summary),
         granted_at=created_at,
         status=_coerce_status(ai_summary.status),
         model=ai_summary.model or "",

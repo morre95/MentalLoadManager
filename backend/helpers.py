@@ -79,6 +79,13 @@ def setup_db_and_tables() -> None:
             connection.execute(
                 text("ALTER TABLE ai_summaries ADD COLUMN IF NOT EXISTS error TEXT")
             )
+        connection.execute(
+            text(
+                "UPDATE ai_summaries "
+                "SET week_end = week_start + INTERVAL '7 days' "
+                "WHERE week_end IS NULL AND week_start IS NOT NULL"
+            )
+        )
 
 
 def get_session_local() -> sessionmaker:
