@@ -7,6 +7,7 @@ from .categories import Categories
 from .contact_messages import ContactMessages
 from .daily_reports import DailyReports
 from .goals import Goals
+from .goal_ai_checkins_cache import GoalAICheckinsCache
 from .households import Households
 from .invitations import Invitations
 from .monthly_reports import MonthlyReports
@@ -56,4 +57,5 @@ __all__ = [
     "Goals",
     "AnalyticsAIInsightsCache",
     "AnalyticsAIQuestionsCache",
+    "GoalAICheckinsCache",
 ]

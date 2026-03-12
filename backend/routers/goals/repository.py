@@ -5,6 +5,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from models import Categories, Goals, Tasks, UsersHouseholds
+from models import GoalAICheckinsCache
 
 
 def list_goals_for_user(db: Session, user_id: UUID) -> list[Goals]:
@@ -146,3 +147,43 @@ def count_completed_personal_tasks_in_window(
         )
         or 0
     )
+
+
+def get_cached_goal_ai_checkin(
+    db: Session,
+    *,
+    goal_id: UUID,
+    input_hash: str,
+) -> GoalAICheckinsCache | None:
+    return db.scalar(
+        select(GoalAICheckinsCache).where(
+            GoalAICheckinsCache.goal_id == goal_id,
+            GoalAICheckinsCache.input_hash == input_hash,
+        )
+    )
+
+
+def upsert_cached_goal_ai_checkin(
+    db: Session,
+    *,
+    goal_id: UUID,
+    input_hash: str,
+    content_json: dict,
+    model: str | None,
+) -> GoalAICheckinsCache:
+    cache_item = get_cached_goal_ai_checkin(
+        db,
+        goal_id=goal_id,
+        input_hash=input_hash,
+    )
+    if cache_item is None:
+        cache_item = GoalAICheckinsCache(
+            goal_id=goal_id,
+            input_hash=input_hash,
+        )
+        db.add(cache_item)
+
+    cache_item.content_json = content_json
+    cache_item.model = model
+    cache_item.updated_at = datetime.now(timezone.utc)
+    return cache_item

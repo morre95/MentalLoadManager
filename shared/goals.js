@@ -68,3 +68,25 @@ export async function deleteGoal(apiClient, goalId) {
     method: "DELETE",
   });
 }
+
+export async function fetchGoalAICheckin(apiClient, goalId, options = {}) {
+  const data = await apiClient.request(`/api/goals/${goalId}/ai-checkin`, {
+    method: "POST",
+    body: JSON.stringify({
+      refresh: Boolean(options.refresh),
+    }),
+  });
+
+  return {
+    goal_id: String(data?.goal_id || goalId),
+    status_summary: String(data?.status_summary || ""),
+    pace_needed: String(data?.pace_needed || ""),
+    risk_level: String(data?.risk_level || "low"),
+    next_step: String(data?.next_step || ""),
+    adjustment_suggestion: String(data?.adjustment_suggestion || ""),
+    evidence: Array.isArray(data?.evidence) ? data.evidence.map((item) => String(item)) : [],
+    cached: Boolean(data?.cached),
+    model: data?.model ? String(data.model) : null,
+    generated_at: data?.generated_at || null,
+  };
+}

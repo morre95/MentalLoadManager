@@ -157,6 +157,22 @@ export function fetchAchievements(apiClient: ApiClient): Promise<{
     category: string;
   }>;
 }>;
+export function fetchGoalAICheckin(
+  apiClient: ApiClient,
+  goalId: string,
+  options?: { refresh?: boolean }
+): Promise<{
+  goal_id: string;
+  status_summary: string;
+  pace_needed: string;
+  risk_level: string;
+  next_step: string;
+  adjustment_suggestion: string;
+  evidence: string[];
+  cached: boolean;
+  model: string | null;
+  generated_at: string | null;
+}>;
 export function createGoal(
   apiClient: ApiClient,
   payload: {

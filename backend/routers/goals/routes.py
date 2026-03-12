@@ -9,6 +9,8 @@ from .schemas import (
     AchievementsResponse,
     CreateGoalRequest,
     DeleteGoalResponse,
+    GoalAICheckinRequest,
+    GoalAICheckinResponse,
     GoalResponse,
     GoalsResponse,
     UpdateGoalProgressRequest,
@@ -16,6 +18,7 @@ from .schemas import (
 from .service import (
     create_my_goal,
     delete_my_goal,
+    get_goal_ai_checkin,
     list_my_achievements,
     list_my_goals,
     update_my_goal_progress,
@@ -49,6 +52,15 @@ def update_goal_progress_route(
     current_user: UserEmail = Depends(get_current_user),
 ):
     return update_my_goal_progress(goal_id, payload, current_user)
+
+
+@router.post("/{goal_id}/ai-checkin", response_model=GoalAICheckinResponse)
+def get_goal_ai_checkin_route(
+    goal_id: UUID,
+    payload: GoalAICheckinRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    return get_goal_ai_checkin(goal_id, payload, current_user)
 
 
 @router.delete("/{goal_id}", response_model=DeleteGoalResponse)

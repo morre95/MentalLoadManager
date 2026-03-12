@@ -50,3 +50,20 @@ class UpdateGoalProgressRequest(BaseModel):
 class DeleteGoalResponse(BaseModel):
     goal_id: str
     deleted: bool
+
+
+class GoalAICheckinRequest(BaseModel):
+    refresh: bool = False
+
+
+class GoalAICheckinResponse(BaseModel):
+    goal_id: str
+    status_summary: str
+    pace_needed: str
+    risk_level: str
+    next_step: str
+    adjustment_suggestion: str
+    evidence: list[str] = Field(default_factory=list)
+    cached: bool = False
+    model: str | None = None
+    generated_at: datetime

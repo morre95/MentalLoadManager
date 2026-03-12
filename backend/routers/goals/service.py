@@ -1,28 +1,38 @@
 from collections import defaultdict
+import hashlib
+import json
+import time as time_module
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
+import requests
 from fastapi import HTTPException, status
-from sqlalchemy.exc import IntegrityError
+from pydantic import BaseModel, Field, ValidationError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
+from config import settings
 from helpers import get_session_local
 from models import UserEmail
 
 from .repository import (
     count_completed_personal_tasks_in_window,
     create_goal,
+    get_cached_goal_ai_checkin,
     get_goal_for_user,
     list_available_category_names_for_user_households,
     list_goals_for_user,
     list_household_completed_tasks_for_achievements,
     list_personal_tasks_for_achievements,
+    upsert_cached_goal_ai_checkin,
 )
 from .schemas import (
     AchievementResponse,
     AchievementsResponse,
     CreateGoalRequest,
     DeleteGoalResponse,
+    GoalAICheckinRequest,
+    GoalAICheckinResponse,
     GoalResponse,
     GoalsResponse,
     UpdateGoalProgressRequest,
@@ -31,6 +41,17 @@ from .schemas import (
 ALLOWED_TRACKING_STYLES = {"daily", "weekly", "monthly", "total"}
 COMPLETED_STATUSES = {"done", "archive"}
 PERIOD_MILESTONES_DAYS = [7, 30, 60, 90, 180, 365]
+DEFAULT_OPENROUTER_MODEL = "openrouter/free"
+OPENROUTER_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+
+class _GoalAICheckinModelPayload(BaseModel):
+    status_summary: str
+    pace_needed: str
+    risk_level: str
+    next_step: str
+    adjustment_suggestion: str
+    evidence: list[str] = Field(default_factory=list)
 
 
 def _to_goal_response(goal) -> GoalResponse:
@@ -610,3 +631,358 @@ def delete_my_goal(goal_id: UUID, current_user: UserEmail) -> DeleteGoalResponse
             ) from exc
 
         return DeleteGoalResponse(goal_id=str(goal_id), deleted=True)
+
+
+def _safe_ratio(numerator: float, denominator: float) -> float:
+    if denominator <= 0:
+        return 0.0
+    return numerator / denominator
+
+
+def _goal_period_context(goal, now_utc: datetime) -> dict[str, Any]:
+    tracking_style = (goal.tracking_style or "total").strip().lower()
+    created_at = goal.created_at or now_utc
+    if tracking_style == "daily":
+        period_start = datetime.combine(now_utc.date(), datetime.min.time(), tzinfo=timezone.utc)
+        period_end = period_start + timedelta(days=1)
+    elif tracking_style == "weekly":
+        period_start = datetime.combine(now_utc.date(), datetime.min.time(), tzinfo=timezone.utc)
+        period_start = period_start - timedelta(days=period_start.weekday())
+        period_end = period_start + timedelta(days=7)
+    elif tracking_style == "monthly":
+        period_start = datetime.combine(now_utc.date().replace(day=1), datetime.min.time(), tzinfo=timezone.utc)
+        if period_start.month == 12:
+            period_end = period_start.replace(year=period_start.year + 1, month=1)
+        else:
+            period_end = period_start.replace(month=period_start.month + 1)
+    else:
+        period_start = created_at
+        period_end = None
+
+    elapsed_days = max(1, (now_utc - period_start).total_seconds() / 86400) if period_end else max(
+        1, (now_utc - created_at).total_seconds() / 86400
+    )
+    total_days = (
+        max(1, (period_end - period_start).total_seconds() / 86400)
+        if period_end is not None
+        else None
+    )
+    return {
+        "tracking_style": tracking_style,
+        "period_start": period_start,
+        "period_end": period_end,
+        "elapsed_days": elapsed_days,
+        "total_days": total_days,
+        "created_at": created_at,
+    }
+
+
+def _goal_checkin_metrics(goal) -> dict[str, Any]:
+    now_utc = datetime.now(timezone.utc)
+    goal = goal
+    progress_data = goal.progress_data or {}
+    period = _goal_period_context(goal, now_utc)
+    current_value = int(goal.current_value or 0)
+    target_value = int(goal.target_value or 0)
+    progress_pct = round(_safe_ratio(current_value, max(1, target_value)) * 100, 1)
+    remaining = max(0, target_value - current_value)
+
+    expected_progress_pct = (
+        round(_safe_ratio(period["elapsed_days"], max(1, period["total_days"])) * 100, 1)
+        if period["total_days"] is not None
+        else None
+    )
+    expected_current = (
+        round(target_value * _safe_ratio(period["elapsed_days"], max(1, period["total_days"])))
+        if period["total_days"] is not None
+        else None
+    )
+    gap_to_pace = (
+        current_value - int(expected_current)
+        if expected_current is not None
+        else None
+    )
+    average_per_day = round(current_value / max(1.0, period["elapsed_days"]), 2)
+    days_left = (
+        max(0.0, (period["period_end"] - now_utc).total_seconds() / 86400)
+        if period["period_end"] is not None
+        else None
+    )
+    pace_needed_per_day = (
+        round(remaining / max(1.0, days_left), 2)
+        if days_left is not None and remaining > 0
+        else 0.0
+    )
+    projected_final = (
+        round(average_per_day * max(1.0, period["total_days"]))
+        if period["total_days"] is not None
+        else current_value
+    )
+
+    training_days = progress_data.get("training_days")
+    completed_days = (
+        sum(1 for day in training_days if day)
+        if isinstance(training_days, list)
+        else None
+    )
+
+    risk_level = "low"
+    if progress_pct < 40 and expected_progress_pct is not None and progress_pct + 15 < expected_progress_pct:
+        risk_level = "high"
+    elif gap_to_pace is not None and gap_to_pace < 0:
+        risk_level = "medium"
+
+    return {
+        "goal_id": str(goal.goal_id),
+        "goal_type": goal.type,
+        "goal_name": goal.name,
+        "tracking_style": period["tracking_style"],
+        "current_value": current_value,
+        "target_value": target_value,
+        "remaining": remaining,
+        "progress_pct": progress_pct,
+        "expected_progress_pct": expected_progress_pct,
+        "expected_current": expected_current,
+        "gap_to_pace": gap_to_pace,
+        "average_per_day": average_per_day,
+        "pace_needed_per_day": pace_needed_per_day,
+        "projected_final": projected_final,
+        "days_left": round(days_left, 1) if days_left is not None else None,
+        "risk_level": risk_level,
+        "created_at": period["created_at"].isoformat(),
+        "period_start": period["period_start"].isoformat() if period["period_start"] else None,
+        "period_end": period["period_end"].isoformat() if period["period_end"] else None,
+        "training_days_completed": completed_days,
+        "training_days_pattern": training_days if isinstance(training_days, list) else None,
+    }
+
+
+def _goal_checkin_input_hash(payload: dict[str, Any]) -> str:
+    serialized = json.dumps(payload, sort_keys=True, ensure_ascii=True)
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _load_model_candidates() -> list[str]:
+    primary = (
+        settings.OPENROUTER_ANALYTICS_INSIGHTS_MODEL
+        or settings.OPENROUTER_WEEKLY_SUMMARY_MODEL
+        or DEFAULT_OPENROUTER_MODEL
+    )
+    raw_fallbacks = settings.OPENROUTER_ANALYTICS_INSIGHTS_FALLBACK_MODELS or settings.OPENROUTER_WEEKLY_SUMMARY_FALLBACK_MODELS
+    candidates = [primary]
+    for item in [part.strip() for part in raw_fallbacks.split(",") if part.strip()]:
+        if item not in candidates:
+            candidates.append(item)
+    if DEFAULT_OPENROUTER_MODEL not in candidates:
+        candidates.append(DEFAULT_OPENROUTER_MODEL)
+    return candidates
+
+
+def _extract_text_content(chat_response: dict) -> str:
+    choices = chat_response.get("choices", [])
+    if not choices:
+        return ""
+    message = choices[0].get("message", {})
+    content = message.get("content", "")
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, dict) and item.get("type") == "text" and isinstance(item.get("text"), str):
+                parts.append(item["text"])
+        return "\n".join(parts).strip()
+    return ""
+
+
+def _extract_json_block(raw_text: str) -> str:
+    text = raw_text.strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if len(lines) >= 3 and lines[-1].startswith("```"):
+            return "\n".join(lines[1:-1]).strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    return text[start : end + 1] if start != -1 and end != -1 and end > start else text
+
+
+def _parse_retry_after_seconds(response: requests.Response) -> float:
+    retry_after = response.headers.get("Retry-After")
+    try:
+        return max(float(retry_after), 0.5) if retry_after else 1.5
+    except ValueError:
+        return 1.5
+
+
+def _generate_goal_ai_checkin(payload: dict[str, Any]) -> tuple[_GoalAICheckinModelPayload, str | None]:
+    api_key = settings.OPENROUTER_API_KEY
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="OPENROUTER_API_KEY is not configured",
+        )
+
+    system_prompt = (
+        "You are a grounded goal coach for a productivity app. "
+        "Use only the provided computed goal data. "
+        "Do not mention raw JSON keys or implementation details. "
+        "Be concise, practical, and specific. "
+        "Return valid JSON only."
+    )
+    user_prompt = (
+        "Create a goal check-in from the provided metrics.\n"
+        "Requirements:\n"
+        "1. Summarize current status in plain language.\n"
+        "2. Explain the pace needed.\n"
+        "3. Set risk_level to low, medium, or high.\n"
+        "4. Give one concrete next step.\n"
+        "5. Give one adjustment suggestion if progress is off track.\n"
+        "6. Include 2 or 3 evidence bullets using the numbers.\n\n"
+        "Return JSON with exactly this shape:\n"
+        "{\n"
+        '  "status_summary": "string",\n'
+        '  "pace_needed": "string",\n'
+        '  "risk_level": "low|medium|high",\n'
+        '  "next_step": "string",\n'
+        '  "adjustment_suggestion": "string",\n'
+        '  "evidence": ["string"]\n'
+        "}\n\n"
+        f"Data:\n{json.dumps(payload, sort_keys=True, ensure_ascii=True)}"
+    )
+
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    response = None
+    selected_model = None
+    failures: list[str] = []
+    for candidate in _load_model_candidates():
+        selected_model = candidate
+        for attempt in range(2):
+            try:
+                response = requests.post(
+                    OPENROUTER_CHAT_COMPLETIONS_URL,
+                    headers=headers,
+                    json={
+                        "model": candidate,
+                        "temperature": 0.2,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                    },
+                    timeout=60,
+                )
+            except requests.RequestException as exc:
+                failures.append(f"{candidate}: network error ({exc})")
+                break
+            if response.status_code == status.HTTP_429_TOO_MANY_REQUESTS and attempt == 0:
+                time_module.sleep(_parse_retry_after_seconds(response))
+                continue
+            if response.ok:
+                break
+            failures.append(f"{candidate}: {response.status_code} {response.text[:120]}")
+            break
+        if response is not None and response.ok:
+            break
+
+    if response is None or not response.ok:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Goal AI check-in request failed" if not failures else " | ".join(failures),
+        )
+
+    raw_text = _extract_text_content(response.json())
+    if not raw_text:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Goal AI check-in response did not contain text",
+        )
+
+    try:
+        validated = _GoalAICheckinModelPayload.model_validate(
+            json.loads(_extract_json_block(raw_text))
+        )
+    except (json.JSONDecodeError, ValidationError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Goal AI check-in response was not valid JSON: {exc}",
+        ) from exc
+
+    return validated, selected_model[:100] if selected_model else None
+
+
+def _goal_checkin_cache_to_response(cache_item, goal_id: UUID, cached: bool) -> GoalAICheckinResponse:
+    content = cache_item.content_json or {}
+    generated_at = cache_item.updated_at or cache_item.created_at or datetime.now(timezone.utc)
+    return GoalAICheckinResponse(
+        goal_id=str(goal_id),
+        status_summary=str(content.get("status_summary") or ""),
+        pace_needed=str(content.get("pace_needed") or ""),
+        risk_level=str(content.get("risk_level") or "low"),
+        next_step=str(content.get("next_step") or ""),
+        adjustment_suggestion=str(content.get("adjustment_suggestion") or ""),
+        evidence=[str(item) for item in content.get("evidence", [])],
+        cached=cached,
+        model=cache_item.model,
+        generated_at=generated_at,
+    )
+
+
+def get_goal_ai_checkin(
+    goal_id: UUID,
+    payload: GoalAICheckinRequest,
+    current_user: UserEmail,
+) -> GoalAICheckinResponse:
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        goal = get_goal_for_user(db, goal_id, current_user.user_id)
+        if goal is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Goal was not found",
+            )
+
+        goal = _sync_derived_goal_progress(db, goal, current_user.user_id)
+        metrics = _goal_checkin_metrics(goal)
+        input_payload = {
+            "goal_name": goal.name,
+            "goal_type": goal.type,
+            "tracking_style": goal.tracking_style,
+            "metrics": metrics,
+        }
+        input_hash = _goal_checkin_input_hash(input_payload)
+
+        if not payload.refresh:
+            cached_item = get_cached_goal_ai_checkin(
+                db,
+                goal_id=goal.goal_id,
+                input_hash=input_hash,
+            )
+            if cached_item is not None:
+                return _goal_checkin_cache_to_response(cached_item, goal.goal_id, True)
+
+        ai_result, model_name = _generate_goal_ai_checkin(input_payload)
+        cache_item = upsert_cached_goal_ai_checkin(
+            db,
+            goal_id=goal.goal_id,
+            input_hash=input_hash,
+            content_json=ai_result.model_dump(),
+            model=model_name,
+        )
+        try:
+            db.commit()
+        except SQLAlchemyError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to store goal AI check-in",
+            ) from exc
+
+        db.refresh(cache_item)
+        return _goal_checkin_cache_to_response(cache_item, goal.goal_id, False)

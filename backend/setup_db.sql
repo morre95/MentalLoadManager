@@ -271,6 +271,16 @@ CREATE TABLE IF NOT EXISTS analytics_ai_questions_cache (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS goal_ai_checkins_cache (
+  goal_ai_checkin_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  goal_id UUID NOT NULL REFERENCES goals(goal_id) ON DELETE CASCADE,
+  input_hash TEXT NOT NULL,
+  content_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  model VARCHAR(100),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 
 CREATE TABLE IF NOT EXISTS contact_messages (
   contact_message_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -301,3 +311,5 @@ CREATE INDEX IF NOT EXISTS idx_analytics_ai_insights_cache_household_created
 ON analytics_ai_insights_cache(household_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_analytics_ai_questions_cache_lookup
 ON analytics_ai_questions_cache(household_id, timeframe, input_hash);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_goal_ai_checkins_cache_lookup
+ON goal_ai_checkins_cache(goal_id, input_hash);

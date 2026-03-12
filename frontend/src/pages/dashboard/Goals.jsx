@@ -10,6 +10,7 @@ import {
     createGoal as createGoalRequest,
     deleteGoal as deleteGoalRequest,
     fetchAchievements as fetchAchievementsRequest,
+    fetchGoalAICheckin as fetchGoalAICheckinRequest,
     fetchGoals as fetchGoalsRequest,
     updateGoalProgress as updateGoalProgressRequest,
 } from "@/lib/utils";
@@ -115,6 +116,8 @@ const Goals = () => {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [syncError, setSyncError] = useState(null);
+    const [goalAICheckins, setGoalAICheckins] = useState({});
+    const [goalAILoading, setGoalAILoading] = useState({});
     const [highlightedGoalId, setHighlightedGoalId] = useState(() => String(location.state?.highlightGoalId || ""));
 
     const loadGoals = useCallback(async () => {
@@ -347,6 +350,23 @@ const Goals = () => {
         }
     };
 
+    const handleRunAICheckin = async (id, options = {}) => {
+        setGoalAILoading((prev) => ({ ...prev, [id]: true }));
+        setSyncError(null);
+        try {
+            const checkin = await fetchGoalAICheckinRequest(id, options);
+            setGoalAICheckins((prev) => ({ ...prev, [id]: checkin }));
+        } catch (error) {
+            if (error?.status === 401) {
+                navigate("/login", { replace: true });
+                return;
+            }
+            setSyncError("Could not load AI goal check-in.");
+        } finally {
+            setGoalAILoading((prev) => ({ ...prev, [id]: false }));
+        }
+    };
+
     return (
         <div className="p-4 md:p-6 space-y-6">
             <motion.div
@@ -394,6 +414,9 @@ const Goals = () => {
                             onUpdateProgress={handleUpdateProgress}
                             onToggleTrainingDay={handleToggleTrainingDay}
                             onDelete={handleDeleteGoal}
+                            onRunAICheckin={handleRunAICheckin}
+                            aiCheckin={goalAICheckins[goal.id]}
+                            aiLoading={Boolean(goalAILoading[goal.id])}
                             isHighlighted={goal.id === highlightedGoalId}
                         />
                     ))}

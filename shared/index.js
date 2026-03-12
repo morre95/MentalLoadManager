@@ -49,6 +49,7 @@ export { fetchCalendarMonth, fetchCalendarRange} from "./calendar.js";
 export {
   createGoal,
   deleteGoal,
+  fetchGoalAICheckin,
   fetchAchievements,
   fetchGoals,
   mapApiGoalToUi,

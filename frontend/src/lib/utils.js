@@ -19,6 +19,7 @@ import {
   deleteKanbanTask as sharedDeleteKanbanTask,
   deleteHouseholdCategory as sharedDeleteHouseholdCategory,
   fetchAchievements as sharedFetchAchievements,
+  fetchGoalAICheckin as sharedFetchGoalAICheckin,
   fetchGoals as sharedFetchGoals,
   fetchHouseholds as sharedFetchHouseholds,
   fetchHouseholdCategories as sharedFetchHouseholdCategories,
@@ -218,6 +219,10 @@ export async function fetchGoals() {
 
 export async function fetchAchievements() {
   return sharedFetchAchievements(apiClient);
+}
+
+export async function fetchGoalAICheckin(goalId, options = {}) {
+  return sharedFetchGoalAICheckin(apiClient, goalId, options);
 }
 
 export async function fetchMoodTrackerPeriod(periodType, anchorDate) {
