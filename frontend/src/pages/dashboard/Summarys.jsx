@@ -35,6 +35,8 @@ export default function Summarys() {
   const [selectedHouseholdId, setSelectedHouseholdId] = useState("");
   const [weekStart, setWeekStart] = useState(getCurrentWeekStart);
   const [summary, setSummary] = useState(null);
+  const [savedReports, setSavedReports] = useState([]);
+  const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [requestError, setRequestError] = useState(null);
 
@@ -118,6 +120,55 @@ export default function Summarys() {
       window.clearInterval(intervalId);
     };
   }, [summary?.weekly_report_id, summary?.status]);
+
+  useEffect(() => {
+    if (!selectedHouseholdId) {
+      setSavedReports([]);
+      return;
+    }
+
+    let active = true;
+
+    const loadReports = async () => {
+      setIsLoadingReports(true);
+      try {
+        const data = await apiFetch(`/api/ai/reports?household_id=${encodeURIComponent(selectedHouseholdId)}`, {
+          method: "GET",
+        });
+        if (active) {
+          setSavedReports(Array.isArray(data?.reports) ? data.reports : []);
+        }
+      } catch (err) {
+        if (active) {
+          setRequestError(err?.message || "Failed to load saved reports.");
+        }
+      } finally {
+        if (active) {
+          setIsLoadingReports(false);
+        }
+      }
+    };
+
+    void loadReports();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedHouseholdId, summary?.weekly_report_id, summary?.status]);
+
+  const handleOpenSavedReport = (report) => {
+    setSummary({
+      weekly_report_id: report.report_type === "weekly" ? report.report_id : null,
+      household_id: report.household_id,
+      week_start: report.start_date,
+      week_end: report.end_date,
+      status: report.status,
+      model: report.model,
+      content: report.content,
+      error: report.error,
+      report_type: report.report_type,
+    });
+  };
 
   if (loading && householdOptions.length === 0) {
     return <div className="p-6 text-muted-foreground">Loading summaries…</div>;
@@ -205,6 +256,50 @@ export default function Summarys() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Saved Reports</CardTitle>
+          <CardDescription>
+            Review existing daily, weekly, and monthly summaries for the selected household.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {isLoadingReports ? (
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading saved reports…
+            </div>
+          ) : null}
+          {!isLoadingReports && savedReports.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+              No saved daily, weekly, or monthly reports for this household yet.
+            </div>
+          ) : null}
+          {savedReports.map((report) => (
+            <button
+              key={`${report.report_type}:${report.report_id}`}
+              type="button"
+              onClick={() => handleOpenSavedReport(report)}
+              className="flex w-full items-start justify-between rounded-lg border border-border bg-background p-4 text-left transition hover:bg-muted/30"
+            >
+              <div className="space-y-1">
+                <div className="text-sm font-medium text-foreground">
+                  {report.report_type.charAt(0).toUpperCase() + report.report_type.slice(1)} summary
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {formatWeekLabel(report.start_date)}
+                  {report.start_date !== report.end_date ? ` to ${formatWeekLabel(report.end_date)}` : ""}
+                </div>
+              </div>
+              <div className="text-right text-xs text-muted-foreground">
+                <div>{report.status}</div>
+                {report.model ? <div>{report.model}</div> : null}
+              </div>
+            </button>
+          ))}
+        </CardContent>
+      </Card>
+
       <Card className="min-h-[320px]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -213,7 +308,7 @@ export default function Summarys() {
           </CardTitle>
           <CardDescription>
             {summary
-              ? `Week of ${formatWeekLabel(summary.week_start)}`
+              ? `${summary.report_type || "weekly"} report from ${formatWeekLabel(summary.week_start)}`
               : "Your generated weekly summary will appear here."}
           </CardDescription>
         </CardHeader>

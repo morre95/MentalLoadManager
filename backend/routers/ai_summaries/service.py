@@ -16,13 +16,21 @@ from models import UserEmail
 from .repository import (
     create_ai_summary,
     create_weekly_report,
+    fetch_user_daily_reports,
+    fetch_user_monthly_reports,
+    fetch_user_weekly_reports,
     fetch_household_tasks,
     fetch_weekly_tasks,
     get_user_by_username,
     get_weekly_report,
     has_household_membership,
 )
-from .schemas import GenerateWeeklySummaryRequest, WeeklySummaryReportResponse
+from .schemas import (
+    GenerateWeeklySummaryRequest,
+    SavedReportItemResponse,
+    SavedReportsListResponse,
+    WeeklySummaryReportResponse,
+)
 
 DEFAULT_OPENROUTER_MODEL = "openrouter/free"
 OPENROUTER_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -156,6 +164,38 @@ def _to_weekly_report_response(report) -> WeeklySummaryReportResponse:
         model=str(meta.get("model") or ""),
         content=report.summary,
         prompt_hash=meta.get("prompt_hash"),
+        error=meta.get("error"),
+    )
+
+
+def _coerce_status(meta: dict | None) -> str:
+    status_value = (meta or {}).get("status", "completed")
+    if status_value not in {"pending", "completed", "failed"}:
+        return "completed"
+    return status_value
+
+
+def _to_saved_report_item(report_type: str, report) -> SavedReportItemResponse:
+    meta = report.stats_json or {}
+    start_date = getattr(report, "date", None) or getattr(report, "week_start", None) or getattr(report, "month_start", None)
+    end_date = getattr(report, "date", None) or getattr(report, "week_end", None) or getattr(report, "month_end", None)
+    report_id = (
+        getattr(report, "daily_report_id", None)
+        or getattr(report, "weekly_report_id", None)
+        or getattr(report, "monthly_report_id", None)
+    )
+    granted_at = getattr(report, "granted_at", None)
+
+    return SavedReportItemResponse(
+        report_type=report_type,
+        report_id=str(report_id),
+        household_id=str(report.household_id),
+        start_date=start_date,
+        end_date=end_date,
+        granted_at=granted_at.date() if granted_at else None,
+        status=_coerce_status(meta),
+        model=str(meta.get("model") or ""),
+        content=report.summary,
         error=meta.get("error"),
     )
 
@@ -549,3 +589,54 @@ def get_weekly_summary_report(
             )
 
         return _to_weekly_report_response(weekly_report)
+
+
+def list_saved_reports(
+    current_user: UserEmail,
+    household_id: UUID | None = None,
+) -> SavedReportsListResponse:
+    session_local = _get_session_factory()
+
+    with session_local() as db:
+        user = get_user_by_username(db, current_user.username)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+            )
+
+        if household_id and not has_household_membership(db, user.user_id, household_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a member of the specified household",
+            )
+
+        daily_reports = fetch_user_daily_reports(
+            db,
+            user_id=user.user_id,
+            household_id=household_id,
+        )
+        weekly_reports = fetch_user_weekly_reports(
+            db,
+            user_id=user.user_id,
+            household_id=household_id,
+        )
+        monthly_reports = fetch_user_monthly_reports(
+            db,
+            user_id=user.user_id,
+            household_id=household_id,
+        )
+
+    reports = [
+        *[_to_saved_report_item("daily", report) for report in daily_reports],
+        *[_to_saved_report_item("weekly", report) for report in weekly_reports],
+        *[_to_saved_report_item("monthly", report) for report in monthly_reports],
+    ]
+    reports.sort(
+        key=lambda report: (
+            report.granted_at.isoformat() if report.granted_at else "",
+            report.start_date.isoformat(),
+        ),
+        reverse=True,
+    )
+    return SavedReportsListResponse(reports=reports)

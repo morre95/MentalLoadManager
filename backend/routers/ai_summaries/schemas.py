@@ -20,3 +20,20 @@ class WeeklySummaryReportResponse(BaseModel):
     content: str | None = None
     prompt_hash: str | None = None
     error: str | None = None
+
+
+class SavedReportItemResponse(BaseModel):
+    report_type: Literal["daily", "weekly", "monthly"]
+    report_id: str
+    household_id: str
+    start_date: date
+    end_date: date
+    granted_at: date | None = None
+    status: Literal["pending", "completed", "failed"]
+    model: str = ""
+    content: str | None = None
+    error: str | None = None
+
+
+class SavedReportsListResponse(BaseModel):
+    reports: list[SavedReportItemResponse]

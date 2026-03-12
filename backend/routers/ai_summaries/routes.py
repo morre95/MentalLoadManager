@@ -1,12 +1,20 @@
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 
 from helpers import get_current_user
 from models import UserEmail
 
-from .schemas import GenerateWeeklySummaryRequest, WeeklySummaryReportResponse
-from .service import get_weekly_summary_report, queue_weekly_summary_generation
+from .schemas import (
+    GenerateWeeklySummaryRequest,
+    SavedReportsListResponse,
+    WeeklySummaryReportResponse,
+)
+from .service import (
+    get_weekly_summary_report,
+    list_saved_reports,
+    queue_weekly_summary_generation,
+)
 
 router = APIRouter(
     prefix="/api/ai",
@@ -29,3 +37,11 @@ def get_weekly_summary_report_route(
     current_user: UserEmail = Depends(get_current_user),
 ):
     return get_weekly_summary_report(weekly_report_id, current_user)
+
+
+@router.get("/reports", response_model=SavedReportsListResponse)
+def list_saved_reports_route(
+    household_id: UUID | None = Query(default=None),
+    current_user: UserEmail = Depends(get_current_user),
+):
+    return list_saved_reports(current_user, household_id)

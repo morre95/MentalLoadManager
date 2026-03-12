@@ -6,7 +6,15 @@ from uuid import UUID
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, aliased
 
-from models import AISummaries, Tasks, UserDB, UsersHouseholds, WeeklyReports
+from models import (
+    AISummaries,
+    DailyReports,
+    MonthlyReports,
+    Tasks,
+    UserDB,
+    UsersHouseholds,
+    WeeklyReports,
+)
 
 
 def get_user_by_username(db: Session, username: str) -> UserDB | None:
@@ -126,3 +134,51 @@ def create_weekly_report(
 
 def get_weekly_report(db: Session, weekly_report_id: UUID) -> WeeklyReports | None:
     return db.get(WeeklyReports, weekly_report_id)
+
+
+def fetch_user_weekly_reports(
+    db: Session,
+    *,
+    user_id: UUID,
+    household_id: UUID | None = None,
+):
+    query = (
+        select(WeeklyReports)
+        .join(UsersHouseholds, UsersHouseholds.household_id == WeeklyReports.household_id)
+        .where(UsersHouseholds.user_id == user_id)
+    )
+    if household_id is not None:
+        query = query.where(WeeklyReports.household_id == household_id)
+    return db.scalars(query).all()
+
+
+def fetch_user_monthly_reports(
+    db: Session,
+    *,
+    user_id: UUID,
+    household_id: UUID | None = None,
+):
+    query = (
+        select(MonthlyReports)
+        .join(UsersHouseholds, UsersHouseholds.household_id == MonthlyReports.household_id)
+        .where(UsersHouseholds.user_id == user_id)
+    )
+    if household_id is not None:
+        query = query.where(MonthlyReports.household_id == household_id)
+    return db.scalars(query).all()
+
+
+def fetch_user_daily_reports(
+    db: Session,
+    *,
+    user_id: UUID,
+    household_id: UUID | None = None,
+):
+    query = (
+        select(DailyReports)
+        .join(UsersHouseholds, UsersHouseholds.household_id == DailyReports.household_id)
+        .where(UsersHouseholds.user_id == user_id)
+    )
+    if household_id is not None:
+        query = query.where(DailyReports.household_id == household_id)
+    return db.scalars(query).all()
