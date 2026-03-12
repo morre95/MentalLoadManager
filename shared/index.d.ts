@@ -216,6 +216,18 @@ export type AnalyticsAIInsights = {
   model: string | null;
 };
 
+export type AnalyticsAskResponse = {
+  household_id: string | null;
+  timeframe: "7d" | "30d" | "12w" | string;
+  question: string;
+  answer: string;
+  evidence: string[];
+  suggested_followups: string[];
+  cached: boolean;
+  model: string | null;
+  generated_at: string | null;
+};
+
 export function normalizeHousehold(household: any): Household;
 export function flattenHouseholdMembers(households: Household[]): Array<
   HouseholdMember & {
@@ -227,6 +239,7 @@ export function flattenHouseholdMembers(households: Household[]): Array<
 export function fetchHouseholds(apiClient: ApiClient): Promise<{ households: Household[] }>;
 export function normalizeAnalyticsSummary(data: any): any;
 export function normalizeAnalyticsAIInsights(data: any): AnalyticsAIInsights;
+export function normalizeAnalyticsAskResponse(data: any): AnalyticsAskResponse;
 export function fetchAnalyticsSummary(
   apiClient: ApiClient,
   householdId?: string | null,
@@ -240,6 +253,15 @@ export function fetchAnalyticsAIInsights(
     refresh?: boolean;
   }
 ): Promise<AnalyticsAIInsights>;
+export function askAnalyticsQuestion(
+  apiClient: ApiClient,
+  options?: {
+    householdId?: string | null;
+    timeframe?: "7d" | "30d" | "12w" | string;
+    question?: string;
+    refresh?: boolean;
+  }
+): Promise<AnalyticsAskResponse>;
 export function createHousehold(apiClient: ApiClient, name: string): Promise<any>;
 export function createHouseholdInvite(apiClient: ApiClient, householdId: string | number): Promise<any>;
 export function acceptHouseholdInvite(apiClient: ApiClient, code: string): Promise<any>;

@@ -82,3 +82,22 @@ class AnalyticsAIInsightsResponse(BaseModel):
     confidence: Literal["low", "medium", "high"]
     cached: bool = False
     model: str | None = None
+
+
+class AnalyticsAskRequest(BaseModel):
+    household_id: UUID | None = None
+    timeframe: Literal["7d", "30d", "12w"] = "30d"
+    question: str
+    refresh: bool = False
+
+
+class AnalyticsAskResponse(BaseModel):
+    household_id: str
+    timeframe: Literal["7d", "30d", "12w"]
+    question: str
+    answer: str
+    evidence: list[str] = Field(default_factory=list)
+    suggested_followups: list[str] = Field(default_factory=list)
+    cached: bool = False
+    model: str | None = None
+    generated_at: datetime

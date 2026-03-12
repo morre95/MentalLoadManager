@@ -10,7 +10,7 @@ from uuid import UUID
 
 import requests
 from fastapi import HTTPException, status
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 from sqlalchemy.exc import SQLAlchemyError
 
 from config import settings
@@ -29,13 +29,17 @@ from .repository import (
     fetch_radar_rows,
     fetch_weekly_rows,
     get_cached_ai_insight,
+    get_cached_ai_question,
     get_default_household_for_user,
     get_household_by_id,
     get_user_by_username,
     has_membership,
+    upsert_cached_ai_question,
     upsert_cached_ai_insight,
 )
 from .schemas import (
+    AnalyticsAskRequest,
+    AnalyticsAskResponse,
     AnalyticsAIInsightsRequest,
     AnalyticsAIInsightsResponse,
     AnalyticsRecommendationItem,
@@ -64,6 +68,28 @@ class _AnalyticsAIModelPayload(BaseModel):
     recommendations: list[AnalyticsRecommendationItem] = Field(default_factory=list)
     evidence: list[str] = Field(default_factory=list)
     confidence: Literal["low", "medium", "high"]
+
+
+class _AnalyticsAskModelPayload(BaseModel):
+    answer: str
+    evidence: list[str] = Field(default_factory=list)
+    suggested_followups: list[str] = Field(default_factory=list)
+
+    @field_validator("evidence", "suggested_followups", mode="before")
+    @classmethod
+    def _coerce_string_list(cls, value: Any) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return [str(item).strip() for item in value if str(item).strip()]
+        if isinstance(value, str):
+            parts = [
+                part.strip(" -\t")
+                for part in value.replace("\r", "\n").split("\n")
+                if part.strip(" -\t")
+            ]
+            return parts if parts else [value.strip()]
+        return [str(value).strip()]
 
 
 def _normalize_confidence(value: Any) -> Literal["low", "medium", "high"]:
@@ -429,6 +455,22 @@ def _build_ai_input_payload(
     }
 
 
+def _build_ask_input_payload(
+    summary: AnalyticsSummaryResponse,
+    *,
+    household_name: str,
+    timeframe: Literal["7d", "30d", "12w"],
+    question: str,
+) -> dict[str, Any]:
+    payload = _build_ai_input_payload(
+        summary,
+        household_name=household_name,
+        timeframe=timeframe,
+    )
+    payload["question"] = question.strip()
+    return payload
+
+
 def _build_input_hash(payload: dict[str, Any]) -> str:
     serialized = json.dumps(payload, sort_keys=True, ensure_ascii=True)
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
@@ -631,6 +673,130 @@ def _generate_ai_insights_payload(
     return validated, selected_model[:100] if selected_model else None
 
 
+def _generate_ai_ask_payload(
+    ask_input: dict[str, Any],
+) -> tuple[_AnalyticsAskModelPayload, str | None]:
+    api_key = settings.OPENROUTER_API_KEY
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="OPENROUTER_API_KEY is not configured",
+        )
+
+    system_prompt = (
+        "You answer analytics questions for a household productivity dashboard. "
+        "Use only the provided analytics data. "
+        "If the question is outside analytics scope, say that you can only answer based on analytics data. "
+        "Do not invent causes or data. "
+        "Never mention raw JSON keys, field names, payload names, or implementation details. "
+        "Write for an end user, not a developer. "
+        "Return valid JSON only."
+    )
+    user_prompt = (
+        "Answer the analytics question using only the provided data.\n"
+        "Requirements:\n"
+        "1. Keep the answer concise.\n"
+        "2. Include 1 to 3 evidence statements tied directly to the numbers.\n"
+        "3. Include up to 3 suggested follow-up questions.\n"
+        "4. If the question cannot be answered from the data, say so clearly.\n\n"
+        "5. Do not mention internal labels such as field names, JSON properties, arrays, objects, or payload structure.\n"
+        "6. When data is missing, explain that in plain language, for example: "
+        "\"This view shows current category totals, but it does not include category-by-category completion history.\"\n\n"
+        "Return JSON with exactly this shape:\n"
+        "{\n"
+        '  "answer": "string",\n'
+        '  "evidence": ["string"],\n'
+        '  "suggested_followups": ["string"]\n'
+        "}\n\n"
+        f"Data:\n{json.dumps(ask_input, sort_keys=True, ensure_ascii=True)}"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    base_body = {
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": 0.1,
+    }
+
+    ai_response: requests.Response | None = None
+    request_failures: list[str] = []
+    selected_model: str | None = None
+
+    for candidate_model in _load_model_candidates():
+        selected_model = candidate_model
+        for attempt in range(2):
+            body = {"model": candidate_model, **base_body}
+            try:
+                ai_response = requests.post(
+                    OPENROUTER_CHAT_COMPLETIONS_URL,
+                    headers=headers,
+                    json=body,
+                    timeout=60,
+                )
+            except requests.RequestException as exc:
+                request_failures.append(f"{candidate_model}: network error ({exc})")
+                break
+
+            if ai_response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+                request_failures.append(
+                    f"{candidate_model}: rate limited (attempt {attempt + 1}/2)"
+                )
+                if attempt == 0:
+                    time_module.sleep(_parse_retry_after_seconds(ai_response))
+                    continue
+                break
+
+            if ai_response.ok:
+                break
+
+            request_failures.append(
+                f"{candidate_model}: {ai_response.status_code} {ai_response.text[:120]}"
+            )
+            break
+
+        if ai_response is not None and ai_response.ok:
+            break
+
+    if ai_response is None:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="OpenRouter request failed before receiving a response",
+        )
+
+    if not ai_response.ok:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                f"OpenRouter request failed with status {ai_response.status_code}. "
+                f"Attempts: {' | '.join(request_failures)}"
+            ),
+        )
+
+    response_text = _extract_text_content(ai_response.json())
+    if not response_text:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="OpenRouter response did not contain analytics answer text",
+        )
+
+    try:
+        parsed_json = json.loads(_extract_json_block(response_text))
+        validated = _AnalyticsAskModelPayload.model_validate(parsed_json)
+    except (json.JSONDecodeError, ValidationError) as exc:
+        logger.exception("Failed to parse analytics ask response")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"OpenRouter response was not valid analytics ask JSON: {exc}",
+        ) from exc
+
+    return validated, selected_model[:100] if selected_model else None
+
+
 def _cache_to_response(
     cache_item,
     *,
@@ -719,5 +885,104 @@ def get_analytics_ai_insights(
             cache_item,
             household_id=hid,
             timeframe=payload.timeframe,
+            cached=False,
+        )
+
+
+def _question_cache_to_response(
+    cache_item,
+    *,
+    household_id: UUID,
+    timeframe: Literal["7d", "30d", "12w"],
+    question: str,
+    cached: bool,
+) -> AnalyticsAskResponse:
+    content_json = cache_item.content_json or {}
+    generated_at = cache_item.updated_at or cache_item.created_at or datetime.now(timezone.utc)
+    return AnalyticsAskResponse(
+        household_id=str(household_id),
+        timeframe=timeframe,
+        question=question,
+        answer=str(content_json.get("answer") or ""),
+        evidence=[str(item) for item in content_json.get("evidence", [])],
+        suggested_followups=[
+            str(item) for item in content_json.get("suggested_followups", [])
+        ],
+        cached=cached,
+        model=cache_item.model,
+        generated_at=generated_at,
+    )
+
+
+def get_analytics_ask_answer(
+    payload: AnalyticsAskRequest,
+    current_user: UserEmail,
+) -> AnalyticsAskResponse:
+    question = payload.question.strip()
+    if not question:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Question is required",
+        )
+
+    session_local = get_session_local()
+
+    with session_local() as db:
+        _, hid, summary, household_name = _load_analytics_context(
+            db,
+            household_id=payload.household_id,
+            timeframe=payload.timeframe,
+            current_user=current_user,
+        )
+        ask_input = _build_ask_input_payload(
+            summary,
+            household_name=household_name,
+            timeframe=payload.timeframe,
+            question=question,
+        )
+        input_hash = _build_input_hash(ask_input)
+
+        if not payload.refresh:
+            cached_item = get_cached_ai_question(
+                db,
+                household_id=hid,
+                timeframe=payload.timeframe,
+                input_hash=input_hash,
+            )
+            if cached_item is not None:
+                return _question_cache_to_response(
+                    cached_item,
+                    household_id=hid,
+                    timeframe=payload.timeframe,
+                    question=question,
+                    cached=True,
+                )
+
+        ai_result, selected_model = _generate_ai_ask_payload(ask_input)
+        cache_item = upsert_cached_ai_question(
+            db,
+            household_id=hid,
+            timeframe=payload.timeframe,
+            question=question,
+            input_hash=input_hash,
+            content_json=ai_result.model_dump(),
+            model=selected_model,
+        )
+        try:
+            db.commit()
+        except SQLAlchemyError as exc:
+            db.rollback()
+            logger.exception("Failed to persist analytics ai question cache: %s", exc)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to store analytics AI answer",
+            ) from exc
+
+        db.refresh(cache_item)
+        return _question_cache_to_response(
+            cache_item,
+            household_id=hid,
+            timeframe=payload.timeframe,
+            question=question,
             cached=False,
         )

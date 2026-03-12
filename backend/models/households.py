@@ -13,6 +13,7 @@ from .base import Base
 
 if TYPE_CHECKING:
     from .analytics_ai_insights_cache import AnalyticsAIInsightsCache
+    from .analytics_ai_questions_cache import AnalyticsAIQuestionsCache
     from .users_households import UsersHouseholds
     from .invitations import Invitations
     from .categories import Categories
@@ -69,6 +70,11 @@ class Households(Base):
     )
     analytics_ai_insights: Mapped[list[AnalyticsAIInsightsCache]] = relationship(
         "AnalyticsAIInsightsCache",
+        back_populates="household",
+        cascade="all, delete-orphan",
+    )
+    analytics_ai_questions: Mapped[list[AnalyticsAIQuestionsCache]] = relationship(
+        "AnalyticsAIQuestionsCache",
         back_populates="household",
         cascade="all, delete-orphan",
     )

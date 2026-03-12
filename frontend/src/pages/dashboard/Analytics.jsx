@@ -9,6 +9,7 @@ import AnalyticsInsightsPanel from "@/components/analytics/AnalyticsInsightsPane
 import AnalyticsFairnessCard from "@/components/analytics/AnalyticsFairnessCard";
 import AnalyticsStatsGrid from "@/components/analytics/AnalyticsStatsGrid";
 import AnalyticsChartsGrid from "@/components/analytics/AnalyticsChartsGrid";
+import AnalyticsAskPanel from "@/components/analytics/AnalyticsAskPanel";
 import ManageChartsDialog from "@/components/analytics/ManageChartsDialog";
 import ExpandedAnalyticsChart from "@/components/analytics/ExpandedAnalyticsChart";
 import AnalyticsDrilldownDialog from "@/components/analytics/AnalyticsDrilldownDialog";
@@ -41,6 +42,7 @@ export default function Analytics() {
             <AnalyticsHeader vm={vm} />
             <AnalyticsStatsGrid stats={vm.enrichedStats} />
             <AnalyticsInsightsPanel vm={vm} />
+            <AnalyticsAskPanel vm={vm} />
             <AnalyticsFiltersBar vm={vm} />
             <AnalyticsChartsGrid vm={vm} />
             <AnalyticsFairnessCard vm={vm} />

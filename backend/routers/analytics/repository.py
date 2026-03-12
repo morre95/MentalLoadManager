@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from models import (
     AnalyticsAIInsightsCache,
+    AnalyticsAIQuestionsCache,
     Categories,
     Households,
     Tasks,
@@ -293,6 +294,54 @@ def upsert_cached_ai_insight(
         )
         db.add(cache_item)
 
+    cache_item.content_json = content_json
+    cache_item.model = model
+    cache_item.updated_at = datetime.now(timezone.utc)
+    return cache_item
+
+
+def get_cached_ai_question(
+    db: Session,
+    *,
+    household_id: UUID,
+    timeframe: str,
+    input_hash: str,
+) -> AnalyticsAIQuestionsCache | None:
+    return db.scalar(
+        select(AnalyticsAIQuestionsCache).where(
+            AnalyticsAIQuestionsCache.household_id == household_id,
+            AnalyticsAIQuestionsCache.timeframe == timeframe,
+            AnalyticsAIQuestionsCache.input_hash == input_hash,
+        )
+    )
+
+
+def upsert_cached_ai_question(
+    db: Session,
+    *,
+    household_id: UUID,
+    timeframe: str,
+    question: str,
+    input_hash: str,
+    content_json: dict,
+    model: str | None,
+) -> AnalyticsAIQuestionsCache:
+    cache_item = get_cached_ai_question(
+        db,
+        household_id=household_id,
+        timeframe=timeframe,
+        input_hash=input_hash,
+    )
+    if cache_item is None:
+        cache_item = AnalyticsAIQuestionsCache(
+            household_id=household_id,
+            timeframe=timeframe,
+            question=question,
+            input_hash=input_hash,
+        )
+        db.add(cache_item)
+
+    cache_item.question = question
     cache_item.content_json = content_json
     cache_item.model = model
     cache_item.updated_at = datetime.now(timezone.utc)

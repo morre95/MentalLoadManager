@@ -7,11 +7,13 @@ from helpers import get_current_user
 from models import UserEmail
 
 from .schemas import (
+    AnalyticsAskRequest,
+    AnalyticsAskResponse,
     AnalyticsAIInsightsRequest,
     AnalyticsAIInsightsResponse,
     AnalyticsSummaryResponse,
 )
-from .service import get_analytics_ai_insights, get_analytics_summary
+from .service import get_analytics_ai_insights, get_analytics_ask_answer, get_analytics_summary
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -31,3 +33,11 @@ def get_analytics_ai_insights_route(
     current_user: UserEmail = Depends(get_current_user),
 ):
     return get_analytics_ai_insights(payload, current_user)
+
+
+@router.post("/ask", response_model=AnalyticsAskResponse)
+def get_analytics_ask_route(
+    payload: AnalyticsAskRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    return get_analytics_ask_answer(payload, current_user)

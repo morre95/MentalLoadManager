@@ -112,6 +112,27 @@ def setup_db_and_tables() -> None:
                 "ON analytics_ai_insights_cache(household_id, created_at DESC)"
             )
         )
+        connection.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS analytics_ai_questions_cache ("
+                "  analytics_ai_question_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),"
+                "  household_id UUID NOT NULL REFERENCES households(household_id) ON DELETE CASCADE,"
+                "  timeframe VARCHAR(10) NOT NULL,"
+                "  question TEXT NOT NULL,"
+                "  input_hash TEXT NOT NULL,"
+                "  content_json JSONB NOT NULL DEFAULT '{}'::jsonb,"
+                "  model VARCHAR(100),"
+                "  created_at TIMESTAMPTZ DEFAULT NOW(),"
+                "  updated_at TIMESTAMPTZ DEFAULT NOW()"
+                ")"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_analytics_ai_questions_cache_lookup "
+                "ON analytics_ai_questions_cache(household_id, timeframe, input_hash)"
+            )
+        )
 
 
 def get_session_local() -> sessionmaker:

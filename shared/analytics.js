@@ -82,6 +82,22 @@ export function normalizeAnalyticsAIInsights(data) {
     };
 }
 
+export function normalizeAnalyticsAskResponse(data) {
+    const safeArray = (x) => (Array.isArray(x) ? x : []);
+
+    return {
+        household_id: data?.household_id ?? null,
+        timeframe: data?.timeframe ?? "30d",
+        question: data?.question ?? "",
+        answer: data?.answer ?? "",
+        evidence: safeArray(data?.evidence).map((item) => String(item ?? "")),
+        suggested_followups: safeArray(data?.suggested_followups).map((item) => String(item ?? "")),
+        cached: Boolean(data?.cached),
+        model: data?.model ?? null,
+        generated_at: data?.generated_at ?? null,
+    };
+}
+
 
 export async function fetchAnalyticsSummary(
     apiClient,
@@ -122,4 +138,26 @@ export async function fetchAnalyticsAIInsights(
     });
 
     return normalizeAnalyticsAIInsights(data);
+}
+
+export async function askAnalyticsQuestion(
+    apiClient,
+    {
+        householdId = null,
+        timeframe = "30d",
+        question = "",
+        refresh = false,
+    } = {}
+) {
+    const data = await apiClient.request("/api/analytics/ask", {
+        method: "POST",
+        body: JSON.stringify({
+            household_id: householdId,
+            timeframe,
+            question,
+            refresh,
+        }),
+    });
+
+    return normalizeAnalyticsAskResponse(data);
 }

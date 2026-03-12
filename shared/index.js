@@ -36,8 +36,10 @@ export {
 } from "./households.js";
 
 export {
+  askAnalyticsQuestion,
   fetchAnalyticsAIInsights,
   fetchAnalyticsSummary,
+  normalizeAnalyticsAskResponse,
   normalizeAnalyticsAIInsights,
   normalizeAnalyticsSummary,
 } from "./analytics.js";

@@ -1,7 +1,7 @@
 // src/hooks/useAnalyticsPage.js
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useHousehold } from "@/hooks/useHouseHold";
-import { fetchAnalyticsAIInsights, fetchAnalyticsSummary } from "../../../shared";
+import { askAnalyticsQuestion, fetchAnalyticsAIInsights, fetchAnalyticsSummary } from "../../../shared";
 import { getDisplayNameFromUsername, apiClient } from "@/lib/utils";
 
 import { CHARTS, DEFAULT_ACTIVE_CHART_IDS, TIMEFRAME_OPTIONS } from "@/lib/analytics_constants";
@@ -150,6 +150,9 @@ export function useAnalyticsPage() {
     const [aiLoading, setAiLoading] = useState(false);
     const [aiError, setAiError] = useState(null);
     const [aiInsights, setAiInsights] = useState(null);
+    const [askLoading, setAskLoading] = useState(false);
+    const [askError, setAskError] = useState(null);
+    const [askResponse, setAskResponse] = useState(null);
     const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
     const [noHousehold, setNoHousehold] = useState(false);
 
@@ -250,6 +253,8 @@ export function useAnalyticsPage() {
             setError(null);
             setAiError(null);
             setAiInsights(null);
+            setAskError(null);
+            setAskResponse(null);
             setNoHousehold(false);
             try {
                 const summary = await fetchAnalyticsSummary(apiClient, selectedHouseholdId, tf);
@@ -675,6 +680,33 @@ export function useAnalyticsPage() {
         return "rules";
     }, [aiInsights]);
 
+    const suggestedFollowups = useMemo(() => askResponse?.suggested_followups || [], [askResponse]);
+
+    const askQuestion = useCallback(
+        async (question, options = {}) => {
+            const prompt = String(question || "").trim();
+            if (!prompt || !selectedHouseholdId) return;
+
+            setAskLoading(true);
+            setAskError(null);
+            try {
+                const response = await askAnalyticsQuestion(apiClient, {
+                    householdId: selectedHouseholdId,
+                    timeframe,
+                    question: prompt,
+                    refresh: Boolean(options.refresh),
+                });
+                setAskResponse(response);
+            } catch (err) {
+                console.error(err);
+                setAskError(err);
+            } finally {
+                setAskLoading(false);
+            }
+        },
+        [selectedHouseholdId, timeframe]
+    );
+
     const handleOpenDrilldown = useCallback((title, rows) => {
         setDrilldown({ open: true, title, rows: Array.isArray(rows) ? rows : [] });
     }, []);
@@ -819,6 +851,10 @@ export function useAnalyticsPage() {
         aiError,
         aiInsights,
         insightsSource,
+        askLoading,
+        askError,
+        askResponse,
+        suggestedFollowups,
         noHousehold,
         lastUpdatedAt,
         setLastUpdatedAt,
@@ -875,6 +911,7 @@ export function useAnalyticsPage() {
         handleChartPointSelect,
         handleCloseDrilldown,
         load,
+        askQuestion,
         handleToggleChart,
         handleDownloadChartData,
         handleDownloadMonthlySummary,
