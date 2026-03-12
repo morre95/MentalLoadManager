@@ -84,6 +84,126 @@ def fetch_category_rows(db: Session, household_id: UUID, start: datetime):
     ).all()
 
 
+def fetch_category_created_counts_in_range(
+    db: Session,
+    household_id: UUID,
+    start: datetime,
+    end: datetime,
+):
+    return db.execute(
+        select(
+            func.coalesce(Categories.name, "Uncategorized").label("cat"),
+            func.count().label("cnt"),
+        )
+        .select_from(Tasks)
+        .outerjoin(Categories, Tasks.category_id == Categories.category_id)
+        .where(
+            Tasks.household_id == household_id,
+            Tasks.created_at >= start,
+            Tasks.created_at < end,
+        )
+        .group_by("cat")
+        .order_by(func.count().desc())
+    ).all()
+
+
+def fetch_category_completed_counts_in_range(
+    db: Session,
+    household_id: UUID,
+    start: datetime,
+    end: datetime,
+    completed_statuses: tuple[str, ...],
+):
+    return db.execute(
+        select(
+            func.coalesce(Categories.name, "Uncategorized").label("cat"),
+            func.count().label("cnt"),
+        )
+        .select_from(Tasks)
+        .outerjoin(Categories, Tasks.category_id == Categories.category_id)
+        .where(
+            Tasks.household_id == household_id,
+            Tasks.status.in_(completed_statuses),
+            Tasks.complete_date.is_not(None),
+            Tasks.complete_date >= start,
+            Tasks.complete_date < end,
+        )
+        .group_by("cat")
+        .order_by(func.count().desc())
+    ).all()
+
+
+def fetch_category_completed_by_person_in_range(
+    db: Session,
+    household_id: UUID,
+    start: datetime,
+    end: datetime,
+    completed_statuses: tuple[str, ...],
+):
+    return db.execute(
+        select(
+            func.coalesce(Categories.name, "Uncategorized").label("cat"),
+            Tasks.assigns_to,
+            func.count().label("cnt"),
+        )
+        .select_from(Tasks)
+        .outerjoin(Categories, Tasks.category_id == Categories.category_id)
+        .where(
+            Tasks.household_id == household_id,
+            Tasks.status.in_(completed_statuses),
+            Tasks.complete_date.is_not(None),
+            Tasks.complete_date >= start,
+            Tasks.complete_date < end,
+        )
+        .group_by("cat", Tasks.assigns_to)
+    ).all()
+
+
+def fetch_open_tasks_by_category(
+    db: Session,
+    household_id: UUID,
+    open_statuses: tuple[str, ...],
+):
+    return db.execute(
+        select(
+            func.coalesce(Categories.name, "Uncategorized").label("cat"),
+            func.count().label("cnt"),
+        )
+        .select_from(Tasks)
+        .outerjoin(Categories, Tasks.category_id == Categories.category_id)
+        .where(
+            Tasks.household_id == household_id,
+            Tasks.status.in_(open_statuses),
+        )
+        .group_by("cat")
+        .order_by(func.count().desc())
+    ).all()
+
+
+def fetch_overdue_tasks_by_category(
+    db: Session,
+    household_id: UUID,
+    now: datetime,
+    open_statuses: tuple[str, ...],
+):
+    return db.execute(
+        select(
+            func.coalesce(Categories.name, "Uncategorized").label("cat"),
+            func.count().label("cnt"),
+        )
+        .select_from(Tasks)
+        .outerjoin(Categories, Tasks.category_id == Categories.category_id)
+        .where(
+            Tasks.household_id == household_id,
+            Tasks.status.in_(open_statuses),
+            Tasks.due_date.is_not(None),
+            Tasks.due_date < now,
+        )
+        .group_by("cat")
+        .order_by(func.count().desc())
+    ).all()
+
+
 def fetch_load_rows(
     db: Session,
     household_id: UUID,

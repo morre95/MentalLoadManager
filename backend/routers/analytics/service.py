@@ -21,11 +21,16 @@ from .repository import (
     count_done_in_range,
     count_open_tasks,
     count_overdue_tasks,
+    fetch_category_completed_by_person_in_range,
+    fetch_category_completed_counts_in_range,
+    fetch_category_created_counts_in_range,
     fetch_category_rows,
     fetch_completion_rows,
     fetch_load_rows,
     fetch_member_rows,
     fetch_open_assignee_counts,
+    fetch_open_tasks_by_category,
+    fetch_overdue_tasks_by_category,
     fetch_radar_rows,
     fetch_weekly_rows,
     get_cached_ai_insight,
@@ -92,6 +97,22 @@ class _AnalyticsAskModelPayload(BaseModel):
         return [str(value).strip()]
 
 
+_INTERNAL_ANALYTICS_TERMS = {
+    "top_categories": "top categories",
+    "completion_trend": "overall completion trend",
+    "completed_current": "completed tasks this period",
+    "completed_previous": "completed tasks in the previous period",
+    "completed_change": "change in completed tasks",
+    "created_current": "tasks created this period",
+    "created_previous": "tasks created in the previous period",
+    "created_change": "change in created tasks",
+    "open_current": "currently open tasks",
+    "overdue_current": "currently overdue tasks",
+    "category_breakdown": "category comparisons",
+    "person_category_completion": "person-by-category completion details",
+}
+
+
 def _normalize_confidence(value: Any) -> Literal["low", "medium", "high"]:
     normalized = str(value or "").strip().lower()
     if normalized in {"low", "medium", "high"}:
@@ -133,7 +154,7 @@ def _load_analytics_context(
     household_id: UUID | None,
     timeframe: Literal["7d", "30d", "12w"],
     current_user: UserEmail,
-) -> tuple[Any, UUID, AnalyticsSummaryResponse, str]:
+) -> tuple[Any, UUID, AnalyticsSummaryResponse, str, dict[str, Any]]:
     me = _get_db_user(db, current_user)
     hid = household_id or _default_household(db, me.user_id)
     _require_membership(db, me.user_id, hid)
@@ -306,7 +327,14 @@ def _load_analytics_context(
         radarData=radar_data,
         stats=stats,
     )
-    return me, hid, summary, household_name
+    context = {
+        "now": now,
+        "start": start,
+        "previous_start": start - (now - start),
+        "labels": labels,
+        "user_id_to_username": user_id_to_username,
+    }
+    return me, hid, summary, household_name, context
 
 
 def get_analytics_summary(
@@ -317,7 +345,7 @@ def get_analytics_summary(
     session_local = get_session_local()
 
     with session_local() as db:
-        _, _, summary, _ = _load_analytics_context(
+        _, _, summary, _, _ = _load_analytics_context(
             db,
             household_id=household_id,
             timeframe=timeframe,
@@ -404,11 +432,181 @@ def _completion_trend(summary: AnalyticsSummaryResponse) -> dict[str, float | in
     }
 
 
+def _rows_to_count_map(rows: list[Any]) -> dict[str, int]:
+    result: dict[str, int] = {}
+    for row in rows:
+        result[str(row.cat)] = int(row.cnt or 0)
+    return result
+
+
+def _build_category_breakdown(
+    db,
+    *,
+    household_id: UUID,
+    now: datetime,
+    start: datetime,
+    previous_start: datetime,
+    user_id_to_username: dict[UUID, str],
+    labels: dict[str, str],
+) -> list[dict[str, Any]]:
+    created_current = _rows_to_count_map(
+        fetch_category_created_counts_in_range(db, household_id, start, now)
+    )
+    created_previous = _rows_to_count_map(
+        fetch_category_created_counts_in_range(db, household_id, previous_start, start)
+    )
+    completed_current = _rows_to_count_map(
+        fetch_category_completed_counts_in_range(
+            db,
+            household_id,
+            start,
+            now,
+            COMPLETED_STATUSES,
+        )
+    )
+    completed_previous = _rows_to_count_map(
+        fetch_category_completed_counts_in_range(
+            db,
+            household_id,
+            previous_start,
+            start,
+            COMPLETED_STATUSES,
+        )
+    )
+    open_current = _rows_to_count_map(
+        fetch_open_tasks_by_category(db, household_id, OPEN_STATUSES)
+    )
+    overdue_current = _rows_to_count_map(
+        fetch_overdue_tasks_by_category(db, household_id, now, OPEN_STATUSES)
+    )
+
+    completed_by_person_rows = fetch_category_completed_by_person_in_range(
+        db,
+        household_id,
+        start,
+        now,
+        COMPLETED_STATUSES,
+    )
+    completed_by_person: dict[str, dict[str, int]] = {}
+    for row in completed_by_person_rows:
+        username = user_id_to_username.get(row.assigns_to, "unassigned")
+        completed_by_person.setdefault(str(row.cat), {})
+        completed_by_person[str(row.cat)][username] = int(row.cnt or 0)
+
+    category_names = sorted(
+        {
+            *created_current.keys(),
+            *created_previous.keys(),
+            *completed_current.keys(),
+            *completed_previous.keys(),
+            *open_current.keys(),
+            *overdue_current.keys(),
+        }
+    )
+
+    breakdown: list[dict[str, Any]] = []
+    for category_name in category_names:
+        by_person = completed_by_person.get(category_name, {})
+        people_rows = [
+            {
+                "person": username,
+                "label": labels.get(username, username),
+                "completed": count,
+            }
+            for username, count in sorted(
+                by_person.items(),
+                key=lambda item: item[1],
+                reverse=True,
+            )
+        ]
+        breakdown.append(
+            {
+                "name": category_name,
+                "created_current": created_current.get(category_name, 0),
+                "created_previous": created_previous.get(category_name, 0),
+                "created_change": created_current.get(category_name, 0)
+                - created_previous.get(category_name, 0),
+                "completed_current": completed_current.get(category_name, 0),
+                "completed_previous": completed_previous.get(category_name, 0),
+                "completed_change": completed_current.get(category_name, 0)
+                - completed_previous.get(category_name, 0),
+                "open_current": open_current.get(category_name, 0),
+                "overdue_current": overdue_current.get(category_name, 0),
+                "completed_by_person": people_rows,
+            }
+        )
+
+    breakdown.sort(
+        key=lambda item: (
+            item["completed_current"],
+            item["created_current"],
+            item["open_current"],
+        ),
+        reverse=True,
+    )
+    return breakdown
+
+
+def _build_person_category_completion(category_breakdown: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    per_person: dict[str, dict[str, Any]] = {}
+    for category in category_breakdown:
+        for row in category.get("completed_by_person", []):
+            person = row["person"]
+            person_entry = per_person.setdefault(
+                person,
+                {
+                    "person": person,
+                    "label": row["label"],
+                    "categories": [],
+                    "total_completed_current": 0,
+                },
+            )
+            person_entry["categories"].append(
+                {
+                    "name": category["name"],
+                    "completed_current": row["completed"],
+                    "share_of_category_completed_pct": round(
+                        (row["completed"] / max(1, category["completed_current"])) * 100,
+                        1,
+                    ) if category["completed_current"] > 0 else 0.0,
+                }
+            )
+            person_entry["total_completed_current"] += row["completed"]
+
+    result = list(per_person.values())
+    for person_entry in result:
+        person_entry["categories"].sort(
+            key=lambda item: item["completed_current"],
+            reverse=True,
+        )
+    result.sort(key=lambda item: item["total_completed_current"], reverse=True)
+    return result
+
+
+def _sanitize_end_user_text(value: str) -> str:
+    text = str(value or "").strip()
+    for raw_term, replacement in _INTERNAL_ANALYTICS_TERMS.items():
+        text = text.replace(raw_term, replacement)
+    return text
+
+
+def _sanitize_ask_payload(payload: _AnalyticsAskModelPayload) -> _AnalyticsAskModelPayload:
+    return _AnalyticsAskModelPayload(
+        answer=_sanitize_end_user_text(payload.answer),
+        evidence=[_sanitize_end_user_text(item) for item in payload.evidence],
+        suggested_followups=[
+            _sanitize_end_user_text(item) for item in payload.suggested_followups
+        ],
+    )
+
+
 def _build_ai_input_payload(
     summary: AnalyticsSummaryResponse,
     *,
     household_name: str,
     timeframe: Literal["7d", "30d", "12w"],
+    category_breakdown: list[dict[str, Any]] | None = None,
+    person_category_completion: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     stats = _stats_map(summary)
     top_categories = [
@@ -449,6 +647,8 @@ def _build_ai_input_payload(
         },
         "workload_by_person": _workload_by_person(summary),
         "top_categories": top_categories,
+        "category_breakdown": category_breakdown or [],
+        "person_category_completion": person_category_completion or [],
         "load_trend": load_trend,
         "completion_trend": _completion_trend(summary),
         "recent_completion_points": evidence_points,
@@ -461,11 +661,15 @@ def _build_ask_input_payload(
     household_name: str,
     timeframe: Literal["7d", "30d", "12w"],
     question: str,
+    category_breakdown: list[dict[str, Any]] | None = None,
+    person_category_completion: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     payload = _build_ai_input_payload(
         summary,
         household_name=household_name,
         timeframe=timeframe,
+        category_breakdown=category_breakdown,
+        person_category_completion=person_category_completion,
     )
     payload["question"] = question.strip()
     return payload
@@ -702,6 +906,13 @@ def _generate_ai_ask_payload(
         "5. Do not mention internal labels such as field names, JSON properties, arrays, objects, or payload structure.\n"
         "6. When data is missing, explain that in plain language, for example: "
         "\"This view shows current category totals, but it does not include category-by-category completion history.\"\n\n"
+        "7. The data includes computed category comparisons for the current period versus the previous period, "
+        "including created tasks, completed tasks, open tasks, overdue tasks, and who completed tasks within each category. "
+        "Use those comparisons when the user asks what changed, which category moved most, or who completed the most in a category.\n\n"
+        "8. If the question asks for rates or percentages, answer with percentages using the provided computed values whenever possible.\n"
+        "9. A response is invalid if it contains implementation terms such as completed_current, completed_previous, "
+        "completed_change, created_current, created_previous, created_change, top_categories, completion_trend, "
+        "category_breakdown, or person_category_completion.\n\n"
         "Return JSON with exactly this shape:\n"
         "{\n"
         '  "answer": "string",\n'
@@ -786,7 +997,9 @@ def _generate_ai_ask_payload(
 
     try:
         parsed_json = json.loads(_extract_json_block(response_text))
-        validated = _AnalyticsAskModelPayload.model_validate(parsed_json)
+        validated = _sanitize_ask_payload(
+            _AnalyticsAskModelPayload.model_validate(parsed_json)
+        )
     except (json.JSONDecodeError, ValidationError) as exc:
         logger.exception("Failed to parse analytics ask response")
         raise HTTPException(
@@ -833,16 +1046,30 @@ def get_analytics_ai_insights(
     session_local = get_session_local()
 
     with session_local() as db:
-        _, hid, summary, household_name = _load_analytics_context(
+        _, hid, summary, household_name, analytics_context = _load_analytics_context(
             db,
             household_id=payload.household_id,
             timeframe=payload.timeframe,
             current_user=current_user,
         )
+        category_breakdown = _build_category_breakdown(
+            db,
+            household_id=hid,
+            now=analytics_context["now"],
+            start=analytics_context["start"],
+            previous_start=analytics_context["previous_start"],
+            user_id_to_username=analytics_context["user_id_to_username"],
+            labels=analytics_context["labels"],
+        )
+        person_category_completion = _build_person_category_completion(
+            category_breakdown
+        )
         ai_input = _build_ai_input_payload(
             summary,
             household_name=household_name,
             timeframe=payload.timeframe,
+            category_breakdown=category_breakdown,
+            person_category_completion=person_category_completion,
         )
         input_hash = _build_input_hash(ai_input)
 
@@ -928,17 +1155,31 @@ def get_analytics_ask_answer(
     session_local = get_session_local()
 
     with session_local() as db:
-        _, hid, summary, household_name = _load_analytics_context(
+        _, hid, summary, household_name, analytics_context = _load_analytics_context(
             db,
             household_id=payload.household_id,
             timeframe=payload.timeframe,
             current_user=current_user,
+        )
+        category_breakdown = _build_category_breakdown(
+            db,
+            household_id=hid,
+            now=analytics_context["now"],
+            start=analytics_context["start"],
+            previous_start=analytics_context["previous_start"],
+            user_id_to_username=analytics_context["user_id_to_username"],
+            labels=analytics_context["labels"],
+        )
+        person_category_completion = _build_person_category_completion(
+            category_breakdown
         )
         ask_input = _build_ask_input_payload(
             summary,
             household_name=household_name,
             timeframe=payload.timeframe,
             question=question,
+            category_breakdown=category_breakdown,
+            person_category_completion=person_category_completion,
         )
         input_hash = _build_input_hash(ask_input)
 
