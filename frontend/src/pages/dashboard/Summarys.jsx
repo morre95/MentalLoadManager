@@ -84,6 +84,41 @@ export default function Summarys() {
     }
   };
 
+  useEffect(() => {
+    if (!summary?.weekly_report_id || summary.status !== "pending") {
+      return undefined;
+    }
+
+    let active = true;
+
+    const poll = async () => {
+      try {
+        const nextSummary = await apiFetch(
+          `/api/ai/weekly-summary/${summary.weekly_report_id}`,
+          { method: "GET" }
+        );
+        if (active) {
+          setSummary(nextSummary);
+        }
+      } catch (err) {
+        if (active) {
+          setRequestError(err?.message || "Failed to refresh weekly summary status.");
+        }
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      void poll();
+    }, 3000);
+
+    void poll();
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [summary?.weekly_report_id, summary?.status]);
+
   if (loading && householdOptions.length === 0) {
     return <div className="p-6 text-muted-foreground">Loading summaries…</div>;
   }
@@ -186,12 +221,26 @@ export default function Summarys() {
           {summary ? (
             <>
               <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                <span>Model: {summary.model}</span>
+                <span>Status: {summary.status}</span>
+                {summary.model ? <span>Model: {summary.model}</span> : null}
                 <span>Household: {summary.household_id}</span>
               </div>
-              <div className="whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-4 text-sm leading-7 text-foreground">
-                {summary.content}
-              </div>
+              {summary.status === "pending" ? (
+                <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Weekly summary is being generated in the background.
+                </div>
+              ) : null}
+              {summary.status === "failed" ? (
+                <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
+                  {summary.error || "Weekly summary generation failed."}
+                </div>
+              ) : null}
+              {summary.content ? (
+                <div className="whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-4 text-sm leading-7 text-foreground">
+                  {summary.content}
+                </div>
+              ) : null}
             </>
           ) : (
             <div className="rounded-lg border border-dashed border-border bg-muted/20 p-6 text-sm text-muted-foreground">

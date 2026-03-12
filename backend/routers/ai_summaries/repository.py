@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, aliased
 
-from models import AISummaries, Tasks, UserDB, UsersHouseholds
+from models import AISummaries, Tasks, UserDB, UsersHouseholds, WeeklyReports
 
 
 def get_user_by_username(db: Session, username: str) -> UserDB | None:
@@ -102,3 +102,27 @@ def create_ai_summary(
     )
     db.add(ai_summary)
     return ai_summary
+
+
+def create_weekly_report(
+    db: Session,
+    *,
+    household_id: UUID,
+    week_start,
+    week_end,
+    stats_json: dict | None,
+    summary: str | None = None,
+) -> WeeklyReports:
+    weekly_report = WeeklyReports(
+        household_id=household_id,
+        week_start=week_start,
+        week_end=week_end,
+        stats_json=stats_json,
+        summary=summary,
+    )
+    db.add(weekly_report)
+    return weekly_report
+
+
+def get_weekly_report(db: Session, weekly_report_id: UUID) -> WeeklyReports | None:
+    return db.get(WeeklyReports, weekly_report_id)

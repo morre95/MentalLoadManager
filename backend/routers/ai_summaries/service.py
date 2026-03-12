@@ -3,22 +3,26 @@ import json
 import logging
 import time as time_module
 from datetime import UTC, date, datetime, time, timedelta
+from uuid import UUID
 
 import requests
 from fastapi import HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
+
 from config import settings
 from helpers import get_session_local
 from models import UserEmail
 
 from .repository import (
     create_ai_summary,
+    create_weekly_report,
     fetch_household_tasks,
     fetch_weekly_tasks,
     get_user_by_username,
+    get_weekly_report,
     has_household_membership,
 )
-from .schemas import GenerateWeeklySummaryRequest, GenerateWeeklySummaryResponse
+from .schemas import GenerateWeeklySummaryRequest, WeeklySummaryReportResponse
 
 DEFAULT_OPENROUTER_MODEL = "openrouter/free"
 OPENROUTER_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -34,10 +38,21 @@ def _normalize_week_start(value: date | None) -> date:
     return today - timedelta(days=today.weekday())
 
 
+def _week_end_exclusive(week_start: date) -> date:
+    return week_start + timedelta(days=7)
+
+
+def _to_iso(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return value.isoformat()
+
+
 def _extract_text_content(chat_response: dict) -> str:
     choices = chat_response.get("choices", [])
     if not choices:
         return ""
+
     message = choices[0].get("message", {})
     content = message.get("content", "")
 
@@ -56,12 +71,6 @@ def _extract_text_content(chat_response: dict) -> str:
     return ""
 
 
-def _to_iso(value: datetime | None) -> str | None:
-    if value is None:
-        return None
-    return value.isoformat()
-
-
 def _parse_retry_after_seconds(response: requests.Response) -> float:
     retry_after = response.headers.get("Retry-After")
     if not retry_after:
@@ -73,10 +82,8 @@ def _parse_retry_after_seconds(response: requests.Response) -> float:
 
 
 def _load_model_candidates(primary_model: str) -> list[str]:
-    fallbacks = DEFAULT_FALLBACK_MODELS
-
     candidates: list[str] = []
-    for model in [primary_model, *fallbacks]:
+    for model in [primary_model, *DEFAULT_FALLBACK_MODELS]:
         if model not in candidates:
             candidates.append(model)
     if "openrouter/free" not in candidates:
@@ -84,48 +91,99 @@ def _load_model_candidates(primary_model: str) -> list[str]:
     return candidates
 
 
-def generate_weekly_summary(
-    payload: GenerateWeeklySummaryRequest,
-    current_user: UserEmail,
-) -> GenerateWeeklySummaryResponse:
-    api_key = settings.OPENROUTER_API_KEY
-
-    if not api_key:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="OPENROUTER_API_KEY is not configured",
-        )
-
-    model_name = settings.OPENROUTER_WEEKLY_SUMMARY_MODEL or DEFAULT_OPENROUTER_MODEL
-
-    model_candidates = _load_model_candidates(model_name)
-    week_start = _normalize_week_start(payload.week_start)
-    week_end = week_start + timedelta(days=7)
-    week_start_dt = datetime.combine(week_start, time.min, tzinfo=UTC)
-    week_end_dt = datetime.combine(week_end, time.min, tzinfo=UTC)
-
+def _get_session_factory():
     try:
-        session_local = get_session_local()
+        return get_session_local()
     except RuntimeError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         ) from exc
 
+
+def _validate_membership(db, *, username: str, household_id: UUID):
+    user = get_user_by_username(db, username)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+        )
+
+    if not has_household_membership(db, user.user_id, household_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not a member of the specified household",
+        )
+
+    return user
+
+
+def _report_status_payload(
+    *,
+    status_value: str,
+    model: str | None = None,
+    prompt_hash: str | None = None,
+    error: str | None = None,
+    stats: dict | None = None,
+    tasks_touched_this_week: list[dict[str, str | None]] | None = None,
+) -> dict:
+    payload: dict[str, object] = {"status": status_value}
+    if model is not None:
+        payload["model"] = model
+    if prompt_hash is not None:
+        payload["prompt_hash"] = prompt_hash
+    if error is not None:
+        payload["error"] = error
+    if stats is not None:
+        payload["stats"] = stats
+    if tasks_touched_this_week is not None:
+        payload["tasks_touched_this_week"] = tasks_touched_this_week
+    return payload
+
+
+def _to_weekly_report_response(report) -> WeeklySummaryReportResponse:
+    meta = report.stats_json or {}
+    status_value = meta.get("status", "completed")
+    if status_value not in {"pending", "completed", "failed"}:
+        status_value = "completed"
+
+    return WeeklySummaryReportResponse(
+        weekly_report_id=str(report.weekly_report_id),
+        household_id=str(report.household_id),
+        week_start=report.week_start,
+        week_end=report.week_end,
+        status=status_value,
+        model=str(meta.get("model") or ""),
+        content=report.summary,
+        prompt_hash=meta.get("prompt_hash"),
+        error=meta.get("error"),
+    )
+
+
+def _generate_summary_payload(
+    payload: GenerateWeeklySummaryRequest,
+    *,
+    username: str,
+) -> dict:
+    api_key = settings.OPENROUTER_API_KEY
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="OPENROUTER_API_KEY is not configured",
+        )
+
+    week_start = _normalize_week_start(payload.week_start)
+    week_end = _week_end_exclusive(week_start)
+    week_start_dt = datetime.combine(week_start, time.min, tzinfo=UTC)
+    week_end_dt = datetime.combine(week_end, time.min, tzinfo=UTC)
+
+    session_local = _get_session_factory()
     with session_local() as db:
-        user = get_user_by_username(db, current_user.username)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not validate credentials",
-            )
-
-        if not has_household_membership(db, user.user_id, payload.household_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User is not a member of the specified household",
-            )
-
+        _validate_membership(
+            db,
+            username=username,
+            household_id=payload.household_id,
+        )
         weekly_tasks = fetch_weekly_tasks(
             db,
             payload.household_id,
@@ -155,18 +213,6 @@ def generate_weekly_summary(
 
         if row.created_at and week_start_dt <= row.created_at < week_end_dt:
             weekly_created += 1
-        if row.started_at and week_start_dt <= row.started_at < week_end_dt:
-            weekly_started += 1
-        if row.complete_date and week_start_dt <= row.complete_date < week_end_dt:
-            weekly_completed += 1
-            completed_by_label = row.assignee_username or "unassigned"
-            completed_by_user_counts[completed_by_label] = (
-                completed_by_user_counts.get(completed_by_label, 0) + 1
-            )
-        if row.due_date and week_start_dt <= row.due_date < week_end_dt:
-            weekly_due += 1
-
-        if row.created_at and week_start_dt <= row.created_at < week_end_dt:
             creator_label = row.created_by_username or "unknown_creator"
             assigned_by_user_counts[creator_label] = (
                 assigned_by_user_counts.get(creator_label, 0) + 1
@@ -175,6 +221,19 @@ def generate_weekly_summary(
             assigned_to_user_counts[assignee_label] = (
                 assigned_to_user_counts.get(assignee_label, 0) + 1
             )
+
+        if row.started_at and week_start_dt <= row.started_at < week_end_dt:
+            weekly_started += 1
+
+        if row.complete_date and week_start_dt <= row.complete_date < week_end_dt:
+            weekly_completed += 1
+            completed_by_label = row.assignee_username or "unassigned"
+            completed_by_user_counts[completed_by_label] = (
+                completed_by_user_counts.get(completed_by_label, 0) + 1
+            )
+
+        if row.due_date and week_start_dt <= row.due_date < week_end_dt:
+            weekly_due += 1
 
         serialized_tasks.append(
             {
@@ -264,6 +323,8 @@ def generate_weekly_summary(
         "temperature": 0.2,
     }
 
+    model_name = settings.OPENROUTER_WEEKLY_SUMMARY_MODEL or DEFAULT_OPENROUTER_MODEL
+    model_candidates = _load_model_candidates(model_name)
     ai_response: requests.Response | None = None
     selected_model = model_name
     request_failures: list[str] = []
@@ -336,32 +397,155 @@ def generate_weekly_summary(
             detail="OpenRouter response did not contain summary text",
         )
 
+    model_for_db = selected_model[:100] if selected_model else None
+    return {
+        "week_start": week_start,
+        "week_end": week_end,
+        "summary_text": summary_text,
+        "model": model_for_db,
+        "prompt_hash": prompt_hash,
+        "stats_json": _report_status_payload(
+            status_value="completed",
+            model=model_for_db,
+            prompt_hash=prompt_hash,
+            stats=prompt_payload.get("stats"),
+            tasks_touched_this_week=serialized_tasks[:40],
+        ),
+    }
+
+
+def _run_weekly_summary_generation_task(
+    *,
+    weekly_report_id: UUID,
+    household_id: UUID,
+    week_start: date,
+    username: str,
+) -> None:
+    session_local = _get_session_factory()
+
+    try:
+        result = _generate_summary_payload(
+            GenerateWeeklySummaryRequest(
+                household_id=household_id,
+                week_start=week_start,
+            ),
+            username=username,
+        )
+    except Exception as exc:
+        logger.exception("Weekly summary generation failed for report %s", weekly_report_id)
+        with session_local() as db:
+            weekly_report = get_weekly_report(db, weekly_report_id)
+            if not weekly_report:
+                return
+            weekly_report.stats_json = _report_status_payload(
+                status_value="failed",
+                error=str(exc),
+            )
+            try:
+                db.commit()
+            except SQLAlchemyError:
+                db.rollback()
+                logger.exception(
+                    "Failed to persist failure state for weekly report %s",
+                    weekly_report_id,
+                )
+        return
+
     with session_local() as db:
-        model_for_db = selected_model[:100] if selected_model else None
-        ai_summary = create_ai_summary(
+        weekly_report = get_weekly_report(db, weekly_report_id)
+        if not weekly_report:
+            logger.warning("Weekly report %s not found during completion", weekly_report_id)
+            return
+
+        weekly_report.summary = result["summary_text"]
+        weekly_report.stats_json = result["stats_json"]
+
+        create_ai_summary(
+            db,
+            household_id=household_id,
+            week_start=result["week_start"],
+            content=result["summary_text"],
+            model=result["model"],
+            prompt_hash=result["prompt_hash"],
+        )
+
+        try:
+            db.commit()
+        except SQLAlchemyError:
+            db.rollback()
+            logger.exception("Failed to store weekly summary result for %s", weekly_report_id)
+
+
+def queue_weekly_summary_generation(
+    payload: GenerateWeeklySummaryRequest,
+    current_user: UserEmail,
+    background_tasks,
+) -> WeeklySummaryReportResponse:
+    week_start = _normalize_week_start(payload.week_start)
+    week_end = _week_end_exclusive(week_start)
+    session_local = _get_session_factory()
+
+    with session_local() as db:
+        _validate_membership(
+            db,
+            username=current_user.username,
+            household_id=payload.household_id,
+        )
+
+        weekly_report = create_weekly_report(
             db,
             household_id=payload.household_id,
             week_start=week_start,
-            content=summary_text,
-            model=model_for_db,
-            prompt_hash=prompt_hash,
+            week_end=week_end,
+            stats_json=_report_status_payload(status_value="pending"),
         )
         try:
             db.commit()
         except SQLAlchemyError as exc:
             db.rollback()
-            logger.exception("Failed to store AI summary: %s", exc)
+            logger.exception("Failed to queue weekly summary job: %s", exc)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to store AI summary: {exc}",
+                detail="Failed to queue weekly summary job",
             ) from exc
-        db.refresh(ai_summary)
+        db.refresh(weekly_report)
 
-    return GenerateWeeklySummaryResponse(
-        ai_summary_id=str(ai_summary.ai_summary_id),
-        household_id=str(ai_summary.household_id),
-        week_start=ai_summary.week_start or week_start,
-        model=ai_summary.model or selected_model,
-        content=ai_summary.content,
-        prompt_hash=ai_summary.prompt_hash or prompt_hash,
+    background_tasks.add_task(
+        _run_weekly_summary_generation_task,
+        weekly_report_id=weekly_report.weekly_report_id,
+        household_id=payload.household_id,
+        week_start=week_start,
+        username=current_user.username,
     )
+
+    return _to_weekly_report_response(weekly_report)
+
+
+def get_weekly_summary_report(
+    weekly_report_id: UUID,
+    current_user: UserEmail,
+) -> WeeklySummaryReportResponse:
+    session_local = _get_session_factory()
+
+    with session_local() as db:
+        user = get_user_by_username(db, current_user.username)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+            )
+
+        weekly_report = get_weekly_report(db, weekly_report_id)
+        if not weekly_report:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Weekly summary report not found",
+            )
+
+        if not has_household_membership(db, user.user_id, weekly_report.household_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a member of the specified household",
+            )
+
+        return _to_weekly_report_response(weekly_report)
