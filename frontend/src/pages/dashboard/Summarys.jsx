@@ -87,7 +87,7 @@ export default function Summarys() {
   };
 
   useEffect(() => {
-    if (!summary?.weekly_report_id || summary.status !== "pending") {
+    if (!summary?.ai_summary_id || summary.status !== "pending") {
       return undefined;
     }
 
@@ -96,7 +96,7 @@ export default function Summarys() {
     const poll = async () => {
       try {
         const nextSummary = await apiFetch(
-          `/api/ai/weekly-summary/${summary.weekly_report_id}`,
+          `/api/ai/weekly-summary/${summary.ai_summary_id}`,
           { method: "GET" }
         );
         if (active) {
@@ -119,7 +119,7 @@ export default function Summarys() {
       active = false;
       window.clearInterval(intervalId);
     };
-  }, [summary?.weekly_report_id, summary?.status]);
+  }, [summary?.ai_summary_id, summary?.status]);
 
   useEffect(() => {
     if (!selectedHouseholdId) {
@@ -132,15 +132,15 @@ export default function Summarys() {
     const loadReports = async () => {
       setIsLoadingReports(true);
       try {
-        const data = await apiFetch(`/api/ai/reports?household_id=${encodeURIComponent(selectedHouseholdId)}`, {
+        const data = await apiFetch(`/api/ai/summaries?household_id=${encodeURIComponent(selectedHouseholdId)}`, {
           method: "GET",
         });
         if (active) {
-          setSavedReports(Array.isArray(data?.reports) ? data.reports : []);
+          setSavedReports(Array.isArray(data?.summaries) ? data.summaries : []);
         }
       } catch (err) {
         if (active) {
-          setRequestError(err?.message || "Failed to load saved reports.");
+          setRequestError(err?.message || "Failed to load saved summaries.");
         }
       } finally {
         if (active) {
@@ -154,19 +154,18 @@ export default function Summarys() {
     return () => {
       active = false;
     };
-  }, [selectedHouseholdId, summary?.weekly_report_id, summary?.status]);
+  }, [selectedHouseholdId, summary?.ai_summary_id, summary?.status]);
 
   const handleOpenSavedReport = (report) => {
     setSummary({
-      weekly_report_id: report.report_type === "weekly" ? report.report_id : null,
+      ai_summary_id: report.ai_summary_id,
       household_id: report.household_id,
-      week_start: report.start_date,
-      week_end: report.end_date,
+      week_start: report.week_start,
+      week_end: report.week_end,
       status: report.status,
       model: report.model,
       content: report.content,
       error: report.error,
-      report_type: report.report_type,
     });
   };
 
@@ -260,7 +259,7 @@ export default function Summarys() {
         <CardHeader>
           <CardTitle>Saved Reports</CardTitle>
           <CardDescription>
-            Review existing daily, weekly, and monthly summaries for the selected household.
+            Review saved AI summaries for the selected household.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -272,23 +271,23 @@ export default function Summarys() {
           ) : null}
           {!isLoadingReports && savedReports.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-              No saved daily, weekly, or monthly reports for this household yet.
+              No saved AI summaries for this household yet.
             </div>
           ) : null}
           {savedReports.map((report) => (
             <button
-              key={`${report.report_type}:${report.report_id}`}
+              key={report.ai_summary_id}
               type="button"
               onClick={() => handleOpenSavedReport(report)}
               className="flex w-full items-start justify-between rounded-lg border border-border bg-background p-4 text-left transition hover:bg-muted/30"
             >
               <div className="space-y-1">
                 <div className="text-sm font-medium text-foreground">
-                  {report.report_type.charAt(0).toUpperCase() + report.report_type.slice(1)} summary
+                  Weekly summary
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {formatWeekLabel(report.start_date)}
-                  {report.start_date !== report.end_date ? ` to ${formatWeekLabel(report.end_date)}` : ""}
+                  {formatWeekLabel(report.week_start)}
+                  {report.week_start !== report.week_end ? ` to ${formatWeekLabel(report.week_end)}` : ""}
                 </div>
               </div>
               <div className="text-right text-xs text-muted-foreground">
@@ -308,7 +307,7 @@ export default function Summarys() {
           </CardTitle>
           <CardDescription>
             {summary
-              ? `${summary.report_type || "weekly"} report from ${formatWeekLabel(summary.week_start)}`
+              ? `Weekly summary from ${formatWeekLabel(summary.week_start)}`
               : "Your generated weekly summary will appear here."}
           </CardDescription>
         </CardHeader>

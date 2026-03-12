@@ -3,18 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, desc, or_, select
 from sqlalchemy.orm import Session, aliased
 
-from models import (
-    AISummaries,
-    DailyReports,
-    MonthlyReports,
-    Tasks,
-    UserDB,
-    UsersHouseholds,
-    WeeklyReports,
-)
+from models import AISummaries, Tasks, UserDB, UsersHouseholds
 
 
 def get_user_by_username(db: Session, username: str) -> UserDB | None:
@@ -97,88 +89,43 @@ def create_ai_summary(
     *,
     household_id: UUID,
     week_start,
+    week_end,
     content: str,
     model: str | None,
-    prompt_hash: str,
+    prompt_hash: str | None,
+    status: str = "pending",
+    error: str | None = None,
 ) -> AISummaries:
     ai_summary = AISummaries(
         household_id=household_id,
         week_start=week_start,
+        week_end=week_end,
         content=content,
         model=model,
+        status=status,
+        error=error,
         prompt_hash=prompt_hash,
     )
     db.add(ai_summary)
     return ai_summary
 
 
-def create_weekly_report(
-    db: Session,
-    *,
-    household_id: UUID,
-    week_start,
-    week_end,
-    stats_json: dict | None,
-    summary: str | None = None,
-) -> WeeklyReports:
-    weekly_report = WeeklyReports(
-        household_id=household_id,
-        week_start=week_start,
-        week_end=week_end,
-        stats_json=stats_json,
-        summary=summary,
-    )
-    db.add(weekly_report)
-    return weekly_report
+def get_ai_summary(db: Session, ai_summary_id: UUID) -> AISummaries | None:
+    return db.get(AISummaries, ai_summary_id)
 
 
-def get_weekly_report(db: Session, weekly_report_id: UUID) -> WeeklyReports | None:
-    return db.get(WeeklyReports, weekly_report_id)
-
-
-def fetch_user_weekly_reports(
+def list_ai_summaries_for_user(
     db: Session,
     *,
     user_id: UUID,
     household_id: UUID | None = None,
-):
+) -> list[AISummaries]:
     query = (
-        select(WeeklyReports)
-        .join(UsersHouseholds, UsersHouseholds.household_id == WeeklyReports.household_id)
+        select(AISummaries)
+        .join(UsersHouseholds, UsersHouseholds.household_id == AISummaries.household_id)
         .where(UsersHouseholds.user_id == user_id)
+        .order_by(desc(AISummaries.created_at), desc(AISummaries.week_start))
     )
     if household_id is not None:
-        query = query.where(WeeklyReports.household_id == household_id)
-    return db.scalars(query).all()
-
-
-def fetch_user_monthly_reports(
-    db: Session,
-    *,
-    user_id: UUID,
-    household_id: UUID | None = None,
-):
-    query = (
-        select(MonthlyReports)
-        .join(UsersHouseholds, UsersHouseholds.household_id == MonthlyReports.household_id)
-        .where(UsersHouseholds.user_id == user_id)
-    )
-    if household_id is not None:
-        query = query.where(MonthlyReports.household_id == household_id)
-    return db.scalars(query).all()
-
-
-def fetch_user_daily_reports(
-    db: Session,
-    *,
-    user_id: UUID,
-    household_id: UUID | None = None,
-):
-    query = (
-        select(DailyReports)
-        .join(UsersHouseholds, UsersHouseholds.household_id == DailyReports.household_id)
-        .where(UsersHouseholds.user_id == user_id)
-    )
-    if household_id is not None:
-        query = query.where(DailyReports.household_id == household_id)
-    return db.scalars(query).all()
+        query = query.where(AISummaries.household_id == household_id)
+    return list(db.scalars(query).all())

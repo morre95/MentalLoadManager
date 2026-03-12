@@ -57,6 +57,29 @@ def setup_db_and_tables() -> None:
                 )
             )
 
+    try:
+        ai_summary_columns = {
+            column["name"] for column in inspector.get_columns("ai_summaries")
+        }
+    except Exception:
+        ai_summary_columns = set()
+
+    with engine.begin() as connection:
+        if "week_end" not in ai_summary_columns:
+            connection.execute(
+                text("ALTER TABLE ai_summaries ADD COLUMN IF NOT EXISTS week_end DATE")
+            )
+        if "status" not in ai_summary_columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE ai_summaries ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'pending'"
+                )
+            )
+        if "error" not in ai_summary_columns:
+            connection.execute(
+                text("ALTER TABLE ai_summaries ADD COLUMN IF NOT EXISTS error TEXT")
+            )
+
 
 def get_session_local() -> sessionmaker:
     global SessionLocal

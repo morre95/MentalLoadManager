@@ -25,11 +25,14 @@ class AISummaries(Base):
         nullable=False,
     )
     week_start: Mapped[date | None] = mapped_column(Date)
-    content: Mapped[str] = mapped_column(Text, nullable=False)
+    week_end: Mapped[date | None] = mapped_column(Date)
+    content: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), server_default=text("NOW()")
     )
     model: Mapped[str | None] = mapped_column(String(100))
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    error: Mapped[str | None] = mapped_column(Text)
     prompt_hash: Mapped[str | None] = mapped_column(Text)
 
     household: Mapped[Households] = relationship(
@@ -37,4 +40,7 @@ class AISummaries(Base):
     )
 
     def __repr__(self) -> str:
-        return f"AISummary(id={self.ai_summary_id!r}, household_id={self.household_id!r}, week_start={self.week_start!r}, model={self.model!r})"
+        return (
+            f"AISummary(id={self.ai_summary_id!r}, household_id={self.household_id!r}, "
+            f"week_start={self.week_start!r}, status={self.status!r}, model={self.model!r})"
+        )

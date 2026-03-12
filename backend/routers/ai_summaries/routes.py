@@ -7,12 +7,12 @@ from models import UserEmail
 
 from .schemas import (
     GenerateWeeklySummaryRequest,
-    SavedReportsListResponse,
-    WeeklySummaryReportResponse,
+    SavedSummariesListResponse,
+    WeeklySummaryResponse,
 )
 from .service import (
-    get_weekly_summary_report,
-    list_saved_reports,
+    get_weekly_summary,
+    list_summaries,
     queue_weekly_summary_generation,
 )
 
@@ -22,7 +22,7 @@ router = APIRouter(
 )
 
 
-@router.post("/weekly-summary", response_model=WeeklySummaryReportResponse)
+@router.post("/weekly-summary", response_model=WeeklySummaryResponse)
 def generate_weekly_summary_route(
     background_tasks: BackgroundTasks,
     payload: GenerateWeeklySummaryRequest,
@@ -31,17 +31,17 @@ def generate_weekly_summary_route(
     return queue_weekly_summary_generation(payload, current_user, background_tasks)
 
 
-@router.get("/weekly-summary/{weekly_report_id}", response_model=WeeklySummaryReportResponse)
-def get_weekly_summary_report_route(
-    weekly_report_id: UUID,
+@router.get("/weekly-summary/{ai_summary_id}", response_model=WeeklySummaryResponse)
+def get_weekly_summary_route(
+    ai_summary_id: UUID,
     current_user: UserEmail = Depends(get_current_user),
 ):
-    return get_weekly_summary_report(weekly_report_id, current_user)
+    return get_weekly_summary(ai_summary_id, current_user)
 
 
-@router.get("/reports", response_model=SavedReportsListResponse)
-def list_saved_reports_route(
+@router.get("/summaries", response_model=SavedSummariesListResponse)
+def list_summaries_route(
     household_id: UUID | None = Query(default=None),
     current_user: UserEmail = Depends(get_current_user),
 ):
-    return list_saved_reports(current_user, household_id)
+    return list_summaries(current_user, household_id)
