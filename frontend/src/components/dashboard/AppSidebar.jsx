@@ -8,6 +8,7 @@ import {
   Users,
   LogOut,
   Target,
+  Sparkles,
 } from "lucide-react";
 
 import { NavLink } from "@/components/NavLink";
@@ -44,6 +45,7 @@ const mainItems = [
   { title: "Goals", url: "/dashboard/goals", icon: Target },
   { title: "Mood", url: "/dashboard/mood", icon: Palette },
   { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
+  { title: "Summarys", url: "/dashboard/summarys", icon: Sparkles },
 ];
 
 const teamItems = [

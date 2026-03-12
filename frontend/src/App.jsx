@@ -28,6 +28,7 @@ import Analytics from "./pages/dashboard/Analytics";
 import Household from "./pages/dashboard/Household";
 import MoodTracker from "./pages/dashboard/MoodTracker";
 import Settings from "./pages/dashboard/Settings";
+import Summarys from "./pages/dashboard/Summarys";
 
 // Layout
 import DashboardLayout from "./layouts/DashboardLayout";
@@ -92,6 +93,7 @@ const App = () => {
             <Route path="goals" element={<Goals />} />
             <Route path="mood" element={<MoodTracker />} />
             <Route path="analytics" element={<Analytics />} />
+            <Route path="summarys" element={<Summarys />} />
             <Route path="household" element={<Household />} />
             <Route path="settings" element={<Settings />} />
           </Route>
