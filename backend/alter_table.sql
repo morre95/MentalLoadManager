@@ -79,3 +79,7 @@ CREATE TABLE IF NOT EXISTS mood_entries (
 );
 
 CREATE INDEX IF NOT EXISTS idx_mood_entries_user_date ON mood_entries(user_id, entry_date);
+
+
+ALTER TABLE categories
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
