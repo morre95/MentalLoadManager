@@ -1,5 +1,5 @@
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Bell, Search, Plus, Target } from "lucide-react";
+import { Bell, Search, Plus, Target, Clock3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -9,7 +9,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useHousehold } from "@/hooks/useHouseHold";
 import AddTaskDialog from "@/components/tasks/AddTaskDialog";
-import { fetchGoals, fetchNotificationSettings } from "@/lib/utils";
+import { fetchGoals, fetchNotificationSettings, fetchTaskReminderSummary } from "@/lib/utils";
 
 const TASK_CREATED_EVENT = "kanban-task-created";
 const GOAL_MILESTONES_UPDATED_EVENT = "goals:changed";
@@ -50,6 +50,15 @@ function getGoalMilestoneSignature(goal) {
   return `${goal.id}:${goal.target}`;
 }
 
+function formatNotificationDate(value) {
+  if (!value) return null;
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return date.toLocaleDateString();
+}
+
 const DashboardHeader = ({ onAddTask }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -58,6 +67,7 @@ const DashboardHeader = ({ onAddTask }) => {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   const [goalMilestonesEnabled, setGoalMilestonesEnabled] = useState(true);
+  const [taskRemindersEnabled, setTaskRemindersEnabled] = useState(true);
   const [notifications, setNotifications] = useState([]);
   const [readNotifications, setReadNotifications] = useState(readReadNotifications);
   const notificationPanelRef = useRef(null);
@@ -80,22 +90,24 @@ const DashboardHeader = ({ onAddTask }) => {
     setIsLoadingNotifications(true);
 
     try {
-      const [settings, goalsData] = await Promise.all([
+      const [settings, goalsData, taskReminderSummary] = await Promise.all([
         fetchNotificationSettings(),
         fetchGoals(),
+        fetchTaskReminderSummary(),
       ]);
 
       const areGoalMilestonesEnabled = Boolean(settings?.goal_milestones);
+      const areTaskRemindersEnabled = Boolean(taskReminderSummary?.task_reminders_enabled);
       setGoalMilestonesEnabled(areGoalMilestonesEnabled);
-
-      if (!areGoalMilestonesEnabled) {
-        setNotifications([]);
-        return;
-      }
+      setTaskRemindersEnabled(areTaskRemindersEnabled);
 
       const goals = Array.isArray(goalsData?.goals) ? goalsData.goals : [];
       const goalMilestoneNotifications = goals
-        .filter((goal) => Number(goal?.current || 0) >= Number(goal?.target || 0))
+        .filter(
+          (goal) =>
+            areGoalMilestonesEnabled &&
+            Number(goal?.current || 0) >= Number(goal?.target || 0),
+        )
         .map((goal) => ({
           id: `goal-milestone:${getGoalMilestoneSignature(goal)}`,
           type: "goal_milestone",
@@ -111,8 +123,41 @@ const DashboardHeader = ({ onAddTask }) => {
           return right - left;
         });
 
-      setNotifications(goalMilestoneNotifications);
+      const overdueTaskCount = Number(taskReminderSummary?.overdue_task_count || 0);
+      const oldestOverdueTaskName = String(
+        taskReminderSummary?.oldest_overdue_task_name || "task",
+      ).trim();
+      const oldestOverdueTaskDueDate = formatNotificationDate(
+        taskReminderSummary?.oldest_overdue_task_due_date,
+      );
+
+      const taskReminderNotifications =
+        areTaskRemindersEnabled && Boolean(taskReminderSummary?.should_notify) && overdueTaskCount > 0
+          ? [
+              {
+                id: `task-reminder:${overdueTaskCount}:${taskReminderSummary?.oldest_overdue_task_id || "summary"}:${taskReminderSummary?.oldest_overdue_task_due_date || "none"}`,
+                type: "task_reminder",
+                entityId: taskReminderSummary?.oldest_overdue_task_id || null,
+                title:
+                  overdueTaskCount === 1
+                    ? "1 overdue task"
+                    : `${overdueTaskCount} overdue tasks`,
+                message:
+                  overdueTaskCount === 1
+                    ? `${oldestOverdueTaskName} is overdue${oldestOverdueTaskDueDate ? ` since ${oldestOverdueTaskDueDate}` : ""}.`
+                    : `${oldestOverdueTaskName} and ${overdueTaskCount - 1} more task${overdueTaskCount - 1 === 1 ? "" : "s"} are overdue.`,
+                actionLabel: "Open tasks",
+                createdAt: taskReminderSummary?.oldest_overdue_task_due_date
+                  ? new Date(taskReminderSummary.oldest_overdue_task_due_date)
+                  : null,
+              },
+            ]
+          : [];
+
+      setNotifications([...taskReminderNotifications, ...goalMilestoneNotifications]);
     } catch {
+      setGoalMilestonesEnabled(true);
+      setTaskRemindersEnabled(true);
       setNotifications([]);
     } finally {
       setIsLoadingNotifications(false);
@@ -196,6 +241,11 @@ const DashboardHeader = ({ onAddTask }) => {
           highlightGoalId: notification.entityId,
         },
       });
+      return;
+    }
+
+    if (notification.type === "task_reminder") {
+      navigate("/dashboard/tasks");
     }
   };
 
@@ -285,13 +335,13 @@ const DashboardHeader = ({ onAddTask }) => {
                       <div className="rounded-lg border border-border bg-muted/30 px-3 py-4 text-sm text-muted-foreground">
                         Loading notifications...
                       </div>
-                    ) : !goalMilestonesEnabled ? (
+                    ) : !goalMilestonesEnabled && !taskRemindersEnabled ? (
                       <div className="rounded-lg border border-border bg-muted/30 px-3 py-4">
                         <p className="text-sm font-medium text-foreground">
-                          Goal milestone notifications are off
+                          Notifications are off
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Turn them on in Settings to get goal updates here when a target is reached.
+                          Turn on goal milestones or task reminders in Settings to see updates here.
                         </p>
                         <Button
                           variant="outline"
@@ -309,7 +359,7 @@ const DashboardHeader = ({ onAddTask }) => {
                       <div className="rounded-lg border border-border bg-muted/30 px-3 py-4">
                         <p className="text-sm font-medium text-foreground">No new notifications</p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          New goal milestones and future notification types will show up here.
+                          Goal milestones and overdue task reminders will show up here.
                         </p>
                       </div>
                     ) : (
@@ -320,7 +370,11 @@ const DashboardHeader = ({ onAddTask }) => {
                         >
                           <div className="flex items-start gap-3">
                             <div className="mt-0.5 rounded-lg bg-primary/10 p-2 text-primary">
-                              <Target className="h-4 w-4" />
+                              {notification.type === "task_reminder" ? (
+                                <Clock3 className="h-4 w-4" />
+                              ) : (
+                                <Target className="h-4 w-4" />
+                              )}
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center justify-between gap-2">

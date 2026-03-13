@@ -61,6 +61,7 @@ export {
   fetchPreferences,
   fetchMe,
   fetchNotificationSettings,
+  fetchTaskReminderSummary,
   updateMe,
   updatePreferences,
   updateNotificationSettings,

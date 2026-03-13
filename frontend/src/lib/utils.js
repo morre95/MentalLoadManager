@@ -14,6 +14,7 @@ import {
   changeMyPassword as sharedChangeMyPassword,
   fetchPreferences as sharedFetchPreferences,
   fetchNotificationSettings as sharedFetchNotificationSettings,
+  fetchTaskReminderSummary as sharedFetchTaskReminderSummary,
   createApiClient,
   deleteGoal as sharedDeleteGoal,
   deleteKanbanTask as sharedDeleteKanbanTask,
@@ -346,6 +347,10 @@ export async function fetchNotificationSettings() {
 
 export async function updateNotificationSettings(payload) {
   return sharedUpdateNotificationSettings(apiClient, payload);
+}
+
+export async function fetchTaskReminderSummary() {
+  return sharedFetchTaskReminderSummary(apiClient);
 }
 
 export async function fetchPreferences() {

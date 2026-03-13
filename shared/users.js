@@ -29,6 +29,12 @@ export async function updateNotificationSettings(apiClient, payload) {
   });
 }
 
+export async function fetchTaskReminderSummary(apiClient) {
+  return apiClient.request("/api/settings/notification-settings/task-reminders/overdue-summary", {
+    method: "GET",
+  });
+}
+
 export async function fetchPreferences(apiClient) {
   return apiClient.request("/api/settings/preferences", {
     method: "GET",

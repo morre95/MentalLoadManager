@@ -1,9 +1,9 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
-from models import NotificationSettings, Preferences
+from models import NotificationSettings, Preferences, Tasks, UsersHouseholds
 
 
 def find_notification_settings(
@@ -54,3 +54,61 @@ def create_preferences(
     )
     db.add(preferences)
     return preferences
+
+
+def count_overdue_tasks_for_user(
+    db: Session,
+    *,
+    user_id: UUID,
+    open_statuses: tuple[str, ...],
+    now,
+) -> int:
+    return (
+        db.scalar(
+            select(func.count())
+            .select_from(Tasks)
+            .join(
+                UsersHouseholds,
+                and_(
+                    UsersHouseholds.household_id == Tasks.household_id,
+                    UsersHouseholds.user_id == user_id,
+                ),
+            )
+            .where(
+                Tasks.status.in_(open_statuses),
+                Tasks.due_date.is_not(None),
+                Tasks.due_date < now,
+            )
+        )
+        or 0
+    )
+
+
+def find_oldest_overdue_task_for_user(
+    db: Session,
+    *,
+    user_id: UUID,
+    open_statuses: tuple[str, ...],
+    now,
+):
+    return db.execute(
+        select(
+            Tasks.task_id,
+            Tasks.name,
+            Tasks.due_date,
+        )
+        .join(
+            UsersHouseholds,
+            and_(
+                UsersHouseholds.household_id == Tasks.household_id,
+                UsersHouseholds.user_id == user_id,
+            ),
+        )
+        .where(
+            Tasks.status.in_(open_statuses),
+            Tasks.due_date.is_not(None),
+            Tasks.due_date < now,
+        )
+        .order_by(Tasks.due_date.asc(), Tasks.created_at.asc())
+        .limit(1)
+    ).first()

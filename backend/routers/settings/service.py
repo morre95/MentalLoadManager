@@ -1,20 +1,27 @@
+from datetime import datetime, timezone
+
 from fastapi import HTTPException, status
 
 from helpers import get_session_local
 from models import UserEmail
 
 from .repository import (
+    count_overdue_tasks_for_user,
     create_notification_settings,
     create_preferences,
     find_notification_settings,
+    find_oldest_overdue_task_for_user,
     find_preferences,
 )
 from .schemas import (
     NotificationSettingsResponse,
     PreferencesResponse,
+    TaskReminderSummaryResponse,
     UpdateNotificationSettingsRequest,
     UpdatePreferencesRequest,
 )
+
+OPEN_TASK_STATUSES = ("todo", "in_progress", "on_hold")
 
 
 def get_my_notification_settings(
@@ -49,6 +56,66 @@ def get_my_notification_settings(
             goal_milestones=settings.goal_milestones,
             household_updates=settings.household_updates,
             weekly_analytics_email=settings.weekly_analytics_email,
+        )
+
+
+def get_my_task_reminder_summary(
+    current_user: UserEmail,
+) -> TaskReminderSummaryResponse:
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        settings = find_notification_settings(db, current_user.user_id)
+        task_reminders_enabled = bool(settings.task_reminders) if settings else True
+
+        if not task_reminders_enabled:
+            return TaskReminderSummaryResponse(
+                task_reminders_enabled=False,
+                should_notify=False,
+                overdue_task_count=0,
+            )
+
+        now = datetime.now(timezone.utc)
+        overdue_task_count = count_overdue_tasks_for_user(
+            db,
+            user_id=current_user.user_id,
+            open_statuses=OPEN_TASK_STATUSES,
+            now=now,
+        )
+
+        if overdue_task_count <= 0:
+            return TaskReminderSummaryResponse(
+                task_reminders_enabled=True,
+                should_notify=False,
+                overdue_task_count=0,
+            )
+
+        oldest_overdue_task = find_oldest_overdue_task_for_user(
+            db,
+            user_id=current_user.user_id,
+            open_statuses=OPEN_TASK_STATUSES,
+            now=now,
+        )
+
+        return TaskReminderSummaryResponse(
+            task_reminders_enabled=True,
+            should_notify=True,
+            overdue_task_count=overdue_task_count,
+            oldest_overdue_task_id=(
+                str(oldest_overdue_task.task_id) if oldest_overdue_task else None
+            ),
+            oldest_overdue_task_name=(
+                oldest_overdue_task.name if oldest_overdue_task else None
+            ),
+            oldest_overdue_task_due_date=(
+                oldest_overdue_task.due_date if oldest_overdue_task else None
+            ),
         )
 
 

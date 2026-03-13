@@ -6,11 +6,13 @@ from models import UserEmail
 from .schemas import (
     NotificationSettingsResponse,
     PreferencesResponse,
+    TaskReminderSummaryResponse,
     UpdateNotificationSettingsRequest,
     UpdatePreferencesRequest,
 )
 from .service import (
     get_my_notification_settings,
+    get_my_task_reminder_summary,
     get_my_preferences,
     update_my_notification_settings,
     update_my_preferences,
@@ -33,6 +35,16 @@ def update_users_me_notification_settings(
     current_user: UserEmail = Depends(get_current_user),
 ):
     return update_my_notification_settings(payload, current_user)
+
+
+@router.get(
+    "/notification-settings/task-reminders/overdue-summary",
+    response_model=TaskReminderSummaryResponse,
+)
+def read_my_task_reminder_summary(
+    current_user: UserEmail = Depends(get_current_user),
+):
+    return get_my_task_reminder_summary(current_user)
 
 
 @router.get("/preferences", response_model=PreferencesResponse)
