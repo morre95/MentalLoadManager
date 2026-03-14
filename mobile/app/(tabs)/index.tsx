@@ -331,6 +331,7 @@ export default function TasksScreen() {
         contentContainerStyle={styles.filtersRow}
       >
         {grouped.map((column) => {
+          if (column.id === 'archive' && column.tasks.length === 0) return null;
           const isActive = activeColumn === column.id;
           return (
             <Pressable
