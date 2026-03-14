@@ -67,7 +67,11 @@ class HouseholdInviteEmailServiceTest(unittest.TestCase):
         db = _FakeDB()
         household_id = uuid4()
         user_id = uuid4()
-        current_user = UserEmail(username="alex", email="alex@example.com")
+        current_user = UserEmail(
+            username="alex",
+            email="alex@example.com",
+            display_name="Alex Example",
+        )
         payload = InviteEmailRequest(
             household_id=household_id,
             email=" invited@example.com ",
