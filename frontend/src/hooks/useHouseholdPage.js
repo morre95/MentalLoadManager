@@ -3,6 +3,7 @@ import {
     useHousehold,
     createHouseholdInvite,
     createHousehold,
+    emailHouseholdInvite,
     removeHouseholdMember,
     leaveHousehold,
     transferHouseholdOwnership,
@@ -11,6 +12,7 @@ import {
 } from "@/hooks/useHouseHold";
 import { getUserFromLocalStorage } from "@/lib/auth";
 import { acceptHouseholdInvite, createHouseholdCategory } from "@/lib/utils";
+import { toast } from "@/components/ui/sonner";
 
 const DEFAULT_HOUSEHOLD_CATEGORIES = [
     "Shopping",
@@ -139,6 +141,10 @@ export function useHouseholdPage() {
         setHouseholdInviteState(householdId, { isOpen: !isOpen, copied: false });
     };
 
+    const setInviteEmail = (householdId, email) => {
+        setHouseholdInviteState(householdId, { email });
+    };
+
     const handleInvite = async (householdId) => {
         setHouseholdInviteState(householdId, { inviting: true, copied: false });
 
@@ -157,6 +163,31 @@ export function useHouseholdPage() {
             }
         } finally {
             setHouseholdInviteState(householdId, { inviting: false });
+        }
+    };
+
+    const handleEmailInvite = async (householdId) => {
+        const email = String(inviteByHousehold[householdId]?.email || "").trim();
+        if (!email) {
+            toast.error("Email is required");
+            return;
+        }
+
+        setHouseholdInviteState(householdId, { sendingEmail: true });
+
+        try {
+            const data = await emailHouseholdInvite(householdId, email);
+            const inviteUrl = data?.invite_url || inviteByHousehold[householdId]?.inviteUrl || "";
+            setHouseholdInviteState(householdId, {
+                inviteUrl,
+                isOpen: true,
+                email: "",
+            });
+            toast.success("Invite email sent");
+        } catch (err) {
+            toast.error(err?.message || "Could not send invite email");
+        } finally {
+            setHouseholdInviteState(householdId, { sendingEmail: false });
         }
     };
 
@@ -304,6 +335,8 @@ export function useHouseholdPage() {
         handleJoinHousehold,
         handleInvite,
         toggleInviteVisibility,
+        setInviteEmail,
+        handleEmailInvite,
         handleCopyInvite,
         handleRemoveMember,
         handleLeave,

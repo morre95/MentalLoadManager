@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createHousehold as sharedCreateHousehold,
   createHouseholdInvite as sharedCreateHouseholdInvite,
+  emailHouseholdInvite as sharedEmailHouseholdInvite,
   fetchHouseholds,
   flattenHouseholdMembers,
   leaveHousehold as sharedLeaveHousehold,
@@ -147,6 +148,10 @@ export function useHousehold() {
 
 export async function createHouseholdInvite(householdId) {
   return sharedCreateHouseholdInvite(apiClient, householdId);
+}
+
+export async function emailHouseholdInvite(householdId, email) {
+  return sharedEmailHouseholdInvite(apiClient, householdId, email);
 }
 
 export async function createHousehold(name) {

@@ -280,6 +280,11 @@ export function askAnalyticsQuestion(
 ): Promise<AnalyticsAskResponse>;
 export function createHousehold(apiClient: ApiClient, name: string): Promise<any>;
 export function createHouseholdInvite(apiClient: ApiClient, householdId: string | number): Promise<any>;
+export function emailHouseholdInvite(
+  apiClient: ApiClient,
+  householdId: string | number,
+  email: string
+): Promise<any>;
 export function acceptHouseholdInvite(apiClient: ApiClient, code: string): Promise<any>;
 export function removeHouseholdMember(
   apiClient: ApiClient,

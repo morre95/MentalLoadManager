@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class HouseholdMember(BaseModel):
@@ -62,6 +62,17 @@ class InviteResponse(BaseModel):
 
 class InviteCreateRequest(BaseModel):
     household_id: UUID
+
+
+class InviteEmailRequest(BaseModel):
+    household_id: UUID
+    email: str = Field(min_length=3, max_length=320)
+
+
+class InviteEmailResponse(BaseModel):
+    message: str
+    invite_url: str
+    expires_at: datetime
 
 
 class AcceptInviteRequest(BaseModel):

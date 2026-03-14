@@ -3,6 +3,8 @@ import { ArrowRight, Pencil } from "lucide-react";
 import { motion } from "framer-motion";
 import { Users, UserPlus, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { HouseholdModal } from "@/components/ui/CreateHouseholdModal";
 import MemberCard from "@/components/household/MemberCard";
 import { useHouseholdPage } from "@/hooks/useHouseholdPage";
@@ -126,6 +128,8 @@ export default function Household() {
         handleJoinHousehold,
         handleInvite,
         toggleInviteVisibility,
+        setInviteEmail,
+        handleEmailInvite,
         handleCopyInvite,
         handleRemoveMember,
         handleLeave,
@@ -163,8 +167,10 @@ export default function Household() {
                     const inviteState = inviteByHousehold[h.household_id] || {};
                     const inviteUrl = inviteState.inviteUrl || "";
                     const isInviteOpen = !!inviteState.isOpen;
+                    const inviteEmail = inviteState.email || "";
                     const copied = !!inviteState.copied;
                     const inviting = !!inviteState.inviting;
+                    const sendingInviteEmail = !!inviteState.sendingEmail;
                     const myMembership = (h.members || []).find(
                         (member) => member.username === me?.username
                     );
@@ -256,20 +262,45 @@ export default function Household() {
 
 
                             {inviteUrl && isInviteOpen ? (
-                                <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-3 justify-between">
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-medium text-foreground">Invite link</p>
-                                        <p className="text-sm text-muted-foreground truncate">{inviteUrl}</p>
+                                <div className="rounded-xl border border-border bg-card p-4 space-y-4">
+                                    <div className="flex items-center gap-3 justify-between">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-medium text-foreground">Invite link</p>
+                                            <p className="text-sm text-muted-foreground truncate">{inviteUrl}</p>
+                                        </div>
+
+                                        <Button
+                                            variant="outline"
+                                            className="gap-2 shrink-0"
+                                            onClick={() => handleCopyInvite(h.household_id)}
+                                        >
+                                            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                            {copied ? "Copied" : "Copy"}
+                                        </Button>
                                     </div>
 
-                                    <Button
-                                        variant="outline"
-                                        className="gap-2 shrink-0"
-                                        onClick={() => handleCopyInvite(h.household_id)}
-                                    >
-                                        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                                        {copied ? "Copied" : "Copy"}
-                                    </Button>
+                                    <div className="space-y-2">
+                                        <Label htmlFor={`invite-email-${h.household_id}`}>Send by email</Label>
+                                        <div className="flex flex-col gap-2 sm:flex-row">
+                                            <Input
+                                                id={`invite-email-${h.household_id}`}
+                                                type="email"
+                                                value={inviteEmail}
+                                                onChange={(event) =>
+                                                    setInviteEmail(h.household_id, event.target.value)
+                                                }
+                                                placeholder="name@example.com"
+                                                autoComplete="email"
+                                            />
+                                            <Button
+                                                className="shrink-0"
+                                                onClick={() => handleEmailInvite(h.household_id)}
+                                                disabled={sendingInviteEmail}
+                                            >
+                                                {sendingInviteEmail ? "Sending..." : "Send Invite"}
+                                            </Button>
+                                        </div>
+                                    </div>
                                 </div>
                             ) : null}
 

@@ -25,6 +25,7 @@ export {
   acceptHouseholdInvite,
   createHousehold,
   createHouseholdInvite,
+  emailHouseholdInvite,
   fetchHouseholds,
   flattenHouseholdMembers,
   leaveHousehold,

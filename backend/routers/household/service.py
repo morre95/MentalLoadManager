@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
+from html import escape
+from typing import cast
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from pydantic import NameEmail, SecretStr
 from sqlalchemy.exc import IntegrityError
 
 from helpers import get_session_local
@@ -34,6 +38,8 @@ from .schemas import (
     HouseholdMembersResponse,
     HouseholdWithMembers,
     InviteCreateRequest,
+    InviteEmailRequest,
+    InviteEmailResponse,
     InviteResponse,
     LeaveHouseholdRequest,
     MyHouseholdsResponse,
@@ -50,6 +56,7 @@ ROLE_OWNER = "owner"
 ROLE_ADMIN = "admin"
 ROLE_MEMBER = "member"
 PRIVILEGED_HOUSEHOLD_ROLES = {ROLE_OWNER, ROLE_ADMIN}
+logger = logging.getLogger(__name__)
 
 
 def _get_db_user(db, current_user: UserEmail):
@@ -61,6 +68,110 @@ def _get_db_user(db, current_user: UserEmail):
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+
+def _create_invite_for_household(db, household_id: UUID, user_id: UUID) -> InviteResponse:
+    code = secrets.token_urlsafe(16)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+
+    inv = Invitations(
+        household_id=household_id,
+        code=code,
+        expires_at=expires_at,
+        created_by=user_id,
+    )
+    db.add(inv)
+    db.commit()
+
+    invite_url = f"{FRONTEND_BASE_URL}/join?code={code}"
+    return InviteResponse(code=code, invite_url=invite_url, expires_at=expires_at)
+
+
+def _build_household_invite_email_body(
+    *,
+    household_name: str,
+    invite_url: str,
+    inviter_name: str,
+    expires_at: datetime,
+) -> str:
+    escaped_household_name = escape(household_name)
+    escaped_invite_url = escape(invite_url)
+    escaped_inviter_name = escape(inviter_name)
+    expires_label = escape(expires_at.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
+
+    return (
+        f"<h2>{escaped_inviter_name} invited you to join {escaped_household_name}</h2>"
+        "<p>Use the link below to accept the household invitation:</p>"
+        f'<p><a href="{escaped_invite_url}">{escaped_invite_url}</a></p>'
+        f"<p>This invite expires on {expires_label}.</p>"
+    )
+
+
+async def _send_household_invite_email(
+    *,
+    recipient_email: str,
+    household_name: str,
+    invite_url: str,
+    inviter_name: str,
+    inviter_email: str | None,
+    expires_at: datetime,
+) -> None:
+    mail_server = settings.MAIL_SERVER.strip()
+    mail_from = settings.MAIL_FROM.strip()
+
+    if not mail_server or not mail_from:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Invite email is not configured",
+        )
+
+    try:
+        from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
+    except ImportError as exc:
+        logger.exception("fastapi-mail is not available")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Email service is unavailable",
+        ) from exc
+
+    connection_config = ConnectionConfig(
+        MAIL_USERNAME=settings.MAIL_USERNAME,
+        MAIL_PASSWORD=cast(SecretStr, settings.MAIL_PASSWORD),
+        MAIL_FROM=mail_from,
+        MAIL_PORT=settings.MAIL_PORT,
+        MAIL_SERVER=mail_server,
+        MAIL_FROM_NAME=settings.MAIL_FROM_NAME,
+        MAIL_STARTTLS=settings.MAIL_STARTTLS,
+        MAIL_SSL_TLS=settings.MAIL_SSL_TLS,
+        USE_CREDENTIALS=settings.MAIL_USE_CREDENTIALS,
+        VALIDATE_CERTS=settings.MAIL_VALIDATE_CERTS,
+    )
+
+    message_kwargs = {
+        "subject": f"{inviter_name} invited you to join {household_name}",
+        "recipients": [NameEmail(name=recipient_email, email=recipient_email)],
+        "body": _build_household_invite_email_body(
+            household_name=household_name,
+            invite_url=invite_url,
+            inviter_name=inviter_name,
+            expires_at=expires_at,
+        ),
+        "subtype": MessageType.html,
+    }
+    if inviter_email:
+        message_kwargs["reply_to"] = [NameEmail(name=inviter_name, email=inviter_email)]
+
+    try:
+        fast_mail = FastMail(connection_config)
+        await fast_mail.send_message(MessageSchema(**message_kwargs))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to send household invite email: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Invite was created, but the email could not be sent",
+        ) from exc
 
 
 def list_household_members(current_user: UserEmail) -> HouseholdMembersResponse:
@@ -287,21 +398,52 @@ def create_invite(
             raise HTTPException(
                 status_code=403, detail="You are not a member of that household"
             )
+        return _create_invite_for_household(db, payload.household_id, user.user_id)
 
-        code = secrets.token_urlsafe(16)
-        expires_at = datetime.now(timezone.utc) + timedelta(days=7)
 
-        inv = Invitations(
-            household_id=payload.household_id,
-            code=code,
-            expires_at=expires_at,
-            created_by=user.user_id,
+async def email_invite(
+    payload: InviteEmailRequest, current_user: UserEmail
+) -> InviteEmailResponse:
+    recipient_email = payload.email.strip().lower()
+    if not recipient_email or "@" not in recipient_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A valid email is required",
         )
-        db.add(inv)
-        db.commit()
 
-        invite_url = f"{FRONTEND_BASE_URL}/join?code={code}"
-        return InviteResponse(code=code, invite_url=invite_url, expires_at=expires_at)
+    session_local = get_session_local()
+
+    with session_local() as db:
+        user = _get_db_user(db, current_user)
+        membership = find_membership(db, user.user_id, payload.household_id)
+        if not membership:
+            raise HTTPException(
+                status_code=403, detail="You are not a member of that household"
+            )
+
+        household = find_household_by_id(db, payload.household_id)
+        if not household:
+            raise HTTPException(status_code=404, detail="Household not found")
+
+        invite = _create_invite_for_household(db, payload.household_id, user.user_id)
+        inviter_name = user.display_name or user.username
+        inviter_email = user.email
+        household_name = household.name
+
+    await _send_household_invite_email(
+        recipient_email=recipient_email,
+        household_name=household_name,
+        invite_url=invite.invite_url,
+        inviter_name=inviter_name,
+        inviter_email=inviter_email,
+        expires_at=invite.expires_at,
+    )
+
+    return InviteEmailResponse(
+        message="Invite email sent successfully",
+        invite_url=invite.invite_url,
+        expires_at=invite.expires_at,
+    )
 
 
 def accept_invite(

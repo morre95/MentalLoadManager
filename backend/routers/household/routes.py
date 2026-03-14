@@ -25,6 +25,8 @@ from .schemas import (
     HouseholdMember,
     HouseholdMembersResponse,
     InviteCreateRequest,
+    InviteEmailRequest,
+    InviteEmailResponse,
     InviteResponse,
     LeaveHouseholdRequest,
     MyHouseholdsResponse,
@@ -38,6 +40,7 @@ from .service import (
     accept_invite,
     add_household_member,
     create_household,
+    email_invite,
     create_invite,
     get_my_households,
     leave_household,
@@ -91,6 +94,14 @@ def create_invite_route(
     current_user: UserEmail = Depends(get_current_user),
 ):
     return create_invite(payload, current_user)
+
+
+@router.post("/invite/email", response_model=InviteEmailResponse)
+async def email_invite_route(
+    payload: InviteEmailRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    return await email_invite(payload, current_user)
 
 
 @router.post("/invite/accept", response_model=AcceptInviteResponse)

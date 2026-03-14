@@ -55,6 +55,13 @@ export async function createHouseholdInvite(apiClient, householdId) {
   });
 }
 
+export async function emailHouseholdInvite(apiClient, householdId, email) {
+  return apiClient.request("/api/household/invite/email", {
+    method: "POST",
+    body: JSON.stringify({ household_id: householdId, email }),
+  });
+}
+
 export async function acceptHouseholdInvite(apiClient, code) {
   return apiClient.request("/api/household/invite/accept", {
     method: "POST",
