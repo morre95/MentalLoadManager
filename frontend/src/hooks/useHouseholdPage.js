@@ -134,13 +134,18 @@ export function useHouseholdPage() {
         }
     };
 
+    const toggleInviteVisibility = (householdId) => {
+        const isOpen = !!inviteByHousehold[householdId]?.isOpen;
+        setHouseholdInviteState(householdId, { isOpen: !isOpen, copied: false });
+    };
+
     const handleInvite = async (householdId) => {
         setHouseholdInviteState(householdId, { inviting: true, copied: false });
 
         try {
             const data = await createHouseholdInvite(householdId);
             const url = data?.invite_url || "";
-            setHouseholdInviteState(householdId, { inviteUrl: url });
+            setHouseholdInviteState(householdId, { inviteUrl: url, isOpen: true });
 
             if (url) {
                 await navigator.clipboard.writeText(url);
@@ -298,6 +303,7 @@ export function useHouseholdPage() {
         handleCreateHousehold,
         handleJoinHousehold,
         handleInvite,
+        toggleInviteVisibility,
         handleCopyInvite,
         handleRemoveMember,
         handleLeave,

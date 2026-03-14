@@ -125,6 +125,7 @@ export default function Household() {
         handleCreateHousehold,
         handleJoinHousehold,
         handleInvite,
+        toggleInviteVisibility,
         handleCopyInvite,
         handleRemoveMember,
         handleLeave,
@@ -161,6 +162,7 @@ export default function Household() {
                 {(households || []).map((h) => {
                     const inviteState = inviteByHousehold[h.household_id] || {};
                     const inviteUrl = inviteState.inviteUrl || "";
+                    const isInviteOpen = !!inviteState.isOpen;
                     const copied = !!inviteState.copied;
                     const inviting = !!inviteState.inviting;
                     const myMembership = (h.members || []).find(
@@ -194,7 +196,14 @@ export default function Household() {
                                 <div className="flex gap-2">
                                     <Button
                                         className="gap-2"
-                                        onClick={() => handleInvite(h.household_id)}
+                                        onClick={() => {
+                                            if (inviteUrl) {
+                                                toggleInviteVisibility(h.household_id);
+                                                return;
+                                            }
+
+                                            void handleInvite(h.household_id);
+                                        }}
                                         disabled={inviting}
                                     >
                                         <UserPlus className="h-4 w-4" />
@@ -246,7 +255,7 @@ export default function Household() {
                             ) : null}
 
 
-                            {inviteUrl ? (
+                            {inviteUrl && isInviteOpen ? (
                                 <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-3 justify-between">
                                     <div className="min-w-0">
                                         <p className="text-sm font-medium text-foreground">Invite link</p>
