@@ -29,10 +29,8 @@ os.environ.setdefault("DATABASE_URL", "postgresql://user:pass@localhost:5432/tes
 os.environ.setdefault("OPENROUTER_API_KEY", "test-openrouter-key")
 os.environ.setdefault("OPENROUTER_WEEKLY_SUMMARY_MODEL", "test-model")
 os.environ.setdefault("OPENROUTER_WEEKLY_SUMMARY_FALLBACK_MODELS", "test-fallback")
-os.environ.setdefault("MAIL_USERNAME", "mailer")
-os.environ.setdefault("MAIL_PASSWORD", "secret")
+os.environ.setdefault("RESEND_API_KEY", "re_test_key")
 os.environ.setdefault("MAIL_FROM", "noreply@example.com")
-os.environ.setdefault("MAIL_SERVER", "smtp.example.com")
 os.environ.setdefault("CONTACT_RECIPIENT_EMAIL", "support@example.com")
 
 from helpers import get_current_user  # noqa: E402

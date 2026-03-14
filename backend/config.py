@@ -1,4 +1,3 @@
-from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,16 +32,9 @@ class Settings(BaseSettings):
     SESSION_COOKIE_SAMESITE: str = "lax"
     SESSION_COOKIE_MAX_AGE_SECONDS: int = 600
 
-    MAIL_USERNAME: str
-    MAIL_PASSWORD: SecretStr
-    MAIL_FROM: str = ""
-    MAIL_PORT: int = 465
-    MAIL_SERVER: str = ""
+    RESEND_API_KEY: str
+    MAIL_FROM: str = "mentalloadmanager@morencv.se"
     MAIL_FROM_NAME: str = "Mental Load Manager"
-    MAIL_STARTTLS: bool = False
-    MAIL_SSL_TLS: bool = True
-    MAIL_USE_CREDENTIALS: bool = True
-    MAIL_VALIDATE_CERTS: bool = True
     CONTACT_RECIPIENT_EMAIL: str
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

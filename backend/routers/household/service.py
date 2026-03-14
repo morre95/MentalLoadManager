@@ -1,14 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from html import escape
-from typing import cast
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from pydantic import NameEmail, SecretStr
 from sqlalchemy.exc import IntegrityError
 
 from helpers import get_session_local
@@ -116,56 +115,35 @@ async def _send_household_invite_email(
     inviter_email: str | None,
     expires_at: datetime,
 ) -> None:
-    mail_server = settings.MAIL_SERVER.strip()
+    import resend
+
+    api_key = settings.RESEND_API_KEY.strip()
     mail_from = settings.MAIL_FROM.strip()
 
-    if not mail_server or not mail_from:
+    if not api_key or not mail_from:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Invite email is not configured",
         )
 
-    try:
-        from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
-    except ImportError as exc:
-        logger.exception("fastapi-mail is not available")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Email service is unavailable",
-        ) from exc
+    resend.api_key = api_key
 
-    connection_config = ConnectionConfig(
-        MAIL_USERNAME=settings.MAIL_USERNAME,
-        MAIL_PASSWORD=cast(SecretStr, settings.MAIL_PASSWORD),
-        MAIL_FROM=mail_from,
-        MAIL_PORT=settings.MAIL_PORT,
-        MAIL_SERVER=mail_server,
-        MAIL_FROM_NAME=settings.MAIL_FROM_NAME,
-        MAIL_STARTTLS=settings.MAIL_STARTTLS,
-        MAIL_SSL_TLS=settings.MAIL_SSL_TLS,
-        USE_CREDENTIALS=settings.MAIL_USE_CREDENTIALS,
-        VALIDATE_CERTS=settings.MAIL_VALIDATE_CERTS,
-    )
-
-    message_kwargs = {
+    params: resend.Emails.SendParams = {
+        "from": f"{settings.MAIL_FROM_NAME} <{mail_from}>",
+        "to": [recipient_email],
         "subject": f"{inviter_name} invited you to join {household_name}",
-        "recipients": [NameEmail(name=recipient_email, email=recipient_email)],
-        "body": _build_household_invite_email_body(
+        "html": _build_household_invite_email_body(
             household_name=household_name,
             invite_url=invite_url,
             inviter_name=inviter_name,
             expires_at=expires_at,
         ),
-        "subtype": MessageType.html,
     }
     if inviter_email:
-        message_kwargs["reply_to"] = [NameEmail(name=inviter_name, email=inviter_email)]
+        params["reply_to"] = inviter_email
 
     try:
-        fast_mail = FastMail(connection_config)
-        await fast_mail.send_message(MessageSchema(**message_kwargs))
-    except HTTPException:
-        raise
+        await asyncio.to_thread(resend.Emails.send, params)
     except Exception as exc:
         logger.exception("Failed to send household invite email: %s", exc)
         raise HTTPException(

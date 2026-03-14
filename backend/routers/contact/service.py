@@ -1,10 +1,9 @@
+import asyncio
 import logging
 from html import escape
-from typing import cast
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from pydantic import NameEmail, SecretStr
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from config import settings
@@ -66,55 +65,35 @@ def _build_contact_email_body(
 async def _send_contact_email(
     *, name: str, email: str, message: str, user_id: UUID | None
 ) -> None:
-    mail_server = settings.MAIL_SERVER.strip()
+    import resend
+
+    api_key = settings.RESEND_API_KEY.strip()
     mail_from = settings.MAIL_FROM.strip()
     recipient = settings.CONTACT_RECIPIENT_EMAIL.strip()
 
-    if not mail_server or not mail_from or not recipient:
+    if not api_key or not mail_from or not recipient:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Contact email is not configured",
         )
 
-    try:
-        from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
-    except ImportError as exc:
-        logger.exception("fastapi-mail is not available")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Email service is unavailable",
-        ) from exc
+    resend.api_key = api_key
 
-    connection_config = ConnectionConfig(
-        MAIL_USERNAME=settings.MAIL_USERNAME,
-        MAIL_PASSWORD=cast(SecretStr, settings.MAIL_PASSWORD),
-        MAIL_FROM=mail_from,
-        MAIL_PORT=settings.MAIL_PORT,
-        MAIL_SERVER=mail_server,
-        MAIL_FROM_NAME=settings.MAIL_FROM_NAME,
-        MAIL_STARTTLS=settings.MAIL_STARTTLS,
-        MAIL_SSL_TLS=settings.MAIL_SSL_TLS,
-        USE_CREDENTIALS=settings.MAIL_USE_CREDENTIALS,
-        VALIDATE_CERTS=settings.MAIL_VALIDATE_CERTS,
-    )
-    message_schema = MessageSchema(
-        subject=f"New contact form message from {name}",
-        recipients=[NameEmail(name="Mental Load Manager", email=recipient)],
-        body=_build_contact_email_body(
+    params: resend.Emails.SendParams = {
+        "from": f"{settings.MAIL_FROM_NAME} <{mail_from}>",
+        "to": [recipient],
+        "subject": f"New contact form message from {name}",
+        "html": _build_contact_email_body(
             name=name,
             email=email,
             message=message,
             user_id=user_id,
         ),
-        subtype=MessageType.html,
-        reply_to=[NameEmail(name=name, email=email)],
-    )
+        "reply_to": email,
+    }
 
     try:
-        fast_mail = FastMail(connection_config)
-        await fast_mail.send_message(message_schema)
-    except HTTPException:
-        raise
+        await asyncio.to_thread(resend.Emails.send, params)
     except Exception as exc:
         logger.exception("Failed to send contact email: %s", exc)
         raise HTTPException(
