@@ -22,6 +22,7 @@ const DEFAULT_HOUSEHOLD_CATEGORIES = [
     "Planning",
     "Other",
 ];
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 
 export function useHouseholdPage() {
@@ -145,6 +146,11 @@ export function useHouseholdPage() {
         setHouseholdInviteState(householdId, { email });
     };
 
+    const isInviteEmailValid = (householdId) => {
+        const email = String(inviteByHousehold[householdId]?.email || "").trim();
+        return EMAIL_PATTERN.test(email);
+    };
+
     const handleInvite = async (householdId) => {
         setHouseholdInviteState(householdId, { inviting: true, copied: false });
 
@@ -170,6 +176,10 @@ export function useHouseholdPage() {
         const email = String(inviteByHousehold[householdId]?.email || "").trim();
         if (!email) {
             toast.error("Email is required");
+            return;
+        }
+        if (!EMAIL_PATTERN.test(email)) {
+            toast.error("Enter a valid email address");
             return;
         }
 
@@ -336,6 +346,7 @@ export function useHouseholdPage() {
         handleInvite,
         toggleInviteVisibility,
         setInviteEmail,
+        isInviteEmailValid,
         handleEmailInvite,
         handleCopyInvite,
         handleRemoveMember,
