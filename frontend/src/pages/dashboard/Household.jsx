@@ -129,7 +129,6 @@ export default function Household() {
     handleInvite,
     toggleInviteVisibility,
     setInviteEmail,
-    isInviteEmailValid,
     handleEmailInvite,
     handleCopyInvite,
     handleRemoveMember,
@@ -169,7 +168,6 @@ export default function Household() {
           const inviteUrl = inviteState.inviteUrl || "";
           const isInviteOpen = !!inviteState.isOpen;
           const inviteEmail = inviteState.email || "";
-          const inviteEmailIsValid = isInviteEmailValid(h.household_id);
           const copied = !!inviteState.copied;
           const inviting = !!inviteState.inviting;
           const sendingInviteEmail = !!inviteState.sendingEmail;
