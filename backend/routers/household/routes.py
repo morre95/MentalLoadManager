@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 
 from helpers import get_current_user
 from models import UserEmail
@@ -27,6 +27,7 @@ from .schemas import (
     InviteCreateRequest,
     InviteEmailRequest,
     InviteEmailResponse,
+    InviteNotificationsResponse,
     InviteResponse,
     LeaveHouseholdRequest,
     MyHouseholdsResponse,
@@ -42,6 +43,7 @@ from .service import (
     create_household,
     email_invite,
     create_invite,
+    get_invite_notifications,
     get_my_households,
     leave_household,
     list_household_members,
@@ -97,11 +99,17 @@ def create_invite_route(
 
 
 @router.post("/invite/email", response_model=InviteEmailResponse)
-async def email_invite_route(
+def email_invite_route(
     payload: InviteEmailRequest,
+    background_tasks: BackgroundTasks,
     current_user: UserEmail = Depends(get_current_user),
 ):
-    return await email_invite(payload, current_user)
+    return email_invite(payload, current_user, background_tasks)
+
+
+@router.get("/invite/notifications", response_model=InviteNotificationsResponse)
+def get_invite_notifications_route(current_user: UserEmail = Depends(get_current_user)):
+    return get_invite_notifications(current_user)
 
 
 @router.post("/invite/accept", response_model=AcceptInviteResponse)

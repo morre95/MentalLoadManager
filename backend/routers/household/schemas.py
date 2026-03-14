@@ -75,6 +75,18 @@ class InviteEmailResponse(BaseModel):
     expires_at: datetime
 
 
+class InviteNotification(BaseModel):
+    id: str
+    recipient_email: str
+    household_name: str
+    status: str
+    created_at: datetime
+
+
+class InviteNotificationsResponse(BaseModel):
+    notifications: list[InviteNotification]
+
+
 class AcceptInviteRequest(BaseModel):
     code: str
 

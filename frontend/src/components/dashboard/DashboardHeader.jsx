@@ -1,5 +1,5 @@
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Bell, Search, Plus, Target, Clock3 } from "lucide-react";
+import { Bell, Search, Plus, Target, Clock3, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -9,7 +9,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useHousehold } from "@/hooks/useHouseHold";
 import AddTaskDialog from "@/components/tasks/AddTaskDialog";
-import { fetchGoals, fetchNotificationSettings, fetchTaskReminderSummary } from "@/lib/utils";
+import { fetchGoals, fetchInviteEmailNotifications, fetchNotificationSettings, fetchTaskReminderSummary } from "@/lib/utils";
 
 const TASK_CREATED_EVENT = "kanban-task-created";
 const GOAL_MILESTONES_UPDATED_EVENT = "goals:changed";
@@ -90,10 +90,11 @@ const DashboardHeader = ({ onAddTask }) => {
     setIsLoadingNotifications(true);
 
     try {
-      const [settings, goalsData, taskReminderSummary] = await Promise.all([
+      const [settings, goalsData, taskReminderSummary, inviteEmailData] = await Promise.all([
         fetchNotificationSettings(),
         fetchGoals(),
         fetchTaskReminderSummary(),
+        fetchInviteEmailNotifications().catch(() => null),
       ]);
 
       const areGoalMilestonesEnabled = Boolean(settings?.goal_milestones);
@@ -154,7 +155,22 @@ const DashboardHeader = ({ onAddTask }) => {
             ]
           : [];
 
-      setNotifications([...taskReminderNotifications, ...goalMilestoneNotifications]);
+      const inviteEmailNotifications = (inviteEmailData?.notifications || []).map((n) => ({
+        id: `invite-email:${n.id}`,
+        type: "invite_email",
+        status: n.status,
+        title: n.status === "sent"
+          ? `Invite sent to ${n.recipient_email}`
+          : `Failed to send invite to ${n.recipient_email}`,
+        message: n.status === "sent"
+          ? `${n.recipient_email} was invited to join ${n.household_name}.`
+          : `Could not send invite for ${n.household_name}. Please try again.`,
+        actionLabel: n.status === "failed" ? "Open household" : null,
+        entityId: null,
+        createdAt: n.created_at ? new Date(n.created_at) : null,
+      }));
+
+      setNotifications([...inviteEmailNotifications, ...taskReminderNotifications, ...goalMilestoneNotifications]);
     } catch {
       setGoalMilestonesEnabled(true);
       setTaskRemindersEnabled(true);
@@ -246,6 +262,11 @@ const DashboardHeader = ({ onAddTask }) => {
 
     if (notification.type === "task_reminder") {
       navigate("/dashboard/tasks");
+      return;
+    }
+
+    if (notification.type === "invite_email") {
+      navigate("/dashboard/household");
     }
   };
 
@@ -369,9 +390,11 @@ const DashboardHeader = ({ onAddTask }) => {
                           className="rounded-lg border border-border bg-background px-3 py-3"
                         >
                           <div className="flex items-start gap-3">
-                            <div className="mt-0.5 rounded-lg bg-primary/10 p-2 text-primary">
+                            <div className={`mt-0.5 rounded-lg p-2 ${notification.type === "invite_email" && notification.status === "failed" ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>
                               {notification.type === "task_reminder" ? (
                                 <Clock3 className="h-4 w-4" />
+                              ) : notification.type === "invite_email" ? (
+                                <Mail className="h-4 w-4" />
                               ) : (
                                 <Target className="h-4 w-4" />
                               )}

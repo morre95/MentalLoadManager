@@ -353,6 +353,10 @@ export async function fetchTaskReminderSummary() {
   return sharedFetchTaskReminderSummary(apiClient);
 }
 
+export async function fetchInviteEmailNotifications() {
+  return apiFetch("/api/household/invite/notifications");
+}
+
 export async function fetchPreferences() {
   return sharedFetchPreferences(apiClient);
 }

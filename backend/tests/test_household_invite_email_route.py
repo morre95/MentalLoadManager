@@ -4,7 +4,7 @@ import os
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 from uuid import uuid4
 
 from fastapi import FastAPI
@@ -57,7 +57,7 @@ class HouseholdInviteEmailRouteTest(unittest.TestCase):
 
         with patch(
             "routers.household.routes.email_invite",
-            new=AsyncMock(return_value=service_response),
+            return_value=service_response,
         ) as email_invite_mock:
             client = TestClient(app)
             response = client.post(

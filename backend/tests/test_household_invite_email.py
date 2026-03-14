@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 import os
 import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 
@@ -61,7 +60,7 @@ class _FakeDB:
 
 
 class HouseholdInviteEmailServiceTest(unittest.TestCase):
-    def test_email_invite_creates_invite_and_sends_email(self) -> None:
+    def test_email_invite_creates_invite_and_queues_email(self) -> None:
         db = _FakeDB()
         household_id = uuid4()
         user_id = uuid4()
@@ -82,6 +81,7 @@ class HouseholdInviteEmailServiceTest(unittest.TestCase):
             email="alex@example.com",
         )
         household = SimpleNamespace(name="Example Home")
+        mock_background_tasks = MagicMock()
 
         def _session_local():
             return _FakeSessionContext(db)
@@ -90,25 +90,18 @@ class HouseholdInviteEmailServiceTest(unittest.TestCase):
             with patch.object(service, "_get_db_user", return_value=db_user):
                 with patch.object(service, "find_membership", return_value=object()):
                     with patch.object(service, "find_household_by_id", return_value=household):
-                        with patch.object(
-                            service,
-                            "_send_household_invite_email",
-                            new=AsyncMock(),
-                        ) as send_mock:
-                            result = asyncio.run(service.email_invite(payload, current_user))
+                        result = service.email_invite(payload, current_user, mock_background_tasks)
 
-        self.assertEqual(result.message, "Invite email sent successfully")
+        self.assertEqual(result.message, "Invite email queued")
         self.assertTrue(result.invite_url.startswith("http://localhost:5173/join?code="))
         self.assertEqual(db.commit_calls, 1)
         self.assertEqual(len(db.added), 1)
-        send_mock.assert_awaited_once_with(
-            recipient_email="invited@example.com",
-            household_name="Example Home",
-            invite_url=result.invite_url,
-            inviter_name="Alex Example",
-            inviter_email="alex@example.com",
-            expires_at=result.expires_at,
-        )
+        mock_background_tasks.add_task.assert_called_once()
+        call_kwargs = mock_background_tasks.add_task.call_args.kwargs
+        self.assertEqual(call_kwargs["recipient_email"], "invited@example.com")
+        self.assertEqual(call_kwargs["household_name"], "Example Home")
+        self.assertEqual(call_kwargs["inviter_name"], "Alex Example")
+        self.assertEqual(call_kwargs["inviter_email"], "alex@example.com")
 
 
 if __name__ == "__main__":

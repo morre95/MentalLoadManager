@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import secrets
+import uuid as uuid_lib
 from datetime import datetime, timedelta, timezone
 from html import escape
 from uuid import UUID
@@ -39,6 +40,8 @@ from .schemas import (
     InviteCreateRequest,
     InviteEmailRequest,
     InviteEmailResponse,
+    InviteNotification,
+    InviteNotificationsResponse,
     InviteResponse,
     LeaveHouseholdRequest,
     MyHouseholdsResponse,
@@ -56,6 +59,24 @@ ROLE_ADMIN = "admin"
 ROLE_MEMBER = "member"
 PRIVILEGED_HOUSEHOLD_ROLES = {ROLE_OWNER, ROLE_ADMIN}
 logger = logging.getLogger(__name__)
+
+_MAX_INVITE_NOTIFICATIONS_PER_USER = 20
+_invite_notifications: dict[str, list[dict]] = {}
+
+
+def _store_invite_notification(
+    username: str, recipient_email: str, household_name: str, send_status: str
+) -> None:
+    entry = {
+        "id": str(uuid_lib.uuid4()),
+        "recipient_email": recipient_email,
+        "household_name": household_name,
+        "status": send_status,
+        "created_at": datetime.now(timezone.utc),
+    }
+    bucket = _invite_notifications.setdefault(username, [])
+    bucket.append(entry)
+    _invite_notifications[username] = bucket[-_MAX_INVITE_NOTIFICATIONS_PER_USER:]
 
 
 def _get_db_user(db, current_user: UserEmail):
@@ -379,8 +400,35 @@ def create_invite(
         return _create_invite_for_household(db, payload.household_id, user.user_id)
 
 
-async def email_invite(
-    payload: InviteEmailRequest, current_user: UserEmail
+async def _background_send_invite_email(
+    *,
+    username: str,
+    recipient_email: str,
+    household_name: str,
+    invite_url: str,
+    inviter_name: str,
+    inviter_email: str | None,
+    expires_at: datetime,
+) -> None:
+    try:
+        await _send_household_invite_email(
+            recipient_email=recipient_email,
+            household_name=household_name,
+            invite_url=invite_url,
+            inviter_name=inviter_name,
+            inviter_email=inviter_email,
+            expires_at=expires_at,
+        )
+        _store_invite_notification(username, recipient_email, household_name, "sent")
+    except Exception:
+        logger.exception("Background invite email task failed for %s", recipient_email)
+        _store_invite_notification(username, recipient_email, household_name, "failed")
+
+
+def email_invite(
+    payload: InviteEmailRequest,
+    current_user: UserEmail,
+    background_tasks,
 ) -> InviteEmailResponse:
     recipient_email = payload.email.strip().lower()
     if not recipient_email or "@" not in recipient_email:
@@ -408,7 +456,9 @@ async def email_invite(
         inviter_email = user.email
         household_name = household.name
 
-    await _send_household_invite_email(
+    background_tasks.add_task(
+        _background_send_invite_email,
+        username=current_user.username,
         recipient_email=recipient_email,
         household_name=household_name,
         invite_url=invite.invite_url,
@@ -418,10 +468,26 @@ async def email_invite(
     )
 
     return InviteEmailResponse(
-        message="Invite email sent successfully",
+        message="Invite email queued",
         invite_url=invite.invite_url,
         expires_at=invite.expires_at,
     )
+
+
+def get_invite_notifications(current_user: UserEmail) -> InviteNotificationsResponse:
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+    notifications = [
+        InviteNotification(
+            id=n["id"],
+            recipient_email=n["recipient_email"],
+            household_name=n["household_name"],
+            status=n["status"],
+            created_at=n["created_at"],
+        )
+        for n in _invite_notifications.get(current_user.username, [])
+        if n["created_at"] >= cutoff
+    ]
+    return InviteNotificationsResponse(notifications=notifications)
 
 
 def accept_invite(
