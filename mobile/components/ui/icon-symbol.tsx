@@ -20,6 +20,7 @@ const MAPPING = {
   'line.3.horizontal': 'menu',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'calendar': 'calendar-today',
 } as IconMapping;
 
 /**

@@ -7,7 +7,8 @@ type IconSymbolName =
   | 'paperplane.fill'
   | 'line.3.horizontal'
   | 'chevron.left.forwardslash.chevron.right'
-  | 'chevron.right';
+  | 'chevron.right'
+  | 'calendar';
 
 export function IconSymbol({
   name,
