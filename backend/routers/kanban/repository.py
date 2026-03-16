@@ -27,6 +27,22 @@ def get_task_by_id(db: Session, task_id: UUID):
     return db.scalar(select(Tasks).where(Tasks.task_id == task_id))
 
 
+def get_generated_recurring_child(db: Session, recurrence_parent_task_id: UUID):
+    return db.scalar(
+        select(Tasks).where(Tasks.recurrence_parent_task_id == recurrence_parent_task_id)
+    )
+
+
+def list_generated_recurring_children(db: Session, recurrence_parent_task_id: UUID):
+    return (
+        db.execute(
+            select(Tasks).where(Tasks.recurrence_parent_task_id == recurrence_parent_task_id)
+        )
+        .scalars()
+        .all()
+    )
+
+
 def get_assignee_by_id(db: Session, user_id: UUID):
     return db.scalar(select(UserDB).where(UserDB.user_id == user_id))
 
@@ -82,6 +98,9 @@ def list_tasks_for_member(db: Session, user_id: UUID, household_id: UUID | None)
             Tasks.status,
             Tasks.priority,
             Tasks.due_date,
+            Tasks.recurrence_enabled,
+            Tasks.recurrence_frequency,
+            Tasks.recurrence_interval,
             Tasks.assigns_to.label("assignee_user_id"),
             func.coalesce(UserDB.display_name, UserDB.username).label("assignee_name"),
             Categories.name.label("category_name"),

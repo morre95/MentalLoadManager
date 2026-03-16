@@ -17,6 +17,10 @@ function normalizeUiEvent(event) {
         householdName: event?.household_name || "",
         color: null,
         type: event?.type ?? "task",
+        recurrenceEnabled: Boolean(event?.recurrence_enabled),
+        recurrenceFrequency: event?.recurrence_frequency ?? null,
+        recurrenceInterval: event?.recurrence_interval ?? null,
+        recurrenceLabel: event?.recurrence_label ?? "",
     };
 }
 

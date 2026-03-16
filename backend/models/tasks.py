@@ -5,6 +5,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -46,6 +47,16 @@ class Tasks(Base):
     description: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(50), nullable=False)
     priority: Mapped[str | None] = mapped_column(String(50))
+    recurrence_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("FALSE")
+    )
+    recurrence_frequency: Mapped[str | None] = mapped_column(String(20))
+    recurrence_interval: Mapped[int | None] = mapped_column(Integer)
+    recurrence_parent_task_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("tasks.task_id", ondelete="SET NULL"),
+        nullable=True,
+    )
     order: Mapped[int | None] = mapped_column(Integer)
     category_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),

@@ -34,6 +34,10 @@ export type UiTask = {
   assigneeLabel: string;
   dueDate?: string;
   category: string;
+  recurrenceEnabled?: boolean;
+  recurrenceFrequency?: "daily" | "weekly" | "monthly" | string | null;
+  recurrenceInterval?: number | null;
+  recurrenceLabel?: string;
 };
 
 export type HouseholdCategory = {
@@ -41,6 +45,10 @@ export type HouseholdCategory = {
   name: string;
 };
 
+export function formatTaskRecurrence(
+  frequency: string | null | undefined,
+  interval?: number | null
+): string;
 export function mapApiTaskToUi(task: any): UiTask;
 export function toApiTaskStatus(status: string): string;
 export function createKanbanTask(
@@ -52,6 +60,8 @@ export function createKanbanTask(
     description?: string | null;
     priority?: string | null;
     due_date?: string | null;
+    recurrence_frequency?: "daily" | "weekly" | "monthly" | null;
+    recurrence_interval?: number | null;
     category_id?: string | null;
     assigns_to?: string | null;
   }
@@ -112,6 +122,12 @@ export function updateKanbanTaskDueDate(
   apiClient: ApiClient,
   taskId: string,
   dueDate: string | null
+): Promise<any>;
+export function updateKanbanTaskRecurrence(
+  apiClient: ApiClient,
+  taskId: string,
+  recurrenceFrequency: "daily" | "weekly" | "monthly" | null,
+  recurrenceInterval?: number | null
 ): Promise<any>;
 export function updateKanbanTaskDescription(
   apiClient: ApiClient,

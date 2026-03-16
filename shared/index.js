@@ -9,6 +9,7 @@ export {
   fetchHouseholdCategories,
   fetchKanbanAssignees,
   fetchKanbanTasks,
+  formatTaskRecurrence,
   mapApiTaskToUi,
   toApiTaskStatus,
   updateKanbanTaskDescription,
@@ -18,6 +19,7 @@ export {
   updateKanbanTaskName,
   updateKanbanTaskOrder,
   updateKanbanTaskPriority,
+  updateKanbanTaskRecurrence,
   updateKanbanTaskStatus,
 } from "./tasks.js";
 

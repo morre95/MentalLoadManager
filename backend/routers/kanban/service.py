@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+from calendar import monthrange
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -9,6 +10,7 @@ from models import Categories, Tasks, UserEmail
 
 from .repository import (
     find_membership,
+    get_generated_recurring_child,
     get_assignee_by_id,
     get_category_by_household_and_id,
     get_category_by_id,
@@ -17,6 +19,7 @@ from .repository import (
     get_user_by_username,
     list_categories_for_household,
     list_assignees_for_household,
+    list_generated_recurring_children,
     list_reorder_tasks,
     list_tasks_for_member,
 )
@@ -42,6 +45,8 @@ from .schemas import (
     UpdateTaskDescriptionResponse,
     UpdateTaskDueDateRequest,
     UpdateTaskDueDateResponse,
+    UpdateTaskRecurrenceRequest,
+    UpdateTaskRecurrenceResponse,
     UpdateTaskNameRequest,
     UpdateTaskNameResponse,
     UpdateTaskPriorityRequest,
@@ -52,9 +57,69 @@ from .schemas import (
 
 ALLOWED_TASK_STATUSES = {"todo", "in_progress", "done", "on_hold", "archive"}
 ALLOWED_TASK_PRIORITIES = {"low", "medium", "high"}
+ALLOWED_RECURRENCE_FREQUENCIES = {"daily", "weekly", "monthly"}
 ROLE_OWNER = "owner"
 ROLE_ADMIN = "admin"
 PRIVILEGED_HOUSEHOLD_ROLES = {ROLE_OWNER, ROLE_ADMIN}
+
+
+def _normalize_recurrence_frequency(value: str | None) -> str | None:
+    normalized = str(value or "").strip().lower()
+    if not normalized:
+        return None
+    if normalized not in ALLOWED_RECURRENCE_FREQUENCIES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid recurrence frequency",
+        )
+    return normalized
+
+
+def _add_months(source: datetime, months: int) -> datetime:
+    total_month = (source.month - 1) + months
+    year = source.year + total_month // 12
+    month = (total_month % 12) + 1
+    day = min(source.day, monthrange(year, month)[1])
+    return source.replace(year=year, month=month, day=day)
+
+
+def _calculate_next_due_date(
+    due_date: datetime, recurrence_frequency: str, recurrence_interval: int
+) -> datetime:
+    if recurrence_frequency == "daily":
+        return due_date + timedelta(days=recurrence_interval)
+    if recurrence_frequency == "weekly":
+        return due_date + timedelta(weeks=recurrence_interval)
+    return _add_months(due_date, recurrence_interval)
+
+
+def _maybe_spawn_next_recurring_task(db, task: Tasks, now_utc: datetime) -> None:
+    if not task.recurrence_enabled or not task.recurrence_frequency or not task.due_date:
+        return
+    if get_generated_recurring_child(db, task.task_id):
+        return
+
+    next_task = Tasks(
+        household_id=task.household_id,
+        name=task.name,
+        description=task.description,
+        status="todo",
+        priority=task.priority,
+        due_date=_calculate_next_due_date(
+            task.due_date,
+            task.recurrence_frequency,
+            task.recurrence_interval or 1,
+        ),
+        recurrence_enabled=True,
+        recurrence_frequency=task.recurrence_frequency,
+        recurrence_interval=task.recurrence_interval or 1,
+        recurrence_parent_task_id=task.task_id,
+        category_id=task.category_id,
+        assigns_to=task.assigns_to,
+        created_by=task.created_by,
+        updated_at=now_utc,
+    )
+    db.add(next_task)
 
 
 def _get_me(db, current_user: UserEmail):
@@ -267,6 +332,9 @@ def list_kanban_tasks(
                 status=row.status,
                 priority=row.priority,
                 due_date=row.due_date,
+                recurrence_enabled=row.recurrence_enabled,
+                recurrence_frequency=row.recurrence_frequency,
+                recurrence_interval=row.recurrence_interval,
                 assignee_user_id=str(row.assignee_user_id)
                 if row.assignee_user_id
                 else None,
@@ -317,6 +385,8 @@ def list_household_assignees(
 def create_task(payload: CreateTaskRequest, current_user: UserEmail) -> TaskResponse:
     task_name = payload.name.strip()
     task_status = payload.status.strip().lower()
+    recurrence_frequency = _normalize_recurrence_frequency(payload.recurrence_frequency)
+    recurrence_interval = payload.recurrence_interval or 1
     if not task_name:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -326,6 +396,11 @@ def create_task(payload: CreateTaskRequest, current_user: UserEmail) -> TaskResp
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid task status",
+        )
+    if recurrence_frequency and payload.due_date is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Recurring tasks require a due date",
         )
 
     try:
@@ -411,6 +486,9 @@ def create_task(payload: CreateTaskRequest, current_user: UserEmail) -> TaskResp
             status=task_status,
             priority=payload.priority,
             due_date=payload.due_date,
+            recurrence_enabled=bool(recurrence_frequency),
+            recurrence_frequency=recurrence_frequency,
+            recurrence_interval=recurrence_interval if recurrence_frequency else None,
             category_id=resolved_category_id,
             assigns_to=payload.assigns_to,
             created_by=me.user_id,
@@ -437,6 +515,9 @@ def create_task(payload: CreateTaskRequest, current_user: UserEmail) -> TaskResp
             description=new_task.description,
             priority=new_task.priority,
             due_date=new_task.due_date,
+            recurrence_enabled=new_task.recurrence_enabled,
+            recurrence_frequency=new_task.recurrence_frequency,
+            recurrence_interval=new_task.recurrence_interval,
             category_id=str(new_task.category_id) if new_task.category_id else None,
             assigns_to=str(new_task.assigns_to) if new_task.assigns_to else None,
             created_by=str(new_task.created_by) if new_task.created_by else None,
@@ -492,6 +573,8 @@ def update_task_status(
                 task.started_at = now_utc
             if task.complete_date is None:
                 task.complete_date = now_utc
+            if previous_status not in {"done", "archive"}:
+                _maybe_spawn_next_recurring_task(db, task, now_utc)
 
         try:
             db.commit()
@@ -589,6 +672,60 @@ def update_task_due_date(
         return UpdateTaskDueDateResponse(
             task_id=str(task.task_id),
             due_date=task.due_date,
+            updated_at=task.updated_at,
+        )
+
+
+def update_task_recurrence(
+    task_id: UUID,
+    payload: UpdateTaskRecurrenceRequest,
+    current_user: UserEmail,
+) -> UpdateTaskRecurrenceResponse:
+    recurrence_frequency = _normalize_recurrence_frequency(payload.recurrence_frequency)
+    recurrence_interval = payload.recurrence_interval or 1
+
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        me = _get_me(db, current_user)
+        task = _get_task_with_membership(db, task_id, me.user_id)
+
+        if recurrence_frequency and task.due_date is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Recurring tasks require a due date",
+            )
+
+        task.recurrence_enabled = bool(recurrence_frequency)
+        task.recurrence_frequency = recurrence_frequency
+        task.recurrence_interval = recurrence_interval if recurrence_frequency else None
+        task.updated_at = datetime.now(timezone.utc)
+
+        if not recurrence_frequency:
+            for child_task in list_generated_recurring_children(db, task.task_id):
+                child_task.recurrence_parent_task_id = None
+
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Unable to update task recurrence",
+            ) from exc
+
+        db.refresh(task)
+        return UpdateTaskRecurrenceResponse(
+            task_id=str(task.task_id),
+            recurrence_enabled=task.recurrence_enabled,
+            recurrence_frequency=task.recurrence_frequency,
+            recurrence_interval=task.recurrence_interval,
             updated_at=task.updated_at,
         )
 

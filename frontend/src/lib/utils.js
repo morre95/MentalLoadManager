@@ -27,6 +27,7 @@ import {
   fetchHouseholdCategories as sharedFetchHouseholdCategories,
   fetchKanbanAssignees as sharedFetchKanbanAssignees,
   fetchKanbanTasks as sharedFetchKanbanTasks,
+  formatTaskRecurrence as sharedFormatTaskRecurrence,
   fetchMe as sharedFetchMe,
   getApiBaseUrl,
   updateNotificationSettings as sharedUpdateNotificationSettings,
@@ -40,6 +41,7 @@ import {
   updateKanbanTaskName as sharedUpdateKanbanTaskName,
   updateKanbanTaskOrder as sharedUpdateKanbanTaskOrder,
   updateKanbanTaskPriority as sharedUpdateKanbanTaskPriority,
+  updateKanbanTaskRecurrence as sharedUpdateKanbanTaskRecurrence,
   updateKanbanTaskStatus as sharedUpdateKanbanTaskStatus,
 } from "../../../shared/index.js";
 
@@ -56,6 +58,10 @@ function emitGoalMilestonesUpdated() {
 
 export function cn(...inputs) {
   return twMerge(clsx(inputs));
+}
+
+export function formatTaskRecurrence(frequency, interval) {
+  return sharedFormatTaskRecurrence(frequency, interval);
 }
 
 export function toUtcDateOnlyIso(dateInputValue) {
@@ -286,6 +292,15 @@ export async function updateKanbanTaskPriority(taskId, priority) {
 
 export async function updateKanbanTaskDueDate(taskId, dueDate) {
   return sharedUpdateKanbanTaskDueDate(apiClient, taskId, dueDate);
+}
+
+export async function updateKanbanTaskRecurrence(taskId, recurrenceFrequency, recurrenceInterval = 1) {
+  return sharedUpdateKanbanTaskRecurrence(
+    apiClient,
+    taskId,
+    recurrenceFrequency,
+    recurrenceInterval
+  );
 }
 
 export async function updateKanbanTaskDescription(taskId, description) {

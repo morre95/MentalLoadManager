@@ -32,6 +32,28 @@ function formatDueDate(iso) {
   return date.toLocaleDateString();
 }
 
+export function formatTaskRecurrence(frequency, interval = 1) {
+  const normalizedFrequency = String(frequency || "").trim().toLowerCase();
+  const normalizedInterval = Number(interval) > 0 ? Number(interval) : 1;
+
+  if (!normalizedFrequency) return "";
+
+  if (normalizedInterval === 1) {
+    if (normalizedFrequency === "daily") return "Daily";
+    if (normalizedFrequency === "weekly") return "Weekly";
+    if (normalizedFrequency === "monthly") return "Monthly";
+  }
+
+  const unit =
+    normalizedFrequency === "daily"
+      ? "day"
+      : normalizedFrequency === "weekly"
+        ? "week"
+        : "month";
+
+  return `Every ${normalizedInterval} ${unit}${normalizedInterval === 1 ? "" : "s"}`;
+}
+
 function toDateInputValue(iso) {
   if (!iso) return null;
 
@@ -65,6 +87,12 @@ export function mapApiTaskToUi(task) {
     dueDateValue: toDateInputValue(task.due_date),
     dueDate: formatDueDate(task.due_date),
     category: task.category_name || "Other",
+    recurrenceEnabled: Boolean(task.recurrence_enabled),
+    recurrenceFrequency: task.recurrence_frequency || null,
+    recurrenceInterval: task.recurrence_interval || null,
+    recurrenceLabel: task.recurrence_enabled
+      ? formatTaskRecurrence(task.recurrence_frequency, task.recurrence_interval)
+      : "",
   };
 }
 
@@ -173,6 +201,21 @@ export async function updateKanbanTaskDueDate(apiClient, taskId, dueDate) {
     method: "PATCH",
     body: JSON.stringify({
       due_date: dueDate || null,
+    }),
+  });
+}
+
+export async function updateKanbanTaskRecurrence(
+  apiClient,
+  taskId,
+  recurrenceFrequency,
+  recurrenceInterval = 1,
+) {
+  return apiClient.request(`/api/kanban/tasks/${taskId}/recurrence`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      recurrence_frequency: recurrenceFrequency || null,
+      recurrence_interval: recurrenceFrequency ? recurrenceInterval : null,
     }),
   });
 }

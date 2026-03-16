@@ -57,6 +57,9 @@ def list_calendar_events(
                 household_id=str(r.household_id),
                 household_name=r.household_name,
                 person=getattr(current_user, "username", None),
+                recurrence_enabled=bool(r.recurrence_enabled),
+                recurrence_frequency=r.recurrence_frequency,
+                recurrence_interval=r.recurrence_interval,
             )
             for r in rows
         ],
@@ -100,6 +103,9 @@ def list_calendar_events_range(
                 household_id=str(r.household_id),
                 household_name=r.household_name,
                 person=getattr(current_user, "username", None),
+                recurrence_enabled=bool(r.recurrence_enabled),
+                recurrence_frequency=r.recurrence_frequency,
+                recurrence_interval=r.recurrence_interval,
             )
             for r in rows
         ],

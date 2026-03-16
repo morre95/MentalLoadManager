@@ -6,6 +6,7 @@ import {
   Check,
   Calendar,
   Home,
+  Repeat,
   User,
   Tag,
   Flag,
@@ -47,6 +48,7 @@ import {
 import {
   fetchHouseholdCategories,
   fetchKanbanAssignees,
+  formatTaskRecurrence,
   resolveCurrentHouseholdId,
   cn,
 } from "@/lib/utils";
@@ -123,6 +125,7 @@ const TaskDetailDialog = ({
   onUpdateTaskTitle,
   onUpdateTaskAssignee,
   onUpdateTaskCategory,
+  onUpdateTaskRecurrence,
   onDeleteTask,
 }) => {
   const householdName = useMemo(() => {
@@ -149,6 +152,7 @@ const TaskDetailDialog = ({
   const [categoryDraft, setCategoryDraft] = useState("Other");
   const [customCategoryDraft, setCustomCategoryDraft] = useState("");
   const [dueDateDraft, setDueDateDraft] = useState("");
+  const [recurrenceDraft, setRecurrenceDraft] = useState("none");
 
 
   const [editingField, setEditingField] = useState(null);
@@ -161,6 +165,7 @@ const TaskDetailDialog = ({
   const [isPriorityOpen, setIsPriorityOpen] = useState(false);
   const [isAssigneeOpen, setIsAssigneeOpen] = useState(false);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [isRecurrenceOpen, setIsRecurrenceOpen] = useState(false);
 
   const normalizedPriority = useMemo(() => {
     const value = String(task?.priority || "medium").toLowerCase();
@@ -177,6 +182,7 @@ const TaskDetailDialog = ({
     setPriorityDraft(normalizedPriority);
     setAssigneeIdDraft(task.assigneeId || UNASSIGNED_ASSIGNEE_VALUE);
     setDueDateDraft(toDateInputValue(task.dueDate));
+    setRecurrenceDraft(task.recurrenceFrequency || "none");
   }, [open, task, normalizedPriority]);
 
   useEffect(() => {
@@ -260,6 +266,10 @@ const TaskDetailDialog = ({
     categoryDraft === CUSTOM_CATEGORY_VALUE ? (customCategoryDraft || "Other") : categoryDraft;
   const hasDescription = Boolean(descriptionDraft.trim());
   const displayDueDate = formatDisplayDate(dueDateDraft);
+  const recurrenceLabel =
+    recurrenceDraft !== "none"
+      ? formatTaskRecurrence(recurrenceDraft, task.recurrenceInterval || 1)
+      : "Does not repeat";
 
   const runTaskUpdate = async (updater) => {
     setIsSaving(true);
@@ -393,6 +403,24 @@ const TaskDetailDialog = ({
     });
   };
 
+  const handleRecurrenceChange = async (value) => {
+    setRecurrenceDraft(value);
+    setIsRecurrenceOpen(false);
+    setEditingField(null);
+
+    const nextRecurrence = value === "none" ? null : value;
+    if (nextRecurrence && !dueDateDraft) {
+      setRecurrenceDraft(task.recurrenceFrequency || "none");
+      return;
+    }
+
+    if ((task.recurrenceFrequency || null) === nextRecurrence) return;
+
+    await runTaskUpdate(async () => {
+      await onUpdateTaskRecurrence?.(task.id, nextRecurrence, nextRecurrence ? 1 : null);
+    });
+  };
+
   const handleArchive = async () => {
     if (isSaving) return;
 
@@ -455,6 +483,7 @@ const TaskDetailDialog = ({
                 <span>{householdName}</span>
                 <span>{assigneeLabel}</span>
                 <span>{displayDueDate}</span>
+                <span>{recurrenceLabel}</span>
               </DialogDescription>
             </div>
 
@@ -762,6 +791,57 @@ const TaskDetailDialog = ({
                     <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Due date</p>
                     <p className={dueDateDraft ? fieldValueClassName : emptyValueClassName}>
                       {displayDueDate}
+                    </p>
+                  </div>
+                  <ChevronRight className="mt-0.5 h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </button>
+              )}
+
+              {editingField === "recurrence" ? (
+                <div className={cn(fieldCardClassName, "border-primary/30 bg-primary/5 shadow-none")}>
+                  <Repeat className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Repeats</p>
+                    <Select
+                      value={recurrenceDraft}
+                      open={isRecurrenceOpen}
+                      onOpenChange={(openValue) => {
+                        setIsRecurrenceOpen(openValue);
+                        if (!openValue) setEditingField(null);
+                      }}
+                      onValueChange={handleRecurrenceChange}
+                    >
+                      <SelectTrigger className="mt-2 h-9 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Does not repeat</SelectItem>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {!dueDateDraft ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Add a due date before turning on repeats.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className={cn(fieldCardClassName, "hover:border-primary/30")}
+                  onClick={() => {
+                    setEditingField("recurrence");
+                    setIsRecurrenceOpen(true);
+                  }}
+                >
+                  <Repeat className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Repeats</p>
+                    <p className={recurrenceDraft !== "none" ? fieldValueClassName : emptyValueClassName}>
+                      {recurrenceLabel}
                     </p>
                   </div>
                   <ChevronRight className="mt-0.5 h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />

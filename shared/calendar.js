@@ -1,5 +1,25 @@
 const safeArray = (x) => (Array.isArray(x) ? x : []);
 
+function formatTaskRecurrence(frequency, interval = 1) {
+    const normalizedFrequency = String(frequency || "").trim().toLowerCase();
+    const normalizedInterval = Number(interval) > 0 ? Number(interval) : 1;
+    if (!normalizedFrequency) return "";
+
+    if (normalizedInterval === 1) {
+        if (normalizedFrequency === "daily") return "Daily";
+        if (normalizedFrequency === "weekly") return "Weekly";
+        if (normalizedFrequency === "monthly") return "Monthly";
+    }
+
+    const unit =
+        normalizedFrequency === "daily"
+            ? "day"
+            : normalizedFrequency === "weekly"
+                ? "week"
+                : "month";
+    return `Every ${normalizedInterval} ${unit}${normalizedInterval === 1 ? "" : "s"}`;
+}
+
 export function normalizeCalendarMonth(data) {
     return {
         startDate: data?.startDate ?? null,
@@ -12,6 +32,12 @@ export function normalizeCalendarMonth(data) {
             household_id: e?.household_id ?? null,
             household_name: e?.household_name ?? null,
             person: e?.person ?? null,
+            recurrence_enabled: Boolean(e?.recurrence_enabled),
+            recurrence_frequency: e?.recurrence_frequency ?? null,
+            recurrence_interval: e?.recurrence_interval ?? null,
+            recurrence_label: e?.recurrence_enabled
+                ? formatTaskRecurrence(e?.recurrence_frequency, e?.recurrence_interval)
+                : "",
         })),
     };
 }
@@ -28,6 +54,12 @@ export function normalizeCalendarRange(data) {
             household_id: e?.household_id ?? null,
             household_name: e?.household_name ?? null,
             person: e?.person ?? null,
+            recurrence_enabled: Boolean(e?.recurrence_enabled),
+            recurrence_frequency: e?.recurrence_frequency ?? null,
+            recurrence_interval: e?.recurrence_interval ?? null,
+            recurrence_label: e?.recurrence_enabled
+                ? formatTaskRecurrence(e?.recurrence_frequency, e?.recurrence_interval)
+                : "",
         })),
     };
 }

@@ -120,6 +120,10 @@ CREATE TABLE IF NOT EXISTS tasks (
   description    TEXT,
   status         VARCHAR(50) NOT NULL CHECK (status IN ('todo', 'in_progress', 'done', 'on_hold', 'archive')),
   priority       VARCHAR(50) NOT NULL CHECK (priority IN ('low', 'medium', 'high')),
+  recurrence_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  recurrence_frequency VARCHAR(20) CHECK (recurrence_frequency IN ('daily', 'weekly', 'monthly')),
+  recurrence_interval INTEGER CHECK (recurrence_interval IS NULL OR recurrence_interval > 0),
+  recurrence_parent_task_id UUID REFERENCES tasks(task_id) ON DELETE SET NULL,
   "order"        INTEGER,
   category_id    UUID REFERENCES categories(category_id) ON DELETE SET NULL,
   complete_date  TIMESTAMPTZ,
@@ -297,6 +301,7 @@ CREATE TABLE IF NOT EXISTS contact_messages (
 
 CREATE INDEX IF NOT EXISTS idx_tasks_group_due ON tasks(household_id, due_date);
 CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assigns_to);
+CREATE INDEX IF NOT EXISTS idx_tasks_recurrence_parent ON tasks(recurrence_parent_task_id);
 CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
 CREATE INDEX IF NOT EXISTS idx_mood_entries_user_date ON mood_entries(user_id, entry_date);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_lower ON users (LOWER(username));

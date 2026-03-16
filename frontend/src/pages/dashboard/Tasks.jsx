@@ -3,6 +3,7 @@ import { motion as Motion } from "framer-motion";
 import {
   ListTodo,
   Plus,
+  Repeat,
   GripVertical,
   PauseCircle,
   Clock,
@@ -41,6 +42,7 @@ import { useTaskboardTasks } from "@/hooks/useTaskboardTasks";
 import { useHousehold } from "@/hooks/useHouseHold";
 import {
   deleteKanbanTask,
+  formatTaskRecurrence,
   toUtcDateOnlyIso,
   updateKanbanTaskDescription,
   updateKanbanTaskAssignee,
@@ -49,6 +51,7 @@ import {
   updateKanbanTaskName,
   updateKanbanTaskOrder,
   updateKanbanTaskPriority,
+  updateKanbanTaskRecurrence,
   updateKanbanTaskStatus,
 } from "@/lib/utils";
 
@@ -142,6 +145,12 @@ const SortableTaskCard = ({ task, onToggleStatus, onClick }) => {
                 {task.category}
               </span>
               <span className="truncate">{assigneeLabel}</span>
+              {task.recurrenceEnabled ? (
+                <span className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
+                  <Repeat className="h-3 w-3" />
+                  <span className="truncate">{task.recurrenceLabel || "Repeats"}</span>
+                </span>
+              ) : null}
               {task.dueDate ? (
                 <span
                   className={`flex-shrink-0 ${task.dueDate === "Today" ? "text-terracotta font-medium" : ""}`}
@@ -431,6 +440,28 @@ const Tasks = () => {
     }
   };
 
+  const handleUpdateTaskRecurrence = async (taskId, recurrenceFrequency, recurrenceInterval) => {
+    const rollbackTasks = tasks;
+    setSyncError(null);
+
+    handleUpdateTaskDetails(taskId, {
+      recurrenceEnabled: Boolean(recurrenceFrequency),
+      recurrenceFrequency: recurrenceFrequency || null,
+      recurrenceInterval: recurrenceFrequency ? (recurrenceInterval || 1) : null,
+      recurrenceLabel: recurrenceFrequency
+        ? formatTaskRecurrence(recurrenceFrequency, recurrenceInterval || 1)
+        : "",
+    });
+
+    try {
+      await updateKanbanTaskRecurrence(taskId, recurrenceFrequency || null, recurrenceInterval || 1);
+      window.dispatchEvent(new Event("kanban-task-updated"));
+    } catch (syncException) {
+      setTasks(rollbackTasks);
+      setSyncError(syncException);
+    }
+  };
+
   const handleUpdateTaskDescription = async (taskId, nextDescription) => {
     const rollbackTasks = tasks;
     setSyncError(null);
@@ -699,6 +730,7 @@ const Tasks = () => {
         onUpdateTaskTitle={handleUpdateTaskTitle}
         onUpdateTaskAssignee={handleUpdateTaskAssignee}
         onUpdateTaskCategory={handleUpdateTaskCategory}
+        onUpdateTaskRecurrence={handleUpdateTaskRecurrence}
         onDeleteTask={handleDeleteTask}
       />
     </div>

@@ -21,6 +21,8 @@ from .schemas import (
     UpdateTaskDescriptionResponse,
     UpdateTaskDueDateRequest,
     UpdateTaskDueDateResponse,
+    UpdateTaskRecurrenceRequest,
+    UpdateTaskRecurrenceResponse,
     UpdateTaskNameRequest,
     UpdateTaskNameResponse,
     UpdateTaskPriorityRequest,
@@ -40,6 +42,7 @@ from .service import (
     update_task_due_date,
     update_task_name,
     update_task_priority,
+    update_task_recurrence,
     update_task_status,
 )
 
@@ -95,6 +98,15 @@ def update_task_due_date_route(
     current_user: UserEmail = Depends(get_current_user),
 ):
     return update_task_due_date(task_id, payload, current_user)
+
+
+@router.patch("/tasks/{task_id}/recurrence", response_model=UpdateTaskRecurrenceResponse)
+def update_task_recurrence_route(
+    task_id: UUID,
+    payload: UpdateTaskRecurrenceRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    return update_task_recurrence(task_id, payload, current_user)
 
 
 @router.patch("/tasks/{task_id}/assignee", response_model=UpdateTaskAssigneeResponse)

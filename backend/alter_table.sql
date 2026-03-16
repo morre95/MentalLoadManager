@@ -5,6 +5,34 @@ ALTER TABLE tasks
 ADD CONSTRAINT tasks_status_check
 CHECK (status IN ('todo', 'in_progress', 'done', 'on_hold', 'archive'));
 
+ALTER TABLE tasks
+ADD COLUMN IF NOT EXISTS recurrence_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE tasks
+ADD COLUMN IF NOT EXISTS recurrence_frequency VARCHAR(20);
+
+ALTER TABLE tasks
+ADD COLUMN IF NOT EXISTS recurrence_interval INTEGER;
+
+ALTER TABLE tasks
+ADD COLUMN IF NOT EXISTS recurrence_parent_task_id UUID REFERENCES tasks(task_id) ON DELETE SET NULL;
+
+ALTER TABLE tasks
+DROP CONSTRAINT IF EXISTS tasks_recurrence_frequency_check;
+
+ALTER TABLE tasks
+ADD CONSTRAINT tasks_recurrence_frequency_check
+CHECK (recurrence_frequency IS NULL OR recurrence_frequency IN ('daily', 'weekly', 'monthly'));
+
+ALTER TABLE tasks
+DROP CONSTRAINT IF EXISTS tasks_recurrence_interval_check;
+
+ALTER TABLE tasks
+ADD CONSTRAINT tasks_recurrence_interval_check
+CHECK (recurrence_interval IS NULL OR recurrence_interval > 0);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_recurrence_parent ON tasks(recurrence_parent_task_id);
+
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- Ensure usernames remain unique (case-insensitive).

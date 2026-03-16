@@ -40,6 +40,9 @@ def fetch_calendar_event_rows_range(
             Tasks.name,
             Tasks.household_id,
             Households.name.label("household_name"),
+            Tasks.recurrence_enabled,
+            Tasks.recurrence_frequency,
+            Tasks.recurrence_interval,
         )
         .select_from(Tasks)
         .join(Households, Households.household_id == Tasks.household_id)

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,7 @@ import {
   deleteKanbanTask,
   fetchPreferences,
   fetchMe,
+  formatTaskRecurrence,
   toUtcDateOnlyIso,
   updateKanbanTaskAssignee,
   updateKanbanTaskCategory,
@@ -42,6 +43,7 @@ import {
   updateKanbanTaskDueDate,
   updateKanbanTaskName,
   updateKanbanTaskPriority,
+  updateKanbanTaskRecurrence,
   updateKanbanTaskStatus,
 } from "@/lib/utils";
 
@@ -304,6 +306,28 @@ const Calendar = () => {
 
   const handleUpdateTaskDueDate = async (taskId, dueDateInputValue) => {
     await moveTaskToDate(taskId, dueDateInputValue || null);
+  };
+
+  const handleUpdateTaskRecurrence = async (taskId, recurrenceFrequency, recurrenceInterval) => {
+    const rollbackTasks = tasks;
+    setSyncError(null);
+    handleUpdateTaskDetails(taskId, {
+      recurrenceEnabled: Boolean(recurrenceFrequency),
+      recurrenceFrequency: recurrenceFrequency || null,
+      recurrenceInterval: recurrenceFrequency ? (recurrenceInterval || 1) : null,
+      recurrenceLabel: recurrenceFrequency
+        ? formatTaskRecurrence(recurrenceFrequency, recurrenceInterval || 1)
+        : "",
+    });
+
+    try {
+      await updateKanbanTaskRecurrence(taskId, recurrenceFrequency || null, recurrenceInterval || 1);
+      await refreshCalendarData();
+      emitTaskUpdated();
+    } catch (error) {
+      setTasks(rollbackTasks);
+      setSyncError(error);
+    }
   };
 
   const handleUpdateTaskDescription = async (taskId, nextDescription) => {
@@ -590,6 +614,12 @@ const Calendar = () => {
                 >
                   <div className="font-medium leading-snug">{event.title}</div>
                   <div className="text-xs opacity-80 mt-0.5">{category}</div>
+                  {event.recurrenceLabel ? (
+                    <div className="mt-1 flex items-center gap-1 text-xs opacity-80">
+                      <Repeat className="h-3 w-3" />
+                      <span>{event.recurrenceLabel}</span>
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
@@ -660,6 +690,7 @@ const Calendar = () => {
           householdName: householdNameById.get(householdId) || "Unknown household",
           color: householdColorById.get(householdId) || "terracotta",
           type: "task",
+          recurrenceLabel: task?.recurrenceLabel || "",
         };
       })
       .sort((a, b) => a.date - b.date);
@@ -1023,6 +1054,12 @@ const Calendar = () => {
                             <span className="text-xs text-muted-foreground block truncate">
                               {category}
                             </span>
+                            {event.recurrenceLabel ? (
+                              <span className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                                <Repeat className="h-3 w-3" />
+                                {event.recurrenceLabel}
+                              </span>
+                            ) : null}
                             {event.householdName ? (
                               <span className="text-xs text-muted-foreground block truncate">
                                 {event.householdName}
@@ -1098,6 +1135,12 @@ const Calendar = () => {
                             {getRelativeDueLabel(event.date)}
                             {event.householdName ? ` • ${event.householdName}` : ""}
                           </p>
+                          {event.recurrenceLabel ? (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Repeat className="h-3 w-3" />
+                              {event.recurrenceLabel}
+                            </p>
+                          ) : null}
                         </div>
                       </motion.div>
                     ))
@@ -1155,6 +1198,12 @@ const Calendar = () => {
                             {getRelativeDueLabel(event.date)}
                             {event.householdName ? ` • ${event.householdName}` : ""}
                           </p>
+                          {event.recurrenceLabel ? (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Repeat className="h-3 w-3" />
+                              {event.recurrenceLabel}
+                            </p>
+                          ) : null}
                         </div>
                       </motion.div>
                     ))
@@ -1192,6 +1241,7 @@ const Calendar = () => {
         onUpdateTaskTitle={handleUpdateTaskTitle}
         onUpdateTaskAssignee={handleUpdateTaskAssignee}
         onUpdateTaskCategory={handleUpdateTaskCategory}
+        onUpdateTaskRecurrence={handleUpdateTaskRecurrence}
         onDeleteTask={handleDeleteTask}
       />
     </div>

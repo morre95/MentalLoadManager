@@ -7,6 +7,7 @@ import {
   Flag,
   Home,
   Plus,
+  Repeat,
   Tag,
   User,
 } from "lucide-react";
@@ -34,6 +35,7 @@ import {
   createKanbanTask,
   fetchHouseholdCategories,
   fetchKanbanAssignees,
+  formatTaskRecurrence,
   resolveCurrentHouseholdId,
   toUtcDateOnlyIso,
 } from "@/lib/utils";
@@ -94,6 +96,7 @@ const AddTaskDialog = ({
   const [loadingAssignees, setLoadingAssignees] = useState(false);
   const [assigneesError, setAssigneesError] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState("");
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [selectedHouseholdId, setSelectedHouseholdId] = useState("");
@@ -133,6 +136,9 @@ const AddTaskDialog = ({
   const categoryLabel =
     category === CUSTOM_CATEGORY_VALUE ? (customCategory.trim() || FALLBACK_CATEGORY) : category;
   const displayDueDate = formatDisplayDate(dueDate);
+  const recurrenceLabel = recurrenceFrequency
+    ? formatTaskRecurrence(recurrenceFrequency, 1)
+    : "Does not repeat";
   const activeStatus = statusConfig.todo;
   const ActiveStatusIcon = activeStatus.icon;
   const isHouseholdSelectDisabled = householdOptions.length <= 1;
@@ -269,6 +275,10 @@ const AddTaskDialog = ({
   const handleSubmit = async () => {
     if (!title.trim()) return;
     setSubmitError("");
+    if (recurrenceFrequency && !dueDate) {
+      setSubmitError("Recurring tasks need a due date.");
+      return;
+    }
 
     const activeHouseholdId = selectedHouseholdId || await resolveCurrentHouseholdId();
     if (!activeHouseholdId) {
@@ -289,6 +299,8 @@ const AddTaskDialog = ({
         description: description.trim() || null,
         priority,
         due_date: dueDateIso,
+        recurrence_frequency: recurrenceFrequency || null,
+        recurrence_interval: recurrenceFrequency ? 1 : null,
         category_name: finalCategory,
         assigns_to: assigneeId || null,
       });
@@ -313,6 +325,12 @@ const AddTaskDialog = ({
         category: finalCategory,
         dueDateValue: dueDate || null,
         dueDate: dueDate ? new Date(dueDateIso).toLocaleDateString() : "",
+        recurrenceEnabled: Boolean(recurrenceFrequency),
+        recurrenceFrequency: recurrenceFrequency || null,
+        recurrenceInterval: recurrenceFrequency ? 1 : null,
+        recurrenceLabel: recurrenceFrequency
+          ? formatTaskRecurrence(recurrenceFrequency, 1)
+          : "",
       };
 
       onAddTask(newTask);
@@ -335,6 +353,7 @@ const AddTaskDialog = ({
     setAssigneesError("");
     setSelectedHouseholdId("");
     setDueDate("");
+    setRecurrenceFrequency("");
     setSubmitError("");
     onOpenChange(false);
   };
@@ -367,6 +386,7 @@ const AddTaskDialog = ({
                 <span>{selectedHousehold?.name || "Select a household"}</span>
                 <span>{assigneeLabel}</span>
                 <span>{displayDueDate}</span>
+                <span>{recurrenceLabel}</span>
               </DialogDescription>
             </div>
 
@@ -522,6 +542,29 @@ const AddTaskDialog = ({
                 </div>
               </div>
 
+              <div className={fieldCardClassName}>
+                <Repeat className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                <div className="min-w-0 w-full flex-1">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Repeats
+                  </p>
+                  <Select value={recurrenceFrequency || "none"} onValueChange={(value) => setRecurrenceFrequency(value === "none" ? "" : value)}>
+                    <SelectTrigger className="mt-2 h-9 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Does not repeat</SelectItem>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className={recurrenceFrequency ? fieldValueClassName : emptyValueClassName}>
+                    {recurrenceLabel}
+                  </p>
+                </div>
+              </div>
+
               <div className={cn(fieldCardClassName, "sm:col-span-2")}>
                 <Tag className="mt-0.5 h-4 w-4 text-muted-foreground" />
                 <div className="min-w-0 w-full flex-1">
@@ -566,7 +609,7 @@ const AddTaskDialog = ({
             <Button variant="outline" onClick={handleClose} disabled={saving}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={!title.trim() || saving}>
+            <Button onClick={handleSubmit} disabled={!title.trim() || saving || (Boolean(recurrenceFrequency) && !dueDate)}>
               <Plus className="mr-2 h-4 w-4" />
               {saving ? "Saving..." : "Add Task"}
             </Button>
