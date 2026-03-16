@@ -126,6 +126,7 @@ const TaskDetailDialog = ({
   onUpdateTaskAssignee,
   onUpdateTaskCategory,
   onUpdateTaskRecurrence,
+  onSkipTaskOccurrence,
   onDeleteTask,
 }) => {
   const householdName = useMemo(() => {
@@ -265,11 +266,13 @@ const TaskDetailDialog = ({
   const categoryLabel =
     categoryDraft === CUSTOM_CATEGORY_VALUE ? (customCategoryDraft || "Other") : categoryDraft;
   const hasDescription = Boolean(descriptionDraft.trim());
-  const displayDueDate = formatDisplayDate(dueDateDraft);
   const recurrenceLabel =
     recurrenceDraft !== "none"
       ? formatTaskRecurrence(recurrenceDraft, task.recurrenceInterval || 1)
       : "Does not repeat";
+  const activeOccurrenceDate = task?.occurrenceDate || task?.dueDateValue || null;
+  const isProjectedOccurrence = Boolean(task?.isProjectedOccurrence);
+  const displayDueDate = formatDisplayDate(isProjectedOccurrence ? activeOccurrenceDate : dueDateDraft);
 
   const runTaskUpdate = async (updater) => {
     setIsSaving(true);
@@ -315,6 +318,7 @@ const TaskDetailDialog = ({
   };
 
   const handleStatusChange = async (value) => {
+    if (isProjectedOccurrence) return;
     setStatusDraft(value);
     setIsStatusOpen(false);
     setEditingField(null);
@@ -387,6 +391,7 @@ const TaskDetailDialog = ({
   };
 
   const handleDueDateChange = async (value) => {
+    if (isProjectedOccurrence) return;
     setDueDateDraft(value);
     setEditingField(null);
 
@@ -422,11 +427,23 @@ const TaskDetailDialog = ({
   };
 
   const handleArchive = async () => {
-    if (isSaving) return;
+    if (isSaving || isProjectedOccurrence) return;
 
     setIsSaving(true);
     try {
       await onUpdateTaskStatus?.(task.id, ARCHIVE_STATUS);
+      onOpenChange(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSkipOccurrence = async () => {
+    if (isSaving || !activeOccurrenceDate) return;
+
+    setIsSaving(true);
+    try {
+      await onSkipTaskOccurrence?.(task.id, activeOccurrenceDate);
       onOpenChange(false);
     } finally {
       setIsSaving(false);
@@ -484,6 +501,7 @@ const TaskDetailDialog = ({
                 <span>{assigneeLabel}</span>
                 <span>{displayDueDate}</span>
                 <span>{recurrenceLabel}</span>
+                {isProjectedOccurrence ? <span>Future occurrence</span> : null}
               </DialogDescription>
             </div>
 
@@ -575,6 +593,7 @@ const TaskDetailDialog = ({
                   type="button"
                   className={cn(fieldCardClassName, "hover:border-primary/30")}
                   onClick={() => {
+                    if (isProjectedOccurrence) return;
                     setEditingField("status");
                     setIsStatusOpen(true);
                   }}
@@ -782,6 +801,7 @@ const TaskDetailDialog = ({
                   type="button"
                   className={cn(fieldCardClassName, "hover:border-primary/30")}
                   onClick={() => {
+                    if (isProjectedOccurrence) return;
                     setEditingField("dueDate");
                     requestAnimationFrame(() => setDueDateFocus());
                   }}
@@ -860,7 +880,18 @@ const TaskDetailDialog = ({
 
           <section className="flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
-              {statusDraft === "done" ? (
+              {task.recurrenceEnabled && activeOccurrenceDate ? (
+                <Button
+                  variant="outline"
+                  className="border-status-todo/30 text-status-todo hover:bg-status-todo/10 hover:text-status-todo"
+                  onClick={handleSkipOccurrence}
+                  disabled={isSaving}
+                >
+                  Skip this occurrence
+                </Button>
+              ) : null}
+
+              {isProjectedOccurrence ? null : statusDraft === "done" ? (
                 <Button
                   variant="outline"
                   className="border-terracotta/30 text-terracotta hover:bg-terracotta/10 hover:text-terracotta"

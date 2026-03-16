@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -15,6 +16,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -55,6 +57,10 @@ class Tasks(Base):
     recurrence_parent_task_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("tasks.task_id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    recurrence_exceptions: Mapped[list[date] | None] = mapped_column(
+        ARRAY(Date),
         nullable=True,
     )
     order: Mapped[int | None] = mapped_column(Integer)

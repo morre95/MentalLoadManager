@@ -1,6 +1,6 @@
 from datetime import datetime, time, timezone, date as date_type
 
-from sqlalchemy import select, func
+from sqlalchemy import and_, or_, select, func
 from sqlalchemy.orm import Session
 
 from models import Tasks, UsersHouseholds, Households, UserDB
@@ -43,6 +43,7 @@ def fetch_calendar_event_rows_range(
             Tasks.recurrence_enabled,
             Tasks.recurrence_frequency,
             Tasks.recurrence_interval,
+            Tasks.recurrence_exceptions,
         )
         .select_from(Tasks)
         .join(Households, Households.household_id == Tasks.household_id)
@@ -51,8 +52,19 @@ def fetch_calendar_event_rows_range(
         .where(UsersHouseholds.user_id == UserDB.user_id)  # my households
         .where(Tasks.assigns_to == UserDB.user_id)  # only my tasks
         .where(Tasks.due_date.is_not(None))
-        .where(Tasks.due_date >= start_dt)
-        .where(Tasks.due_date <= end_dt)
+        .where(
+            or_(
+                and_(
+                    Tasks.due_date >= start_dt,
+                    Tasks.due_date <= end_dt,
+                ),
+                and_(
+                    Tasks.recurrence_enabled.is_(True),
+                    Tasks.recurrence_frequency.is_not(None),
+                    Tasks.due_date <= end_dt,
+                ),
+            )
+        )
         .where(~func.lower(Tasks.status).in_(DONE_STATUSES))  # hide completed
         .order_by(Tasks.due_date.asc())
     )

@@ -43,6 +43,7 @@ import { useHousehold } from "@/hooks/useHouseHold";
 import {
   deleteKanbanTask,
   formatTaskRecurrence,
+  skipKanbanTaskOccurrence,
   toUtcDateOnlyIso,
   updateKanbanTaskDescription,
   updateKanbanTaskAssignee,
@@ -462,6 +463,31 @@ const Tasks = () => {
     }
   };
 
+  const handleSkipTaskOccurrence = async (taskId, occurrenceDate) => {
+    const rollbackTasks = tasks;
+    setSyncError(null);
+
+    const targetTask = tasks.find((task) => String(task.id) === String(taskId));
+    if (!targetTask || !occurrenceDate) return;
+
+    try {
+      const result = await skipKanbanTaskOccurrence(taskId, occurrenceDate);
+      const nextDueDateIso = result?.next_due_date
+        ? new Date(result.next_due_date).toISOString().slice(0, 10)
+        : targetTask.dueDateValue;
+
+      handleUpdateTaskDetails(taskId, {
+        dueDateValue: nextDueDateIso || null,
+        dueDate: nextDueDateIso ? toDisplayDueDate(nextDueDateIso) : undefined,
+      });
+
+      window.dispatchEvent(new Event("kanban-task-updated"));
+    } catch (syncException) {
+      setTasks(rollbackTasks);
+      setSyncError(syncException);
+    }
+  };
+
   const handleUpdateTaskDescription = async (taskId, nextDescription) => {
     const rollbackTasks = tasks;
     setSyncError(null);
@@ -731,6 +757,7 @@ const Tasks = () => {
         onUpdateTaskAssignee={handleUpdateTaskAssignee}
         onUpdateTaskCategory={handleUpdateTaskCategory}
         onUpdateTaskRecurrence={handleUpdateTaskRecurrence}
+        onSkipTaskOccurrence={handleSkipTaskOccurrence}
         onDeleteTask={handleDeleteTask}
       />
     </div>

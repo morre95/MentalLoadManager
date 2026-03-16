@@ -36,6 +36,7 @@ import {
   fetchPreferences,
   fetchMe,
   formatTaskRecurrence,
+  skipKanbanTaskOccurrence,
   toUtcDateOnlyIso,
   updateKanbanTaskAssignee,
   updateKanbanTaskCategory,
@@ -104,7 +105,7 @@ const Calendar = () => {
   } = useCalendarPage();
   const { households } = useHousehold();
   const { tasks, setTasks } = useTaskboardTasks(null);
-  const [selectedTaskId, setSelectedTaskId] = useState(null);
+  const [selectedTaskContext, setSelectedTaskContext] = useState(null);
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [dragOverDayKey, setDragOverDayKey] = useState(null);
   const [syncError, setSyncError] = useState(null);
@@ -134,9 +135,18 @@ const Calendar = () => {
   const weekdayLabels = WEEKDAY_LABELS.slice(weekStartsOn).concat(
     WEEKDAY_LABELS.slice(0, weekStartsOn)
   );
-  const selectedTask = selectedTaskId
-    ? tasks.find((task) => String(task.id) === String(selectedTaskId)) || null
-    : null;
+  const selectedTask = useMemo(() => {
+    if (!selectedTaskContext?.taskId) return null;
+    const matchedTask =
+      tasks.find((task) => String(task.id) === String(selectedTaskContext.taskId)) || null;
+    if (!matchedTask) return null;
+
+    return {
+      ...matchedTask,
+      occurrenceDate: selectedTaskContext.occurrenceDate || matchedTask.dueDateValue || null,
+      isProjectedOccurrence: Boolean(selectedTaskContext.isProjected),
+    };
+  }, [selectedTaskContext, tasks]);
 
   const refreshCalendarData = async () => {
     await Promise.all([
@@ -152,13 +162,17 @@ const Calendar = () => {
   };
 
   const findTaskByEvent = useCallback((event) => {
-    return tasks.find((task) => String(task.id) === String(event?.id)) || null;
+    return tasks.find((task) => String(task.id) === String(event?.taskId || event?.id)) || null;
   }, [tasks]);
 
   const openTaskDialogFromEvent = (event) => {
     const task = findTaskByEvent(event);
     if (!task) return;
-    setSelectedTaskId(task.id);
+    setSelectedTaskContext({
+      taskId: task.id,
+      occurrenceDate: event?.dateStr || task.dueDateValue || null,
+      isProjected: Boolean(event?.isProjected),
+    });
     setSyncError(null);
   };
 
@@ -330,6 +344,33 @@ const Calendar = () => {
     }
   };
 
+  const handleSkipTaskOccurrence = async (taskId, occurrenceDate) => {
+    const rollbackTasks = tasks;
+    setSyncError(null);
+
+    const targetTask = tasks.find((task) => String(task.id) === String(taskId));
+    if (!targetTask || !occurrenceDate) return;
+
+    try {
+      const result = await skipKanbanTaskOccurrence(taskId, occurrenceDate);
+      const nextDueDateIso = result?.next_due_date
+        ? new Date(result.next_due_date).toISOString().slice(0, 10)
+        : targetTask.dueDateValue;
+
+      handleUpdateTaskDetails(taskId, {
+        dueDateValue: nextDueDateIso || null,
+        dueDate: nextDueDateIso ? toDisplayDueDate(nextDueDateIso) : undefined,
+      });
+
+      await refreshCalendarData();
+      emitTaskUpdated();
+      setSelectedTaskContext(null);
+    } catch (error) {
+      setTasks(rollbackTasks);
+      setSyncError(error);
+    }
+  };
+
   const handleUpdateTaskDescription = async (taskId, nextDescription) => {
     const rollbackTasks = tasks;
     setSyncError(null);
@@ -394,7 +435,7 @@ const Calendar = () => {
     const rollbackTasks = tasks;
     setSyncError(null);
     setTasks((prev) => prev.filter((task) => String(task.id) !== String(taskId)));
-    setSelectedTaskId(null);
+    setSelectedTaskContext(null);
 
     try {
       await deleteKanbanTask(taskId);
@@ -407,6 +448,7 @@ const Calendar = () => {
   };
 
   const handleTaskDragStart = (dragEvent, event) => {
+    if (event?.isProjected) return;
     const task = findTaskByEvent(event);
     if (!task) return;
 
@@ -597,7 +639,7 @@ const Calendar = () => {
               return (
                 <div
                   key={event.id}
-                  draggable
+                  draggable={!event.isProjected}
                   onDragStart={(dragEvent) => handleTaskDragStart(dragEvent, event)}
                   onDragEnd={handleTaskDragEnd}
                   onClick={(mouseEvent) => {
@@ -637,7 +679,7 @@ const Calendar = () => {
             {dayEvents.slice(0, 3).map((event) => (
               <div
                 key={event.id}
-                draggable
+                draggable={!event.isProjected}
                 onDragStart={(dragEvent) => handleTaskDragStart(dragEvent, event)}
                 onDragEnd={handleTaskDragEnd}
                 onClick={(mouseEvent) => {
@@ -1036,7 +1078,7 @@ const Calendar = () => {
                         animate={{ opacity: 1, x: 0 }}
                         role="button"
                         tabIndex={0}
-                        draggable
+                        draggable={!event.isProjected}
                         onDragStart={(dragEvent) => handleTaskDragStart(dragEvent, event)}
                         onDragEnd={handleTaskDragEnd}
                         onClick={() => openTaskDialogFromEvent(event)}
@@ -1163,7 +1205,7 @@ const Calendar = () => {
                         key={event.id}
                         role="button"
                         tabIndex={0}
-                        draggable
+                        draggable={!event.isProjected}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onDragStart={(dragEvent) => handleTaskDragStart(dragEvent, event)}
@@ -1230,9 +1272,9 @@ const Calendar = () => {
 
       <TaskDetailDialog
         task={selectedTask}
-        open={!!selectedTaskId && !!selectedTask}
+        open={!!selectedTaskContext && !!selectedTask}
         households={households}
-        onOpenChange={(open) => !open && setSelectedTaskId(null)}
+        onOpenChange={(open) => !open && setSelectedTaskContext(null)}
         onUpdateTask={handleUpdateTaskDetails}
         onUpdateTaskStatus={handleUpdateTaskStatus}
         onUpdateTaskPriority={handleUpdateTaskPriority}
@@ -1242,6 +1284,7 @@ const Calendar = () => {
         onUpdateTaskAssignee={handleUpdateTaskAssignee}
         onUpdateTaskCategory={handleUpdateTaskCategory}
         onUpdateTaskRecurrence={handleUpdateTaskRecurrence}
+        onSkipTaskOccurrence={handleSkipTaskOccurrence}
         onDeleteTask={handleDeleteTask}
       />
     </div>

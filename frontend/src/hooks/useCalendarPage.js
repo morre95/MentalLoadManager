@@ -10,6 +10,7 @@ function normalizeUiEvent(event) {
 
     return {
         id: event?.id ?? "",
+        taskId: event?.task_id ?? event?.id ?? "",
         title: event?.title ?? "",
         dateStr: event?.date ?? null,
         date: dateObj,
@@ -21,6 +22,7 @@ function normalizeUiEvent(event) {
         recurrenceFrequency: event?.recurrence_frequency ?? null,
         recurrenceInterval: event?.recurrence_interval ?? null,
         recurrenceLabel: event?.recurrence_label ?? "",
+        isProjected: Boolean(event?.is_projected),
     };
 }
 

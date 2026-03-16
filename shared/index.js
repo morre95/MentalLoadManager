@@ -11,6 +11,7 @@ export {
   fetchKanbanTasks,
   formatTaskRecurrence,
   mapApiTaskToUi,
+  skipKanbanTaskOccurrence,
   toApiTaskStatus,
   updateKanbanTaskDescription,
   updateKanbanTaskAssignee,

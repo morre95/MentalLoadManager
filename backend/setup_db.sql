@@ -124,6 +124,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   recurrence_frequency VARCHAR(20) CHECK (recurrence_frequency IN ('daily', 'weekly', 'monthly')),
   recurrence_interval INTEGER CHECK (recurrence_interval IS NULL OR recurrence_interval > 0),
   recurrence_parent_task_id UUID REFERENCES tasks(task_id) ON DELETE SET NULL,
+  recurrence_exceptions DATE[],
   "order"        INTEGER,
   category_id    UUID REFERENCES categories(category_id) ON DELETE SET NULL,
   complete_date  TIMESTAMPTZ,

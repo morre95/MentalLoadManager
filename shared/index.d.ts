@@ -129,6 +129,11 @@ export function updateKanbanTaskRecurrence(
   recurrenceFrequency: "daily" | "weekly" | "monthly" | null,
   recurrenceInterval?: number | null
 ): Promise<any>;
+export function skipKanbanTaskOccurrence(
+  apiClient: ApiClient,
+  taskId: string,
+  occurrenceDate: string
+): Promise<any>;
 export function updateKanbanTaskDescription(
   apiClient: ApiClient,
   taskId: string,

@@ -12,6 +12,8 @@ from .schemas import (
     KanbanTasksResponse,
     ReorderTasksRequest,
     ReorderTasksResponse,
+    SkipTaskOccurrenceRequest,
+    SkipTaskOccurrenceResponse,
     TaskResponse,
     UpdateTaskAssigneeRequest,
     UpdateTaskAssigneeResponse,
@@ -36,6 +38,7 @@ from .service import (
     list_household_assignees,
     list_kanban_tasks,
     reorder_tasks,
+    skip_task_occurrence,
     update_task_assignee,
     update_task_category,
     update_task_description,
@@ -107,6 +110,15 @@ def update_task_recurrence_route(
     current_user: UserEmail = Depends(get_current_user),
 ):
     return update_task_recurrence(task_id, payload, current_user)
+
+
+@router.patch("/tasks/{task_id}/skip-occurrence", response_model=SkipTaskOccurrenceResponse)
+def skip_task_occurrence_route(
+    task_id: UUID,
+    payload: SkipTaskOccurrenceRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    return skip_task_occurrence(task_id, payload, current_user)
 
 
 @router.patch("/tasks/{task_id}/assignee", response_model=UpdateTaskAssigneeResponse)

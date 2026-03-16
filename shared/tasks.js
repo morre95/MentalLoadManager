@@ -220,6 +220,15 @@ export async function updateKanbanTaskRecurrence(
   });
 }
 
+export async function skipKanbanTaskOccurrence(apiClient, taskId, occurrenceDate) {
+  return apiClient.request(`/api/kanban/tasks/${taskId}/skip-occurrence`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      occurrence_date: occurrenceDate,
+    }),
+  });
+}
+
 export async function updateKanbanTaskDescription(
   apiClient,
   taskId,

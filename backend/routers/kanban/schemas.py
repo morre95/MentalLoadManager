@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -130,6 +130,17 @@ class UpdateTaskRecurrenceResponse(BaseModel):
     recurrence_enabled: bool = False
     recurrence_frequency: str | None = None
     recurrence_interval: int | None = None
+    updated_at: datetime | None = None
+
+
+class SkipTaskOccurrenceRequest(BaseModel):
+    occurrence_date: date
+
+
+class SkipTaskOccurrenceResponse(BaseModel):
+    task_id: str
+    skipped_occurrence_date: date
+    next_due_date: datetime | None = None
     updated_at: datetime | None = None
 
 

@@ -30,6 +30,7 @@ import {
   formatTaskRecurrence as sharedFormatTaskRecurrence,
   fetchMe as sharedFetchMe,
   getApiBaseUrl,
+  skipKanbanTaskOccurrence as sharedSkipKanbanTaskOccurrence,
   updateNotificationSettings as sharedUpdateNotificationSettings,
   updateMe as sharedUpdateMe,
   updatePreferences as sharedUpdatePreferences,
@@ -301,6 +302,10 @@ export async function updateKanbanTaskRecurrence(taskId, recurrenceFrequency, re
     recurrenceFrequency,
     recurrenceInterval
   );
+}
+
+export async function skipKanbanTaskOccurrence(taskId, occurrenceDate) {
+  return sharedSkipKanbanTaskOccurrence(apiClient, taskId, occurrenceDate);
 }
 
 export async function updateKanbanTaskDescription(taskId, description) {

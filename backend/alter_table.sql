@@ -18,6 +18,9 @@ ALTER TABLE tasks
 ADD COLUMN IF NOT EXISTS recurrence_parent_task_id UUID REFERENCES tasks(task_id) ON DELETE SET NULL;
 
 ALTER TABLE tasks
+ADD COLUMN IF NOT EXISTS recurrence_exceptions DATE[];
+
+ALTER TABLE tasks
 DROP CONSTRAINT IF EXISTS tasks_recurrence_frequency_check;
 
 ALTER TABLE tasks

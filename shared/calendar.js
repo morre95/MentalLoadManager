@@ -27,6 +27,7 @@ export function normalizeCalendarMonth(data) {
         monthLabel: data?.monthLabel ?? "",
         events: safeArray(data?.events).map((e) => ({
             id: e?.id ?? "",
+            task_id: e?.task_id ?? e?.id ?? "",
             date: e?.date ?? null, // YYYY-MM-DD
             title: e?.title ?? "",
             household_id: e?.household_id ?? null,
@@ -38,6 +39,7 @@ export function normalizeCalendarMonth(data) {
             recurrence_label: e?.recurrence_enabled
                 ? formatTaskRecurrence(e?.recurrence_frequency, e?.recurrence_interval)
                 : "",
+            is_projected: Boolean(e?.is_projected),
         })),
     };
 }
@@ -49,6 +51,7 @@ export function normalizeCalendarRange(data) {
         today: data?.today ?? null,
         events: safeArray(data?.events).map((e) => ({
             id: e?.id ?? "",
+            task_id: e?.task_id ?? e?.id ?? "",
             date: e?.date ?? null,
             title: e?.title ?? "",
             household_id: e?.household_id ?? null,
@@ -60,6 +63,7 @@ export function normalizeCalendarRange(data) {
             recurrence_label: e?.recurrence_enabled
                 ? formatTaskRecurrence(e?.recurrence_frequency, e?.recurrence_interval)
                 : "",
+            is_projected: Boolean(e?.is_projected),
         })),
     };
 }

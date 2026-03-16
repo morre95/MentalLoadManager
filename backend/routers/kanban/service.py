@@ -1,5 +1,5 @@
 from calendar import monthrange
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -36,6 +36,8 @@ from .schemas import (
     KanbanTasksResponse,
     ReorderTasksRequest,
     ReorderTasksResponse,
+    SkipTaskOccurrenceRequest,
+    SkipTaskOccurrenceResponse,
     TaskResponse,
     UpdateTaskAssigneeRequest,
     UpdateTaskAssigneeResponse,
@@ -91,6 +93,37 @@ def _calculate_next_due_date(
     if recurrence_frequency == "weekly":
         return due_date + timedelta(weeks=recurrence_interval)
     return _add_months(due_date, recurrence_interval)
+
+
+def _get_recurrence_exceptions(task: Tasks) -> set[date]:
+    raw_dates = task.recurrence_exceptions or []
+    return {value for value in raw_dates if value is not None}
+
+
+def _find_next_unskipped_due_date(task: Tasks) -> datetime:
+    if not task.due_date or not task.recurrence_frequency:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Task is not configured for recurrence",
+        )
+
+    next_due_date = task.due_date
+    recurrence_interval = task.recurrence_interval or 1
+    exceptions = _get_recurrence_exceptions(task)
+
+    for _ in range(366):
+        if next_due_date.date() not in exceptions:
+            return next_due_date
+        next_due_date = _calculate_next_due_date(
+            next_due_date,
+            task.recurrence_frequency,
+            recurrence_interval,
+        )
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Could not resolve the next recurrence date",
+    )
 
 
 def _maybe_spawn_next_recurring_task(db, task: Tasks, now_utc: datetime) -> None:
@@ -726,6 +759,57 @@ def update_task_recurrence(
             recurrence_enabled=task.recurrence_enabled,
             recurrence_frequency=task.recurrence_frequency,
             recurrence_interval=task.recurrence_interval,
+            updated_at=task.updated_at,
+        )
+
+
+def skip_task_occurrence(
+    task_id: UUID,
+    payload: SkipTaskOccurrenceRequest,
+    current_user: UserEmail,
+) -> SkipTaskOccurrenceResponse:
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        me = _get_me(db, current_user)
+        task = _get_task_with_membership(db, task_id, me.user_id)
+
+        if not task.recurrence_enabled or not task.recurrence_frequency or not task.due_date:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only recurring tasks can skip one occurrence",
+            )
+
+        occurrence_date = payload.occurrence_date
+        recurrence_exceptions = _get_recurrence_exceptions(task)
+        recurrence_exceptions.add(occurrence_date)
+        task.recurrence_exceptions = sorted(recurrence_exceptions)
+
+        if occurrence_date == task.due_date.date():
+            task.due_date = _find_next_unskipped_due_date(task)
+
+        task.updated_at = datetime.now(timezone.utc)
+
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Unable to skip task occurrence",
+            ) from exc
+
+        db.refresh(task)
+        return SkipTaskOccurrenceResponse(
+            task_id=str(task.task_id),
+            skipped_occurrence_date=occurrence_date,
+            next_due_date=task.due_date,
             updated_at=task.updated_at,
         )
 
