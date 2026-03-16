@@ -51,7 +51,28 @@ export async function fetchAchievements(apiClient) {
 
   return {
     ...data,
-    achievements: Array.isArray(data?.achievements) ? data.achievements : [],
+    achievements: Array.isArray(data?.achievements)
+      ? data.achievements.map((achievement) => ({
+          ...achievement,
+          completed: Boolean(achievement?.completed),
+          entity_id: achievement?.entity_id ? String(achievement.entity_id) : null,
+          completion_key: achievement?.completion_key ? String(achievement.completion_key) : null,
+          unlocked_at: achievement?.unlocked_at ? String(achievement.unlocked_at) : null,
+          rarity: String(achievement?.rarity || "common"),
+        }))
+      : [],
+    timeline: Array.isArray(data?.timeline)
+      ? data.timeline.map((item) => ({
+          ...item,
+          achievement_unlock_id: String(item?.achievement_unlock_id || ""),
+          achievement_id: String(item?.achievement_id || ""),
+          title: String(item?.title || ""),
+          category: String(item?.category || ""),
+          rarity: String(item?.rarity || "common"),
+          entity_id: item?.entity_id ? String(item.entity_id) : null,
+          unlocked_at: item?.unlocked_at ? String(item.unlocked_at) : null,
+        }))
+      : [],
   };
 }
 

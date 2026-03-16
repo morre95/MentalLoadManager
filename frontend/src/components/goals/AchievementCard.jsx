@@ -12,9 +12,16 @@ const iconMap = {
     target: Target,
 };
 
+const rarityClasses = {
+    common: "bg-muted text-muted-foreground",
+    rare: "bg-sky-100 text-sky-700",
+    epic: "bg-amber-100 text-amber-700",
+    legendary: "bg-rose-100 text-rose-700",
+};
+
 const AchievementCard = ({ achievement }) => {
     const percentage = Math.min((achievement.current / achievement.target) * 100, 100);
-    const isComplete = percentage >= 100;
+    const isComplete = Boolean(achievement.completed);
     const Icon = iconMap[achievement.icon];
 
     return (
@@ -37,7 +44,12 @@ const AchievementCard = ({ achievement }) => {
                         </motion.div>
 
                         <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-foreground text-sm">{achievement.title}</h4>
+                            <div className="flex items-start justify-between gap-3">
+                                <h4 className="font-medium text-foreground text-sm">{achievement.title}</h4>
+                                <span className={`rounded-full px-2 py-1 text-[11px] font-medium capitalize ${rarityClasses[achievement.rarity] || rarityClasses.common}`}>
+                                    {achievement.rarity}
+                                </span>
+                            </div>
                             <p className="text-xs text-muted-foreground mt-0.5">{achievement.description}</p>
                             <p className="text-[11px] uppercase tracking-wide text-muted-foreground mt-2">
                                 {achievement.category}

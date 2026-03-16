@@ -9,7 +9,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useHousehold } from "@/hooks/useHouseHold";
 import AddTaskDialog from "@/components/tasks/AddTaskDialog";
-import { fetchGoals, fetchInviteEmailNotifications, fetchNotificationSettings, fetchTaskReminderSummary } from "@/lib/utils";
+import { fetchAchievements, fetchGoals, fetchInviteEmailNotifications, fetchNotificationSettings, fetchTaskReminderSummary } from "@/lib/utils";
 
 const TASK_CREATED_EVENT = "kanban-task-created";
 const GOAL_MILESTONES_UPDATED_EVENT = "goals:changed";
@@ -90,19 +90,22 @@ const DashboardHeader = ({ onAddTask }) => {
     setIsLoadingNotifications(true);
 
     try {
-      const [settings, goalsData, taskReminderSummary, inviteEmailData] = await Promise.all([
+      const [settings, goalsData, achievementsData, taskReminderSummary, inviteEmailData] = await Promise.all([
         fetchNotificationSettings(),
         fetchGoals(),
+        fetchAchievements(),
         fetchTaskReminderSummary(),
         fetchInviteEmailNotifications().catch(() => null),
       ]);
 
       const areGoalMilestonesEnabled = Boolean(settings?.goal_milestones);
+      const areAchievementNotificationsEnabled = settings?.achievement_notifications ?? true;
       const areTaskRemindersEnabled = Boolean(taskReminderSummary?.task_reminders_enabled);
       setGoalMilestonesEnabled(areGoalMilestonesEnabled);
       setTaskRemindersEnabled(areTaskRemindersEnabled);
 
       const goals = Array.isArray(goalsData?.goals) ? goalsData.goals : [];
+      const achievements = Array.isArray(achievementsData?.achievements) ? achievementsData.achievements : [];
       const goalMilestoneNotifications = goals
         .filter(
           (goal) =>
@@ -117,6 +120,23 @@ const DashboardHeader = ({ onAddTask }) => {
           message: `Milestone reached: ${Number(goal.current || 0)} of ${Number(goal.target || 0)}`,
           actionLabel: "Open goal",
           createdAt: goal.createdAt instanceof Date ? goal.createdAt : null,
+        }))
+        .sort((a, b) => {
+          const left = a.createdAt ? a.createdAt.getTime() : 0;
+          const right = b.createdAt ? b.createdAt.getTime() : 0;
+          return right - left;
+        });
+
+      const achievementNotifications = achievements
+        .filter((achievement) => areAchievementNotificationsEnabled && Boolean(achievement?.completed))
+        .map((achievement) => ({
+          id: `achievement:${String(achievement?.completion_key || achievement?.id || "")}`,
+          type: "achievement",
+          entityId: achievement?.entity_id ? String(achievement.entity_id) : null,
+          title: String(achievement?.title || "Achievement unlocked"),
+          message: String(achievement?.description || "You completed an achievement."),
+          actionLabel: achievement?.entity_id ? "Open goal" : "Open goals",
+          createdAt: achievement?.unlocked_at ? new Date(achievement.unlocked_at) : null,
         }))
         .sort((a, b) => {
           const left = a.createdAt ? a.createdAt.getTime() : 0;
@@ -170,7 +190,12 @@ const DashboardHeader = ({ onAddTask }) => {
         createdAt: n.created_at ? new Date(n.created_at) : null,
       }));
 
-      setNotifications([...inviteEmailNotifications, ...taskReminderNotifications, ...goalMilestoneNotifications]);
+      setNotifications([
+        ...inviteEmailNotifications,
+        ...taskReminderNotifications,
+        ...achievementNotifications,
+        ...goalMilestoneNotifications,
+      ]);
     } catch {
       setGoalMilestonesEnabled(true);
       setTaskRemindersEnabled(true);
@@ -256,6 +281,17 @@ const DashboardHeader = ({ onAddTask }) => {
         state: {
           highlightGoalId: notification.entityId,
         },
+      });
+      return;
+    }
+
+    if (notification.type === "achievement") {
+      navigate("/dashboard/goals", {
+        state: notification.entityId
+          ? {
+              highlightGoalId: notification.entityId,
+            }
+          : {},
       });
       return;
     }

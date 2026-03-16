@@ -24,6 +24,7 @@ const getHistorySummary = (entry) => {
 
 const GoalCard = ({
     goal,
+    linkedAchievement,
     onUpdateProgress,
     onToggleTrainingDay,
     onDelete,
@@ -160,6 +161,29 @@ const GoalCard = ({
                                             </span>
                                         </div>
                                     ))}
+                                </div>
+                            </div>
+                        ) : null}
+
+                        {linkedAchievement ? (
+                            <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-3">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Linked achievement</p>
+                                        <p className="text-sm font-medium text-foreground">{linkedAchievement.title}</p>
+                                    </div>
+                                    <span className="rounded-full bg-background px-2 py-1 text-[11px] font-medium capitalize text-muted-foreground">
+                                        {linkedAchievement.rarity}
+                                    </span>
+                                </div>
+                                <p className="mt-2 text-xs text-muted-foreground">{linkedAchievement.description}</p>
+                                <div className="mt-2 flex items-center justify-between text-xs">
+                                    <span className="text-muted-foreground">
+                                        {linkedAchievement.current}/{linkedAchievement.target}
+                                    </span>
+                                    <span className={cn("font-medium", linkedAchievement.completed ? "text-primary" : "text-foreground")}>
+                                        {linkedAchievement.completed ? "Unlocked" : "Next unlock"}
+                                    </span>
                                 </div>
                             </div>
                         ) : null}

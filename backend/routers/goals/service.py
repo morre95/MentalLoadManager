@@ -18,10 +18,13 @@ from models import UserEmail
 
 from .repository import (
     count_completed_personal_tasks_in_window,
+    create_achievement_unlock,
     create_goal,
+    get_achievement_unlock_by_completion_key,
     get_cached_goal_ai_checkin,
     get_goal_for_user,
     list_available_category_names_for_user_households,
+    list_achievement_unlocks_for_user,
     list_goal_history_for_user,
     list_goal_history_rows_for_user,
     list_goals_for_user,
@@ -32,6 +35,7 @@ from .repository import (
 )
 from .schemas import (
     AchievementResponse,
+    AchievementTimelineResponse,
     AchievementsResponse,
     CreateGoalRequest,
     DeleteGoalResponse,
@@ -51,6 +55,138 @@ PERIOD_MILESTONES_DAYS = [7, 30, 60, 90, 180, 365]
 DEFAULT_OPENROUTER_MODEL = "openrouter/free"
 OPENROUTER_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_TIMEZONE = "UTC"
+GOAL_ACHIEVEMENT_COPY = {
+    "savings": {
+        "title": "Savings Vault",
+        "description": "Reach your savings target for {goal_name}",
+        "icon": "star",
+    },
+    "weight": {
+        "title": "Finish Line",
+        "description": "Move your weight journey forward with {goal_name}",
+        "icon": "target",
+    },
+    "training": {
+        "title": "Training Rhythm",
+        "description": "Complete your planned sessions for {goal_name}",
+        "icon": "flame",
+    },
+    "tasks": {
+        "title": "Task Bloom",
+        "description": "Hit your task target for {goal_name}",
+        "icon": "check",
+    },
+    "reading": {
+        "title": "Shelf Builder",
+        "description": "Make reading progress on {goal_name}",
+        "icon": "trophy",
+    },
+    "meditation": {
+        "title": "Calm Current",
+        "description": "Keep the meditation practice moving for {goal_name}",
+        "icon": "star",
+    },
+    "revenue": {
+        "title": "Launch Window",
+        "description": "Reach the revenue target for {goal_name}",
+        "icon": "target",
+    },
+    "hydration": {
+        "title": "Hydration Flow",
+        "description": "Stay on top of your hydration target for {goal_name}",
+        "icon": "check",
+    },
+    "learning": {
+        "title": "Skill Climb",
+        "description": "Advance your learning path for {goal_name}",
+        "icon": "trophy",
+    },
+    "streak": {
+        "title": "Flame Keeper",
+        "description": "Keep the consistency going for {goal_name}",
+        "icon": "flame",
+    },
+}
+
+
+def _achievement_rarity_for_target(target: int) -> str:
+    if target >= 100:
+        return "legendary"
+    if target >= 25:
+        return "epic"
+    if target >= 8:
+        return "rare"
+    return "common"
+
+
+def _goal_specific_rarity(goal) -> str:
+    tracking_style = (goal.tracking_style or "total").strip().lower()
+    target_value = int(goal.target_value or 0)
+    if tracking_style == "monthly" or target_value >= 50:
+        return "epic"
+    if tracking_style == "weekly" or target_value >= 10:
+        return "rare"
+    return "common"
+
+
+def _to_achievement_timeline_response(unlock) -> AchievementTimelineResponse:
+    return AchievementTimelineResponse(
+        achievement_unlock_id=str(unlock.achievement_unlock_id),
+        achievement_id=unlock.achievement_id,
+        title=unlock.title,
+        category=unlock.category,
+        rarity=unlock.rarity,
+        entity_id=unlock.entity_id,
+        unlocked_at=unlock.unlocked_at,
+    )
+
+
+def _apply_achievement_unlock_state(
+    db,
+    *,
+    user_id: UUID,
+    achievements: list[AchievementResponse],
+) -> tuple[list[AchievementResponse], list[Any]]:
+    timeline_additions = []
+    enriched: list[AchievementResponse] = []
+
+    for achievement in achievements:
+        unlock = None
+        completion_key = achievement.completion_key
+        if completion_key:
+            unlock = get_achievement_unlock_by_completion_key(
+                db,
+                user_id=user_id,
+                completion_key=completion_key,
+            )
+
+        completed_now = bool(achievement.completed or (achievement.current >= achievement.target))
+        unlocked_at = unlock.unlocked_at if unlock is not None else None
+
+        if completed_now and completion_key and unlock is None:
+            unlock = create_achievement_unlock(
+                db,
+                user_id=user_id,
+                achievement_id=achievement.id,
+                title=achievement.title,
+                category=achievement.category,
+                rarity=achievement.rarity,
+                completion_key=completion_key,
+                entity_id=achievement.entity_id,
+            )
+            timeline_additions.append(unlock)
+            unlocked_at = unlock.unlocked_at
+
+        enriched.append(
+            achievement.model_copy(
+                update={
+                    "completed": unlock is not None or completed_now,
+                    "unlocked_at": unlocked_at,
+                }
+            )
+        )
+
+    return enriched, timeline_additions
 
 
 class _GoalAICheckinModelPayload(BaseModel):
@@ -513,6 +649,8 @@ def _build_equal_split_achievement(household_rows, user_id: UUID, today_date):
             current=_equal_split_progress_days(household_rows, user_id, today_date),
             target=7,
             category="Balance",
+            rarity="rare",
+            completion_key="a2:7" if _equal_split_progress_days(household_rows, user_id, today_date) >= 7 else None,
         )
 
     return AchievementResponse(
@@ -523,6 +661,9 @@ def _build_equal_split_achievement(household_rows, user_id: UUID, today_date):
         current=achieved_days,
         target=_next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
         category="Balance",
+        completed=achieved_days > 0,
+        rarity=_achievement_rarity_for_target(max(1, achieved_days)),
+        completion_key=f"a2:{achieved_days}" if achieved_days > 0 else None,
     )
 
 
@@ -543,6 +684,8 @@ def _build_perfect_week_achievement(personal_rows, today_date):
             current=_perfect_week_progress_days(personal_rows, today_date),
             target=7,
             category="Consistency",
+            rarity="rare",
+            completion_key="a3:7" if _perfect_week_progress_days(personal_rows, today_date) >= 7 else None,
         )
 
     return AchievementResponse(
@@ -553,6 +696,9 @@ def _build_perfect_week_achievement(personal_rows, today_date):
         current=achieved_days,
         target=_next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
         category="Consistency",
+        completed=achieved_days > 0,
+        rarity=_achievement_rarity_for_target(max(1, achieved_days)),
+        completion_key=f"a3:{achieved_days}" if achieved_days > 0 else None,
     )
 
 
@@ -573,6 +719,8 @@ def _build_early_bird_achievement(personal_rows, today_date):
             current=_early_bird_progress_days(personal_rows, today_date),
             target=7,
             category="Consistency",
+            rarity="rare",
+            completion_key="a5:7" if _early_bird_progress_days(personal_rows, today_date) >= 7 else None,
         )
 
     return AchievementResponse(
@@ -583,6 +731,9 @@ def _build_early_bird_achievement(personal_rows, today_date):
         current=achieved_days,
         target=_next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
         category="Consistency",
+        completed=achieved_days > 0,
+        rarity=_achievement_rarity_for_target(max(1, achieved_days)),
+        completion_key=f"a5:{achieved_days}" if achieved_days > 0 else None,
     )
 
 
@@ -605,6 +756,9 @@ def _build_goal_completion_achievement(history_rows) -> AchievementResponse:
         current=completed_periods,
         target=_next_milestone(completed_periods, [1, 3, 5, 10, 20, 40]),
         category="Goals",
+        completed=completed_periods > 0,
+        rarity=_achievement_rarity_for_target(max(1, completed_periods)),
+        completion_key=f"a7:{completed_periods}" if completed_periods > 0 else None,
     )
 
 
@@ -618,14 +772,18 @@ def _build_goal_streak_achievement(goals) -> AchievementResponse:
             best_streak = streak
             best_goal_name = goal.name
 
+    target = _next_milestone(best_streak, [1, 2, 4, 8, 12, 24])
     return AchievementResponse(
         id="a8",
         title="Streak Keeper",
         description=f"Best recurring streak: {best_goal_name}",
         icon="flame",
         current=best_streak,
-        target=_next_milestone(best_streak, [1, 2, 4, 8, 12, 24]),
+        target=target,
         category="Goals",
+        completed=best_streak > 0,
+        rarity=_achievement_rarity_for_target(max(1, best_streak)),
+        completion_key=f"a8:{best_streak}" if best_streak > 0 else None,
     )
 
 
@@ -641,6 +799,9 @@ def _build_all_goals_current_period_achievement(goals) -> AchievementResponse:
         current=completed_now,
         target=target,
         category="Goals",
+        completed=completed_now >= target,
+        rarity=_achievement_rarity_for_target(target),
+        completion_key=f"a9:{target}",
     )
 
 
@@ -655,14 +816,18 @@ def _build_goal_variety_achievement(history_rows, goals) -> AchievementResponse:
             completed_types.add(str(goal.type or "").strip().lower())
 
     completed_types.discard("")
+    target = _next_milestone(len(completed_types), [1, 3, 5, 7, 9])
     return AchievementResponse(
         id="a10",
         title="Goal Explorer",
         description="Complete different kinds of goals, not just the same routine",
         icon="star",
         current=len(completed_types),
-        target=_next_milestone(len(completed_types), [1, 3, 5, 7, 9]),
+        target=target,
         category="Goals",
+        completed=len(completed_types) > 0,
+        rarity=_achievement_rarity_for_target(max(1, len(completed_types))),
+        completion_key=f"a10:{len(completed_types)}" if len(completed_types) > 0 else None,
     )
 
 
@@ -678,14 +843,48 @@ def _build_training_master_achievement(history_rows, goals) -> AchievementRespon
         if goal.type == "training" and int(goal.current_value or 0) >= int(goal.target_value or 0)
     )
     current_value = completed_training_periods + current_training_completions
+    target = _next_milestone(current_value, [1, 4, 8, 12, 24])
     return AchievementResponse(
         id="a11",
         title="Training Master",
         description="Close out weekly training periods consistently",
         icon="trophy",
         current=current_value,
-        target=_next_milestone(current_value, [1, 4, 8, 12, 24]),
+        target=target,
         category="Goals",
+        completed=current_value > 0,
+        rarity=_achievement_rarity_for_target(max(1, current_value)),
+        completion_key=f"a11:{current_value}" if current_value > 0 else None,
+    )
+
+
+def _build_goal_specific_achievement(goal) -> AchievementResponse:
+    copy = GOAL_ACHIEVEMENT_COPY.get(goal.type, {})
+    progress_data = goal.progress_data or {}
+    is_recurring = (goal.tracking_style or "total").strip().lower() != "total"
+    period_key = str(progress_data.get("period_key") or "lifetime")
+    current_value = int(goal.current_value or 0)
+    target_value = max(1, int(goal.target_value or 1))
+    completed = current_value >= target_value
+    title = str(copy.get("title") or goal.name or "Goal Progress")
+    description_template = str(copy.get("description") or "Make progress on {goal_name}")
+    description = description_template.format(goal_name=goal.name)
+
+    if is_recurring:
+        description = f"{description}. Current {goal.tracking_style} period."
+
+    return AchievementResponse(
+        id=f"goal:{goal.goal_id}",
+        title=title,
+        description=description,
+        icon=str(copy.get("icon") or "target"),
+        current=current_value,
+        target=target_value,
+        category="Goal",
+        completed=completed,
+        entity_id=str(goal.goal_id),
+        rarity=_goal_specific_rarity(goal),
+        completion_key=f"goal:{goal.goal_id}:{period_key if is_recurring else target_value}",
     )
 
 
@@ -741,6 +940,12 @@ def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
         total_available_categories = max(1, len(available_categories))
 
         completed_tasks_count = len(completed_personal_rows)
+        goal_specific_achievements = [
+            _build_goal_specific_achievement(goal)
+            for goal in goals
+        ]
+        has_any_goals = len(goals) > 0
+        has_training_goal = any(goal.type == "training" for goal in goals)
 
         achievements = [
             AchievementResponse(
@@ -751,6 +956,9 @@ def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
                 current=best_category_count,
                 target=_next_milestone(best_category_count, [5, 15, 30, 60, 120, 250]),
                 category="Tasks",
+                completed=best_category_count > 0,
+                rarity=_achievement_rarity_for_target(max(1, best_category_count)),
+                completion_key=f"a1:{best_category_count}" if best_category_count > 0 else None,
             ),
             _build_equal_split_achievement(household_rows, current_user.user_id, today_date),
             _build_perfect_week_achievement(personal_rows, today_date),
@@ -762,6 +970,9 @@ def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
                 current=completed_tasks_count,
                 target=_next_milestone(completed_tasks_count, [100, 250, 500, 1000, 2000]),
                 category="Tasks",
+                completed=completed_tasks_count > 0,
+                rarity=_achievement_rarity_for_target(max(1, completed_tasks_count)),
+                completion_key=f"a4:{completed_tasks_count}" if completed_tasks_count > 0 else None,
             ),
             _build_early_bird_achievement(personal_rows, today_date),
             AchievementResponse(
@@ -772,15 +983,35 @@ def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
                 current=len(distinct_completed_categories),
                 target=max(total_available_categories, len(distinct_completed_categories)),
                 category="Tasks",
+                completed=len(distinct_completed_categories) > 0,
+                rarity=_achievement_rarity_for_target(max(1, len(distinct_completed_categories))),
+                completion_key=f"a6:{len(distinct_completed_categories)}" if len(distinct_completed_categories) > 0 else None,
             ),
-            _build_goal_completion_achievement(history_rows),
-            _build_goal_streak_achievement(goals),
-            _build_all_goals_current_period_achievement(goals),
-            _build_goal_variety_achievement(history_rows, goals),
-            _build_training_master_achievement(history_rows, goals),
         ]
 
-        return AchievementsResponse(achievements=achievements)
+        if has_any_goals:
+            achievements.extend(goal_specific_achievements)
+            achievements.append(_build_goal_completion_achievement(history_rows))
+            achievements.append(_build_goal_streak_achievement(goals))
+            achievements.append(_build_all_goals_current_period_achievement(goals))
+            achievements.append(_build_goal_variety_achievement(history_rows, goals))
+
+        if has_training_goal:
+            achievements.append(_build_training_master_achievement(history_rows, goals))
+
+        achievements, _timeline_additions = _apply_achievement_unlock_state(
+            db,
+            user_id=current_user.user_id,
+            achievements=achievements,
+        )
+        db.commit()
+        timeline_rows = list_achievement_unlocks_for_user(db, current_user.user_id)
+        timeline = [_to_achievement_timeline_response(item) for item in timeline_rows]
+
+        return AchievementsResponse(
+            achievements=achievements,
+            timeline=timeline,
+        )
 
 
 def list_my_goals(current_user: UserEmail) -> GoalsResponse:

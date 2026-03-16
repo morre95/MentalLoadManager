@@ -44,6 +44,7 @@ def get_my_notification_settings(
                 email_notifications=True,
                 task_reminders=True,
                 goal_milestones=True,
+                achievement_notifications=True,
                 household_updates=False,
                 weekly_analytics_email=True,
             )
@@ -54,6 +55,7 @@ def get_my_notification_settings(
             email_notifications=settings.email_notifications,
             task_reminders=settings.task_reminders,
             goal_milestones=settings.goal_milestones,
+            achievement_notifications=settings.achievement_notifications,
             household_updates=settings.household_updates,
             weekly_analytics_email=settings.weekly_analytics_email,
         )
@@ -140,6 +142,7 @@ def update_my_notification_settings(
                 email_notifications=payload.email_notifications,
                 task_reminders=payload.task_reminders,
                 goal_milestones=payload.goal_milestones,
+                achievement_notifications=payload.achievement_notifications,
                 household_updates=payload.household_updates,
                 weekly_analytics_email=payload.weekly_analytics_email,
             )
@@ -147,6 +150,7 @@ def update_my_notification_settings(
             settings.email_notifications = payload.email_notifications
             settings.task_reminders = payload.task_reminders
             settings.goal_milestones = payload.goal_milestones
+            settings.achievement_notifications = payload.achievement_notifications
             settings.household_updates = payload.household_updates
             settings.weekly_analytics_email = payload.weekly_analytics_email
 
@@ -157,6 +161,7 @@ def update_my_notification_settings(
             email_notifications=settings.email_notifications,
             task_reminders=settings.task_reminders,
             goal_milestones=settings.goal_milestones,
+            achievement_notifications=settings.achievement_notifications,
             household_updates=settings.household_updates,
             weekly_analytics_email=settings.weekly_analytics_email,
         )

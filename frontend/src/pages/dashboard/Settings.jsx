@@ -120,6 +120,7 @@ const Settings = () => {
   const [weeklyAnalytics, setWeeklyAnalytics] = useState(true);
   const [taskReminders, setTaskReminders] = useState(true);
   const [goalMilestones, setGoalMilestones] = useState(true);
+  const [achievementNotifications, setAchievementNotifications] = useState(true);
   const [householdUpdates, setHouseholdUpdates] = useState(false);
   const [isSavingNotificationSettings, setIsSavingNotificationSettings] = useState(false);
   const hasHydratedNotificationSettings = useRef(false);
@@ -185,6 +186,7 @@ const Settings = () => {
         setEmailNotifications(Boolean(settings.email_notifications));
         setTaskReminders(Boolean(settings.task_reminders));
         setGoalMilestones(Boolean(settings.goal_milestones));
+        setAchievementNotifications(Boolean(settings.achievement_notifications));
         setHouseholdUpdates(Boolean(settings.household_updates));
         setWeeklyAnalytics(Boolean(settings.weekly_analytics_email));
       } catch {
@@ -410,6 +412,7 @@ const Settings = () => {
         email_notifications: emailNotifications,
         task_reminders: taskReminders,
         goal_milestones: goalMilestones,
+        achievement_notifications: achievementNotifications,
         household_updates: householdUpdates,
         weekly_analytics_email: weeklyAnalytics,
       });
@@ -417,6 +420,7 @@ const Settings = () => {
       setEmailNotifications(Boolean(updated?.email_notifications));
       setTaskReminders(Boolean(updated?.task_reminders));
       setGoalMilestones(Boolean(updated?.goal_milestones));
+      setAchievementNotifications(Boolean(updated?.achievement_notifications));
       setHouseholdUpdates(Boolean(updated?.household_updates));
       setWeeklyAnalytics(Boolean(updated?.weekly_analytics_email));
       if (typeof window !== "undefined") {
@@ -435,6 +439,7 @@ const Settings = () => {
     emailNotifications,
     taskReminders,
     goalMilestones,
+    achievementNotifications,
     householdUpdates,
     weeklyAnalytics,
   ]);
@@ -472,6 +477,7 @@ const Settings = () => {
     emailNotifications,
     taskReminders,
     goalMilestones,
+    achievementNotifications,
     householdUpdates,
     weeklyAnalytics,
     handleSaveNotificationSettings,
@@ -663,6 +669,9 @@ const Settings = () => {
           </SettingRow>
           <SettingRow label="Goal milestones" description="Celebrate when you hit milestones">
             <Switch checked={goalMilestones} onCheckedChange={setGoalMilestones} />
+          </SettingRow>
+          <SettingRow label="Achievement unlocks" description="Notify when an achievement is completed">
+            <Switch checked={achievementNotifications} onCheckedChange={setAchievementNotifications} />
           </SettingRow>
           <SettingRow label="Household updates" description="When members complete or add tasks">
             <Switch checked={householdUpdates} onCheckedChange={setHouseholdUpdates} />

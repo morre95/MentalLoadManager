@@ -1,6 +1,7 @@
 from .analytics_ai_insights_cache import AnalyticsAIInsightsCache
 from .analytics_ai_questions_cache import AnalyticsAIQuestionsCache
 from .ai_summaries import AISummaries
+from .achievement_unlock import AchievementUnlock
 from .base import Base
 from .calendar_connections import CalendarConnections
 from .categories import Categories
@@ -31,6 +32,7 @@ from .weekly_reports import WeeklyReports
 
 __all__ = [
     "Base",
+    "AchievementUnlock",
     "Token",
     "User",
     "UserEmail",

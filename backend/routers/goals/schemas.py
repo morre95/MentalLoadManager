@@ -47,10 +47,26 @@ class AchievementResponse(BaseModel):
     current: int
     target: int
     category: str
+    completed: bool = False
+    entity_id: str | None = None
+    completion_key: str | None = None
+    unlocked_at: datetime | None = None
+    rarity: str = "common"
 
 
 class AchievementsResponse(BaseModel):
     achievements: list[AchievementResponse]
+    timeline: list["AchievementTimelineResponse"] = Field(default_factory=list)
+
+
+class AchievementTimelineResponse(BaseModel):
+    achievement_unlock_id: str
+    achievement_id: str
+    title: str
+    category: str
+    rarity: str
+    entity_id: str | None = None
+    unlocked_at: datetime | None = None
 
 
 class CreateGoalRequest(BaseModel):
@@ -104,3 +120,4 @@ class GoalsBoardAICheckinResponse(BaseModel):
 
 
 GoalResponse.model_rebuild()
+AchievementsResponse.model_rebuild()

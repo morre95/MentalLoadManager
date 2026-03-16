@@ -195,6 +195,20 @@ export function fetchAchievements(apiClient: ApiClient): Promise<{
     current: number;
     target: number;
     category: string;
+    completed: boolean;
+    entity_id?: string | null;
+    completion_key?: string | null;
+    unlocked_at?: string | null;
+    rarity: string;
+  }>;
+  timeline: Array<{
+    achievement_unlock_id: string;
+    achievement_id: string;
+    title: string;
+    category: string;
+    rarity: string;
+    entity_id?: string | null;
+    unlocked_at?: string | null;
   }>;
 }>;
 export function fetchGoalAICheckin(
@@ -375,6 +389,7 @@ export function fetchNotificationSettings(apiClient: ApiClient): Promise<{
   email_notifications: boolean;
   task_reminders: boolean;
   goal_milestones: boolean;
+  achievement_notifications: boolean;
   household_updates: boolean;
   weekly_analytics_email: boolean;
 }>;
@@ -382,12 +397,14 @@ export function updateNotificationSettings(apiClient: ApiClient, payload: {
   email_notifications: boolean;
   task_reminders: boolean;
   goal_milestones: boolean;
+  achievement_notifications: boolean;
   household_updates: boolean;
   weekly_analytics_email: boolean;
 }): Promise<{
   email_notifications: boolean;
   task_reminders: boolean;
   goal_milestones: boolean;
+  achievement_notifications: boolean;
   household_updates: boolean;
   weekly_analytics_email: boolean;
 }>;

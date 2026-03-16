@@ -26,6 +26,9 @@ class NotificationSettings(Base):
     goal_milestones: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("TRUE")
     )
+    achievement_notifications: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("TRUE")
+    )
     household_updates: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("FALSE")
     )

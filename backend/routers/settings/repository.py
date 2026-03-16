@@ -21,6 +21,7 @@ def create_notification_settings(
     email_notifications: bool,
     task_reminders: bool,
     goal_milestones: bool,
+    achievement_notifications: bool,
     household_updates: bool,
     weekly_analytics_email: bool,
 ) -> NotificationSettings:
@@ -29,6 +30,7 @@ def create_notification_settings(
         email_notifications=email_notifications,
         task_reminders=task_reminders,
         goal_milestones=goal_milestones,
+        achievement_notifications=achievement_notifications,
         household_updates=household_updates,
         weekly_analytics_email=weekly_analytics_email,
     )

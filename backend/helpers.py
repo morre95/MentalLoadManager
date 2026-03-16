@@ -64,7 +64,21 @@ def setup_db_and_tables() -> None:
     except Exception:
         ai_summary_columns = set()
 
+    try:
+        notification_setting_columns = {
+            column["name"] for column in inspector.get_columns("notification_settings")
+        }
+    except Exception:
+        notification_setting_columns = set()
+
     with engine.begin() as connection:
+        if "achievement_notifications" not in notification_setting_columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE notification_settings "
+                    "ADD COLUMN IF NOT EXISTS achievement_notifications BOOLEAN NOT NULL DEFAULT TRUE"
+                )
+            )
         if "week_end" not in ai_summary_columns:
             connection.execute(
                 text("ALTER TABLE ai_summaries ADD COLUMN IF NOT EXISTS week_end DATE")
@@ -180,6 +194,33 @@ def setup_db_and_tables() -> None:
             text(
                 "CREATE INDEX IF NOT EXISTS idx_goal_history_user_created "
                 "ON goal_history(user_id, created_at DESC)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS achievement_unlocks ("
+                "  achievement_unlock_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),"
+                "  user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,"
+                "  achievement_id VARCHAR(120) NOT NULL,"
+                "  title VARCHAR(255) NOT NULL,"
+                "  category VARCHAR(80) NOT NULL,"
+                "  rarity VARCHAR(20) NOT NULL,"
+                "  completion_key VARCHAR(255) NOT NULL,"
+                "  entity_id VARCHAR(120),"
+                "  unlocked_at TIMESTAMPTZ DEFAULT NOW()"
+                ")"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_achievement_unlock_user_completion "
+                "ON achievement_unlocks(user_id, completion_key)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_achievement_unlocks_user_unlocked "
+                "ON achievement_unlocks(user_id, unlocked_at DESC)"
             )
         )
 

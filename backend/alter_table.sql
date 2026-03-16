@@ -114,6 +114,24 @@ ON goal_history(goal_id, period_key);
 CREATE INDEX IF NOT EXISTS idx_goal_history_user_created
 ON goal_history(user_id, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS achievement_unlocks (
+  achievement_unlock_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  achievement_id VARCHAR(120) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  category VARCHAR(80) NOT NULL,
+  rarity VARCHAR(20) NOT NULL,
+  completion_key VARCHAR(255) NOT NULL,
+  entity_id VARCHAR(120),
+  unlocked_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_achievement_unlock_user_completion
+ON achievement_unlocks(user_id, completion_key);
+
+CREATE INDEX IF NOT EXISTS idx_achievement_unlocks_user_unlocked
+ON achievement_unlocks(user_id, unlocked_at DESC);
+
 
 ALTER TABLE preferences
   ADD COLUMN IF NOT EXISTS date_format TEXT NOT NULL DEFAULT 'mdy';

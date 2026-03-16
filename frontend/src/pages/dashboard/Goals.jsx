@@ -4,6 +4,7 @@ import { Target, Plus, Trophy, Sparkles, RefreshCcw } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "@/components/ui/sonner";
 import GoalCard from "@/components/goals/GoalCard";
 import AddGoalDialog from "@/components/goals/AddGoalDialog";
 import AchievementCard from "@/components/goals/AchievementCard";
@@ -18,6 +19,41 @@ import {
 
 const TRAINING_STORAGE_KEY = "goal-training-days-v1";
 const GOAL_MILESTONES_UPDATED_EVENT = "goals:changed";
+const ACHIEVEMENT_CELEBRATION_STORAGE_KEY = "achievements-celebrated-v1";
+
+const sortAchievements = (items) =>
+    [...items].sort((left, right) => {
+        const leftComplete = Boolean(left?.completed);
+        const rightComplete = Boolean(right?.completed);
+
+        if (leftComplete !== rightComplete) {
+            return leftComplete ? -1 : 1;
+        }
+
+        return String(left?.title || "").localeCompare(String(right?.title || ""));
+    });
+
+const readCelebratedAchievements = () => {
+    if (typeof window === "undefined") {
+        return [];
+    }
+
+    try {
+        const rawValue = window.localStorage.getItem(ACHIEVEMENT_CELEBRATION_STORAGE_KEY);
+        const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+        return Array.isArray(parsedValue) ? parsedValue.map(String) : [];
+    } catch {
+        return [];
+    }
+};
+
+const writeCelebratedAchievements = (values) => {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    window.localStorage.setItem(ACHIEVEMENT_CELEBRATION_STORAGE_KEY, JSON.stringify(values));
+};
 
 const getCurrentTimezone = () => {
     if (typeof Intl === "undefined" || typeof Intl.DateTimeFormat !== "function") {
@@ -122,6 +158,7 @@ const Goals = () => {
     const location = useLocation();
     const [goals, setGoals] = useState([]);
     const [achievements, setAchievements] = useState([]);
+    const [achievementTimeline, setAchievementTimeline] = useState([]);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [syncError, setSyncError] = useState(null);
@@ -144,8 +181,11 @@ const Goals = () => {
             setGoals(normalizedGoals);
             setAchievements(
                 Array.isArray(achievementsData?.achievements)
-                    ? achievementsData.achievements
+                    ? sortAchievements(achievementsData.achievements)
                     : []
+            );
+            setAchievementTimeline(
+                Array.isArray(achievementsData?.timeline) ? achievementsData.timeline : []
             );
         } catch (error) {
             if (error?.status === 401) {
@@ -162,6 +202,31 @@ const Goals = () => {
     useEffect(() => {
         loadGoals();
     }, [loadGoals]);
+
+    useEffect(() => {
+        const celebratedKeys = readCelebratedAchievements();
+        const newlyCompleted = achievements.filter(
+            (achievement) =>
+                achievement.completed &&
+                achievement.completion_key &&
+                !celebratedKeys.includes(String(achievement.completion_key))
+        );
+
+        if (!newlyCompleted.length) {
+            return;
+        }
+
+        newlyCompleted.forEach((achievement) => {
+            toast.success(`Achievement unlocked: ${achievement.title}`);
+        });
+
+        writeCelebratedAchievements([
+            ...new Set([
+                ...celebratedKeys,
+                ...newlyCompleted.map((achievement) => String(achievement.completion_key)),
+            ]),
+        ]);
+    }, [achievements]);
 
     useEffect(() => {
         if (typeof window === "undefined") {
@@ -547,6 +612,7 @@ const Goals = () => {
                         <GoalCard
                             key={goal.id}
                             goal={goal}
+                            linkedAchievement={achievements.find((achievement) => achievement.entity_id === goal.id) || null}
                             onUpdateProgress={handleUpdateProgress}
                             onToggleTrainingDay={handleToggleTrainingDay}
                             onDelete={handleDeleteGoal}
@@ -585,6 +651,39 @@ const Goals = () => {
                     ))}
                 </div>
             </motion.div>
+
+            {achievementTimeline.length ? (
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.25 }}
+                >
+                    <div className="flex items-center gap-3 mb-4">
+                        <Trophy className="h-6 w-6 text-primary" />
+                        <h2 className="font-display text-xl font-bold text-foreground">Achievement Timeline</h2>
+                    </div>
+                    <Card className="border-border">
+                        <CardContent className="p-4 space-y-3">
+                            {achievementTimeline.slice(0, 8).map((item) => (
+                                <div
+                                    key={item.achievement_unlock_id}
+                                    className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 px-3 py-3"
+                                >
+                                    <div>
+                                        <p className="text-sm font-medium text-foreground">{item.title}</p>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {item.category} · {item.rarity}
+                                        </p>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        {item.unlocked_at ? new Date(item.unlocked_at).toLocaleDateString() : ""}
+                                    </p>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                </motion.div>
+            ) : null}
 
             {!isLoading && goals.length === 0 && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12">

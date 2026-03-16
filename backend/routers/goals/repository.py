@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
-from models import Categories, GoalAICheckinsCache, GoalHistory, Goals, Tasks, UsersHouseholds
+from models import AchievementUnlock, Categories, GoalAICheckinsCache, GoalHistory, Goals, Tasks, UsersHouseholds
 
 
 def list_goals_for_user(db: Session, user_id: UUID) -> list[Goals]:
@@ -115,6 +115,58 @@ def list_goal_history_rows_for_user(db: Session, user_id: UUID) -> list[GoalHist
         select(GoalHistory)
         .where(GoalHistory.user_id == user_id)
         .order_by(GoalHistory.created_at.desc(), GoalHistory.goal_history_id.desc())
+    ).all()
+
+
+def get_achievement_unlock_by_completion_key(
+    db: Session,
+    *,
+    user_id: UUID,
+    completion_key: str,
+) -> AchievementUnlock | None:
+    return db.scalar(
+        select(AchievementUnlock).where(
+            AchievementUnlock.user_id == user_id,
+            AchievementUnlock.completion_key == completion_key,
+        )
+    )
+
+
+def create_achievement_unlock(
+    db: Session,
+    *,
+    user_id: UUID,
+    achievement_id: str,
+    title: str,
+    category: str,
+    rarity: str,
+    completion_key: str,
+    entity_id: str | None = None,
+) -> AchievementUnlock:
+    unlock = AchievementUnlock(
+        user_id=user_id,
+        achievement_id=achievement_id,
+        title=title,
+        category=category,
+        rarity=rarity,
+        completion_key=completion_key,
+        entity_id=entity_id,
+    )
+    db.add(unlock)
+    return unlock
+
+
+def list_achievement_unlocks_for_user(
+    db: Session,
+    user_id: UUID,
+    *,
+    limit: int = 20,
+) -> list[AchievementUnlock]:
+    return db.scalars(
+        select(AchievementUnlock)
+        .where(AchievementUnlock.user_id == user_id)
+        .order_by(AchievementUnlock.unlocked_at.desc(), AchievementUnlock.achievement_unlock_id.desc())
+        .limit(limit)
     ).all()
 
 
