@@ -39,6 +39,9 @@ const AchievementCard = ({ achievement }) => {
                         <div className="flex-1 min-w-0">
                             <h4 className="font-medium text-foreground text-sm">{achievement.title}</h4>
                             <p className="text-xs text-muted-foreground mt-0.5">{achievement.description}</p>
+                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground mt-2">
+                                {achievement.category}
+                            </p>
 
                             <div className="mt-2">
                                 <div className="flex items-center justify-between text-xs mb-1">

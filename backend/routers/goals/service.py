@@ -5,6 +5,7 @@ import time as time_module
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import requests
 from fastapi import HTTPException, status
@@ -21,9 +22,12 @@ from .repository import (
     get_cached_goal_ai_checkin,
     get_goal_for_user,
     list_available_category_names_for_user_households,
+    list_goal_history_for_user,
+    list_goal_history_rows_for_user,
     list_goals_for_user,
     list_household_completed_tasks_for_achievements,
     list_personal_tasks_for_achievements,
+    upsert_goal_history,
     upsert_cached_goal_ai_checkin,
 )
 from .schemas import (
@@ -33,6 +37,7 @@ from .schemas import (
     DeleteGoalResponse,
     GoalAICheckinRequest,
     GoalAICheckinResponse,
+    GoalHistoryResponse,
     GoalsBoardAICheckinRequest,
     GoalsBoardAICheckinResponse,
     GoalResponse,
@@ -45,6 +50,7 @@ COMPLETED_STATUSES = {"done", "archive"}
 PERIOD_MILESTONES_DAYS = [7, 30, 60, 90, 180, 365]
 DEFAULT_OPENROUTER_MODEL = "openrouter/free"
 OPENROUTER_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions"
+DEFAULT_TIMEZONE = "UTC"
 
 
 class _GoalAICheckinModelPayload(BaseModel):
@@ -65,6 +71,7 @@ class _GoalsBoardAICheckinPayload(BaseModel):
 
 
 def _to_goal_response(goal) -> GoalResponse:
+    progress_data = goal.progress_data or {}
     return GoalResponse(
         goal_id=str(goal.goal_id),
         type=goal.type,
@@ -72,35 +79,208 @@ def _to_goal_response(goal) -> GoalResponse:
         current_value=goal.current_value,
         target_value=goal.target_value,
         tracking_style=goal.tracking_style,
-        progress_data=goal.progress_data or {},
+        progress_data=progress_data,
         created_at=goal.created_at,
+        is_recurring=(goal.tracking_style or "total").strip().lower() != "total",
+        period_key=progress_data.get("period_key"),
+        period_start=_coerce_iso_datetime(progress_data.get("period_start_at")),
+        period_end=_coerce_iso_datetime(progress_data.get("period_end_at")),
+        current_streak=int(progress_data.get("current_streak") or 0),
+        best_streak=int(progress_data.get("best_streak") or 0),
+        completed_periods=int(progress_data.get("completed_periods") or 0),
+        history=[
+            _to_goal_history_response(history_item)
+            for history_item in getattr(goal, "_history_rows", [])
+        ],
     )
 
 
+def _resolve_timezone_name(progress_data: dict[str, Any] | None) -> str:
+    timezone_name = (progress_data or {}).get("timezone")
+    if not isinstance(timezone_name, str) or not timezone_name.strip():
+        return DEFAULT_TIMEZONE
+    return timezone_name.strip()
+
+
+def _resolve_timezone(progress_data: dict[str, Any] | None):
+    timezone_name = _resolve_timezone_name(progress_data)
+    try:
+        return timezone_name, ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        return DEFAULT_TIMEZONE, ZoneInfo(DEFAULT_TIMEZONE)
+
+
+def _coerce_iso_datetime(value):
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _to_goal_history_response(history_item) -> GoalHistoryResponse:
+    return GoalHistoryResponse(
+        goal_history_id=str(history_item.goal_history_id),
+        tracking_style=history_item.tracking_style,
+        period_key=history_item.period_key,
+        period_started_at=history_item.period_started_at,
+        period_ended_at=history_item.period_ended_at,
+        current_value=history_item.current_value,
+        target_value=history_item.target_value,
+        completed=bool(history_item.completed),
+        created_at=history_item.created_at,
+    )
+
+
+def _period_bounds_for_goal(goal, now_utc: datetime) -> tuple[str | None, datetime | None, datetime | None]:
+    tracking_style = (goal.tracking_style or "total").strip().lower()
+    if tracking_style == "total":
+        return None, goal.created_at or now_utc, None
+
+    _, zone = _resolve_timezone(goal.progress_data or {})
+    now_local = now_utc.astimezone(zone)
+
+    if tracking_style == "daily":
+        period_start_local = datetime.combine(now_local.date(), datetime.min.time(), tzinfo=zone)
+        period_end_local = period_start_local + timedelta(days=1)
+        period_key = period_start_local.date().isoformat()
+    elif tracking_style == "weekly":
+        period_start_local = datetime.combine(now_local.date(), datetime.min.time(), tzinfo=zone)
+        period_start_local = period_start_local - timedelta(days=period_start_local.weekday())
+        period_end_local = period_start_local + timedelta(days=7)
+        period_key = period_start_local.date().isoformat()
+    elif tracking_style == "monthly":
+        period_start_local = datetime(
+            year=now_local.year,
+            month=now_local.month,
+            day=1,
+            tzinfo=zone,
+        )
+        if now_local.month == 12:
+            period_end_local = datetime(year=now_local.year + 1, month=1, day=1, tzinfo=zone)
+        else:
+            period_end_local = datetime(year=now_local.year, month=now_local.month + 1, day=1, tzinfo=zone)
+        period_key = f"{period_start_local.year:04d}-{period_start_local.month:02d}"
+    else:
+        return None, goal.created_at or now_utc, None
+
+    return (
+        period_key,
+        period_start_local.astimezone(timezone.utc),
+        period_end_local.astimezone(timezone.utc),
+    )
+
+
+def _update_goal_period_metadata(goal, *, period_key, period_start, period_end, timezone_name: str):
+    progress_data = dict(goal.progress_data or {})
+    progress_data["timezone"] = timezone_name
+    progress_data["period_key"] = period_key
+    progress_data["period_start_at"] = period_start.isoformat() if period_start is not None else None
+    progress_data["period_end_at"] = period_end.isoformat() if period_end is not None else None
+    progress_data["current_streak"] = int(progress_data.get("current_streak") or 0)
+    progress_data["best_streak"] = int(progress_data.get("best_streak") or 0)
+    progress_data["completed_periods"] = int(progress_data.get("completed_periods") or 0)
+    goal.progress_data = progress_data
+
+
+def _close_goal_period_if_needed(db, goal, user_id: UUID, now_utc: datetime):
+    tracking_style = (goal.tracking_style or "total").strip().lower()
+    if tracking_style == "total":
+        return goal
+
+    progress_data = dict(goal.progress_data or {})
+    timezone_name, _ = _resolve_timezone(progress_data)
+    next_period_key, next_period_start, next_period_end = _period_bounds_for_goal(goal, now_utc)
+    stored_period_key = progress_data.get("period_key")
+
+    if not isinstance(stored_period_key, str) or not stored_period_key:
+        _update_goal_period_metadata(
+            goal,
+            period_key=next_period_key,
+            period_start=next_period_start,
+            period_end=next_period_end,
+            timezone_name=timezone_name,
+        )
+        goal.updated_at = now_utc
+        db.flush()
+        return goal
+
+    if stored_period_key == next_period_key:
+        _update_goal_period_metadata(
+            goal,
+            period_key=next_period_key,
+            period_start=next_period_start,
+            period_end=next_period_end,
+            timezone_name=timezone_name,
+        )
+        return goal
+
+    previous_period_start = _coerce_iso_datetime(progress_data.get("period_start_at"))
+    previous_period_end = _coerce_iso_datetime(progress_data.get("period_end_at"))
+    completed = int(goal.current_value or 0) >= int(goal.target_value or 0)
+    current_streak = int(progress_data.get("current_streak") or 0)
+    completed_periods = int(progress_data.get("completed_periods") or 0)
+    best_streak = int(progress_data.get("best_streak") or 0)
+
+    upsert_goal_history(
+        db,
+        goal_id=goal.goal_id,
+        user_id=user_id,
+        tracking_style=tracking_style,
+        period_key=stored_period_key,
+        period_started_at=previous_period_start,
+        period_ended_at=previous_period_end,
+        current_value=int(goal.current_value or 0),
+        target_value=int(goal.target_value or 0),
+        completed=completed,
+        snapshot_data={
+            "goal_name": goal.name,
+            "goal_type": goal.type,
+            "progress_data": {k: v for k, v in progress_data.items() if k != "_history_rows"},
+        },
+    )
+
+    progress_data["completed_periods"] = completed_periods + (1 if completed else 0)
+    progress_data["current_streak"] = current_streak + 1 if completed else 0
+    progress_data["best_streak"] = max(best_streak, int(progress_data["current_streak"]))
+    progress_data["last_reset_at"] = now_utc.isoformat()
+    progress_data["last_period_key"] = stored_period_key
+    progress_data["last_period_result"] = {
+        "completed": completed,
+        "current_value": int(goal.current_value or 0),
+        "target_value": int(goal.target_value or 0),
+    }
+
+    if goal.type == "training":
+        progress_data["training_days"] = [False] * 7
+
+    goal.current_value = 0
+    goal.progress_data = progress_data
+    _update_goal_period_metadata(
+        goal,
+        period_key=next_period_key,
+        period_start=next_period_start,
+        period_end=next_period_end,
+        timezone_name=timezone_name,
+    )
+    goal.updated_at = now_utc
+    db.flush()
+    return goal
+
+
 def _sync_derived_goal_progress(db, goal, user_id: UUID):
+    now_utc = datetime.now(timezone.utc)
+    goal = _close_goal_period_if_needed(db, goal, user_id, now_utc)
+
     if goal.type != "tasks":
         return goal
 
-    now_utc = datetime.now(timezone.utc)
     tracking_style = (goal.tracking_style or "daily").strip().lower()
-    day_start = datetime.combine(now_utc.date(), datetime.min.time(), tzinfo=timezone.utc)
-
-    if tracking_style == "weekly":
-        weekday = day_start.weekday()
-        start_at = day_start - timedelta(days=weekday)
-        end_at = start_at + timedelta(days=7)
-    elif tracking_style == "monthly":
-        start_at = day_start.replace(day=1)
-        if start_at.month == 12:
-            end_at = start_at.replace(year=start_at.year + 1, month=1)
-        else:
-            end_at = start_at.replace(month=start_at.month + 1)
-    elif tracking_style == "total":
+    _, start_at, end_at = _period_bounds_for_goal(goal, now_utc)
+    if tracking_style == "total":
         start_at = None
         end_at = None
-    else:
-        start_at = day_start
-        end_at = day_start + timedelta(days=1)
 
     completed_today = count_completed_personal_tasks_in_window(
         db,
@@ -406,6 +586,109 @@ def _build_early_bird_achievement(personal_rows, today_date):
     )
 
 
+def _attach_goal_history_rows(goals, history_rows) -> None:
+    history_by_goal: dict[UUID, list[Any]] = defaultdict(list)
+    for row in history_rows:
+        history_by_goal[row.goal_id].append(row)
+
+    for goal in goals:
+        setattr(goal, "_history_rows", history_by_goal.get(goal.goal_id, []))
+
+
+def _build_goal_completion_achievement(history_rows) -> AchievementResponse:
+    completed_periods = sum(1 for row in history_rows if row.completed)
+    return AchievementResponse(
+        id="a7",
+        title="Goal Closer",
+        description="Finish recurring goal periods across all your active routines",
+        icon="target",
+        current=completed_periods,
+        target=_next_milestone(completed_periods, [1, 3, 5, 10, 20, 40]),
+        category="Goals",
+    )
+
+
+def _build_goal_streak_achievement(goals) -> AchievementResponse:
+    best_streak = 0
+    best_goal_name = "No streak yet"
+    for goal in goals:
+        progress_data = goal.progress_data or {}
+        streak = int(progress_data.get("best_streak") or 0)
+        if streak > best_streak:
+            best_streak = streak
+            best_goal_name = goal.name
+
+    return AchievementResponse(
+        id="a8",
+        title="Streak Keeper",
+        description=f"Best recurring streak: {best_goal_name}",
+        icon="flame",
+        current=best_streak,
+        target=_next_milestone(best_streak, [1, 2, 4, 8, 12, 24]),
+        category="Goals",
+    )
+
+
+def _build_all_goals_current_period_achievement(goals) -> AchievementResponse:
+    recurring_goals = [goal for goal in goals if (goal.tracking_style or "total").strip().lower() != "total"]
+    completed_now = sum(1 for goal in recurring_goals if int(goal.current_value or 0) >= int(goal.target_value or 0))
+    target = max(1, len(recurring_goals))
+    return AchievementResponse(
+        id="a9",
+        title="All Systems Go",
+        description="Complete all recurring goals within the current period",
+        icon="check",
+        current=completed_now,
+        target=target,
+        category="Goals",
+    )
+
+
+def _build_goal_variety_achievement(history_rows, goals) -> AchievementResponse:
+    completed_types = {
+        str((row.snapshot_data or {}).get("goal_type") or "").strip().lower()
+        for row in history_rows
+        if row.completed
+    }
+    for goal in goals:
+        if int(goal.current_value or 0) >= int(goal.target_value or 0):
+            completed_types.add(str(goal.type or "").strip().lower())
+
+    completed_types.discard("")
+    return AchievementResponse(
+        id="a10",
+        title="Goal Explorer",
+        description="Complete different kinds of goals, not just the same routine",
+        icon="star",
+        current=len(completed_types),
+        target=_next_milestone(len(completed_types), [1, 3, 5, 7, 9]),
+        category="Goals",
+    )
+
+
+def _build_training_master_achievement(history_rows, goals) -> AchievementResponse:
+    completed_training_periods = sum(
+        1
+        for row in history_rows
+        if row.completed and (row.snapshot_data or {}).get("goal_type") == "training"
+    )
+    current_training_completions = sum(
+        1
+        for goal in goals
+        if goal.type == "training" and int(goal.current_value or 0) >= int(goal.target_value or 0)
+    )
+    current_value = completed_training_periods + current_training_completions
+    return AchievementResponse(
+        id="a11",
+        title="Training Master",
+        description="Close out weekly training periods consistently",
+        icon="trophy",
+        current=current_value,
+        target=_next_milestone(current_value, [1, 4, 8, 12, 24]),
+        category="Goals",
+    )
+
+
 def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
     try:
         session_local = get_session_local()
@@ -423,72 +706,81 @@ def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
         category_name_rows = list_available_category_names_for_user_households(
             db, current_user.user_id
         )
+        goals = list_goals_for_user(db, current_user.user_id)
+        goals = [_sync_derived_goal_progress(db, goal, current_user.user_id) for goal in goals]
+        history_rows = list_goal_history_rows_for_user(db, current_user.user_id)
+        db.commit()
 
-    today_date = datetime.now(timezone.utc).date()
-    completed_personal_rows = [
-        row for row in personal_rows if row.status in COMPLETED_STATUSES
-    ]
+        today_date = datetime.now(timezone.utc).date()
+        completed_personal_rows = [
+            row for row in personal_rows if row.status in COMPLETED_STATUSES
+        ]
 
-    completed_by_category = defaultdict(int)
-    for row in completed_personal_rows:
-        category_name = row.category_name or "Uncategorized"
-        completed_by_category[category_name] += 1
+        completed_by_category = defaultdict(int)
+        for row in completed_personal_rows:
+            category_name = row.category_name or "Uncategorized"
+            completed_by_category[category_name] += 1
 
-    best_category_name = "No category yet"
-    best_category_count = 0
-    if completed_by_category:
-        best_category_name, best_category_count = max(
-            completed_by_category.items(), key=lambda item: item[1]
-        )
+        best_category_name = "No category yet"
+        best_category_count = 0
+        if completed_by_category:
+            best_category_name, best_category_count = max(
+                completed_by_category.items(), key=lambda item: item[1]
+            )
 
-    distinct_completed_categories = set()
-    for row in completed_personal_rows:
-        category_name = (row.category_name or "Uncategorized").strip() or "Uncategorized"
-        distinct_completed_categories.add(category_name.lower())
+        distinct_completed_categories = set()
+        for row in completed_personal_rows:
+            category_name = (row.category_name or "Uncategorized").strip() or "Uncategorized"
+            distinct_completed_categories.add(category_name.lower())
 
-    available_categories = {
-        (row.name or "").strip().lower()
-        for row in category_name_rows
-        if (row.name or "").strip()
-    }
-    total_available_categories = max(1, len(available_categories))
+        available_categories = {
+            (row.name or "").strip().lower()
+            for row in category_name_rows
+            if (row.name or "").strip()
+        }
+        total_available_categories = max(1, len(available_categories))
 
-    completed_tasks_count = len(completed_personal_rows)
+        completed_tasks_count = len(completed_personal_rows)
 
-    achievements = [
-        AchievementResponse(
-            id="a1",
-            title="Category Champion",
-            description=f"Your top category is {best_category_name}",
-            icon="trophy",
-            current=best_category_count,
-            target=_next_milestone(best_category_count, [5, 15, 30, 60, 120, 250]),
-            category="Tasks",
-        ),
-        _build_equal_split_achievement(household_rows, current_user.user_id, today_date),
-        _build_perfect_week_achievement(personal_rows, today_date),
-        AchievementResponse(
-            id="a4",
-            title="Task Master",
-            description="Complete tasks over your full lifetime",
-            icon="star",
-            current=completed_tasks_count,
-            target=_next_milestone(completed_tasks_count, [100, 250, 500, 1000, 2000]),
-            category="Tasks",
-        ),
-        _build_early_bird_achievement(personal_rows, today_date),
-        AchievementResponse(
-            id="a6",
-            title="Category Explorer",
-            description=f"Completed categories: {len(distinct_completed_categories)}/{total_available_categories}",
-            icon="target",
-            current=len(distinct_completed_categories),
-            target=max(total_available_categories, len(distinct_completed_categories)),
-            category="Tasks",
-        ),
-    ]
+        achievements = [
+            AchievementResponse(
+                id="a1",
+                title="Category Champion",
+                description=f"Your top category is {best_category_name}",
+                icon="trophy",
+                current=best_category_count,
+                target=_next_milestone(best_category_count, [5, 15, 30, 60, 120, 250]),
+                category="Tasks",
+            ),
+            _build_equal_split_achievement(household_rows, current_user.user_id, today_date),
+            _build_perfect_week_achievement(personal_rows, today_date),
+            AchievementResponse(
+                id="a4",
+                title="Task Master",
+                description="Complete tasks over your full lifetime",
+                icon="star",
+                current=completed_tasks_count,
+                target=_next_milestone(completed_tasks_count, [100, 250, 500, 1000, 2000]),
+                category="Tasks",
+            ),
+            _build_early_bird_achievement(personal_rows, today_date),
+            AchievementResponse(
+                id="a6",
+                title="Category Explorer",
+                description=f"Completed categories: {len(distinct_completed_categories)}/{total_available_categories}",
+                icon="target",
+                current=len(distinct_completed_categories),
+                target=max(total_available_categories, len(distinct_completed_categories)),
+                category="Tasks",
+            ),
+            _build_goal_completion_achievement(history_rows),
+            _build_goal_streak_achievement(goals),
+            _build_all_goals_current_period_achievement(goals),
+            _build_goal_variety_achievement(history_rows, goals),
+            _build_training_master_achievement(history_rows, goals),
+        ]
 
-    return AchievementsResponse(achievements=achievements)
+        return AchievementsResponse(achievements=achievements)
 
 
 def list_my_goals(current_user: UserEmail) -> GoalsResponse:
@@ -503,6 +795,8 @@ def list_my_goals(current_user: UserEmail) -> GoalsResponse:
     with session_local() as db:
         goals = list_goals_for_user(db, current_user.user_id)
         goals = [_sync_derived_goal_progress(db, goal, current_user.user_id) for goal in goals]
+        history_rows = list_goal_history_for_user(db, current_user.user_id)
+        _attach_goal_history_rows(goals, history_rows)
         db.commit()
         return GoalsResponse(goals=[_to_goal_response(goal) for goal in goals])
 
@@ -529,6 +823,8 @@ def create_my_goal(payload: CreateGoalRequest, current_user: UserEmail) -> GoalR
         payload.progress_data,
         payload.current_value,
     )
+    timezone_name, _ = _resolve_timezone(progress_data)
+    progress_data["timezone"] = timezone_name
 
     try:
         session_local = get_session_local()
@@ -549,6 +845,7 @@ def create_my_goal(payload: CreateGoalRequest, current_user: UserEmail) -> GoalR
             tracking_style=tracking_style,
             progress_data=progress_data,
         )
+        _close_goal_period_if_needed(db, goal, current_user.user_id, datetime.now(timezone.utc))
 
         try:
             db.commit()
@@ -590,14 +887,19 @@ def update_my_goal_progress(
                 detail="Task goals are updated automatically from completed tasks",
             )
 
+        goal = _close_goal_period_if_needed(db, goal, current_user.user_id, datetime.now(timezone.utc))
+
         current_value, progress_data = _normalize_progress_data(
             goal.type,
             payload.progress_data if payload.progress_data is not None else goal.progress_data,
             payload.current_value,
         )
+        timezone_name, _ = _resolve_timezone(progress_data)
+        progress_data["timezone"] = timezone_name
         goal.current_value = current_value
         goal.progress_data = progress_data
         goal.updated_at = datetime.now(timezone.utc)
+        _close_goal_period_if_needed(db, goal, current_user.user_id, datetime.now(timezone.utc))
 
         try:
             db.commit()
@@ -609,6 +911,7 @@ def update_my_goal_progress(
             ) from exc
 
         db.refresh(goal)
+        _attach_goal_history_rows([goal], list_goal_history_for_user(db, current_user.user_id))
         return _to_goal_response(goal)
 
 
@@ -652,7 +955,15 @@ def _safe_ratio(numerator: float, denominator: float) -> float:
 def _goal_period_context(goal, now_utc: datetime) -> dict[str, Any]:
     tracking_style = (goal.tracking_style or "total").strip().lower()
     created_at = goal.created_at or now_utc
-    if tracking_style == "daily":
+    progress_data = goal.progress_data or {}
+    stored_period_start = _coerce_iso_datetime(progress_data.get("period_start_at"))
+    stored_period_end = _coerce_iso_datetime(progress_data.get("period_end_at"))
+    stored_period_key = progress_data.get("period_key")
+
+    if tracking_style != "total" and stored_period_start is not None:
+        period_start = stored_period_start
+        period_end = stored_period_end
+    elif tracking_style == "daily":
         period_start = datetime.combine(now_utc.date(), datetime.min.time(), tzinfo=timezone.utc)
         period_end = period_start + timedelta(days=1)
     elif tracking_style == "weekly":
@@ -684,6 +995,7 @@ def _goal_period_context(goal, now_utc: datetime) -> dict[str, Any]:
         "elapsed_days": elapsed_days,
         "total_days": total_days,
         "created_at": created_at,
+        "period_key": stored_period_key,
     }
 
 

@@ -4,8 +4,7 @@ from uuid import UUID
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
-from models import Categories, Goals, Tasks, UsersHouseholds
-from models import GoalAICheckinsCache
+from models import Categories, GoalAICheckinsCache, GoalHistory, Goals, Tasks, UsersHouseholds
 
 
 def list_goals_for_user(db: Session, user_id: UUID) -> list[Goals]:
@@ -47,6 +46,76 @@ def create_goal(
     )
     db.add(goal)
     return goal
+
+
+def upsert_goal_history(
+    db: Session,
+    *,
+    goal_id: UUID,
+    user_id: UUID,
+    tracking_style: str,
+    period_key: str,
+    period_started_at: datetime | None,
+    period_ended_at: datetime | None,
+    current_value: int,
+    target_value: int,
+    completed: bool,
+    snapshot_data: dict | None = None,
+) -> GoalHistory:
+    history = db.scalar(
+        select(GoalHistory).where(
+            GoalHistory.goal_id == goal_id,
+            GoalHistory.period_key == period_key,
+        )
+    )
+    if history is None:
+        history = GoalHistory(
+            goal_id=goal_id,
+            user_id=user_id,
+            tracking_style=tracking_style,
+            period_key=period_key,
+        )
+        db.add(history)
+
+    history.period_started_at = period_started_at
+    history.period_ended_at = period_ended_at
+    history.current_value = current_value
+    history.target_value = target_value
+    history.completed = completed
+    history.snapshot_data = snapshot_data or {}
+    return history
+
+
+def list_goal_history_for_user(
+    db: Session,
+    user_id: UUID,
+    *,
+    limit_per_goal: int = 4,
+) -> list[GoalHistory]:
+    rows = db.scalars(
+        select(GoalHistory)
+        .where(GoalHistory.user_id == user_id)
+        .order_by(GoalHistory.created_at.desc(), GoalHistory.goal_history_id.desc())
+    ).all()
+
+    counts_by_goal: dict[UUID, int] = {}
+    limited_rows: list[GoalHistory] = []
+    for row in rows:
+        count = counts_by_goal.get(row.goal_id, 0)
+        if count >= limit_per_goal:
+            continue
+        counts_by_goal[row.goal_id] = count + 1
+        limited_rows.append(row)
+
+    return limited_rows
+
+
+def list_goal_history_rows_for_user(db: Session, user_id: UUID) -> list[GoalHistory]:
+    return db.scalars(
+        select(GoalHistory)
+        .where(GoalHistory.user_id == user_id)
+        .order_by(GoalHistory.created_at.desc(), GoalHistory.goal_history_id.desc())
+    ).all()
 
 
 def list_personal_tasks_for_achievements(db: Session, user_id: UUID):

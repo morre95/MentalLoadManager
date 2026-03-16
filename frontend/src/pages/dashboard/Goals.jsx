@@ -19,6 +19,14 @@ import {
 const TRAINING_STORAGE_KEY = "goal-training-days-v1";
 const GOAL_MILESTONES_UPDATED_EVENT = "goals:changed";
 
+const getCurrentTimezone = () => {
+    if (typeof Intl === "undefined" || typeof Intl.DateTimeFormat !== "function") {
+        return "UTC";
+    }
+
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+};
+
 const getCurrentWeekKey = () => {
     const now = new Date();
     const currentDay = now.getDay();
@@ -217,10 +225,13 @@ const Goals = () => {
             progress_data:
                 newGoal.type === "training"
                     ? {
+                        timezone: getCurrentTimezone(),
                         week_key: getCurrentWeekKey(),
                         training_days: Array(7).fill(false),
                     }
-                    : {},
+                    : {
+                        timezone: getCurrentTimezone(),
+                    },
         };
 
         createGoalRequest(payload)
@@ -243,7 +254,16 @@ const Goals = () => {
         setSyncError(null);
 
         try {
-            const updatedGoal = await updateGoalProgressRequest(id, newValue);
+            const previousGoal = goals.find((goal) => goal.id === id);
+            const updatedGoal = await updateGoalProgressRequest(id, {
+                current_value: newValue,
+                progress_data: {
+                    ...(previousGoal?.progressData && typeof previousGoal.progressData === "object"
+                        ? previousGoal.progressData
+                        : {}),
+                    timezone: getCurrentTimezone(),
+                },
+            });
             const normalizedGoal = normalizeTrainingGoal(updatedGoal, readTrainingSelections());
             setGoals((prev) =>
                 prev.map((goal) => (goal.id === id ? normalizedGoal : goal))
@@ -281,6 +301,7 @@ const Goals = () => {
             },
         };
         const nextProgressData = {
+            timezone: getCurrentTimezone(),
             week_key: getCurrentWeekKey(),
             training_days: nextDays,
         };
@@ -393,6 +414,46 @@ const Goals = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 }}
             >
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <Card className="border-border">
+                        <CardContent className="p-4">
+                            <p className="text-xs uppercase tracking-wide text-muted-foreground">Recurring goals</p>
+                            <p className="text-2xl font-display font-bold text-foreground mt-2">
+                                {goals.filter((goal) => goal.isRecurring).length}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                                Daily, weekly, and monthly goals now reset by period.
+                            </p>
+                        </CardContent>
+                    </Card>
+                    <Card className="border-border">
+                        <CardContent className="p-4">
+                            <p className="text-xs uppercase tracking-wide text-muted-foreground">Completed this period</p>
+                            <p className="text-2xl font-display font-bold text-foreground mt-2">
+                                {
+                                    goals.filter(
+                                        (goal) => goal.isRecurring && Number(goal.current) >= Number(goal.target)
+                                    ).length
+                                }
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                                These count toward goal-based achievements.
+                            </p>
+                        </CardContent>
+                    </Card>
+                    <Card className="border-border">
+                        <CardContent className="p-4">
+                            <p className="text-xs uppercase tracking-wide text-muted-foreground">Best live streak</p>
+                            <p className="text-2xl font-display font-bold text-foreground mt-2">
+                                {goals.reduce((best, goal) => Math.max(best, Number(goal.bestStreak || 0)), 0)}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                                Based on completed recurring periods in your history.
+                            </p>
+                        </CardContent>
+                    </Card>
+                </div>
+
                 <Card className="border-border">
                     <CardHeader className="flex flex-row items-start justify-between gap-4">
                         <div>

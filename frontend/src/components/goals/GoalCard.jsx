@@ -6,6 +6,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import GoalTrackerRenderer from "./GoalTrackerRenderer";
 
+const formatDateLabel = (value) => {
+    if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+        return null;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+        month: "short",
+        day: "numeric",
+    }).format(value);
+};
+
+const getHistorySummary = (entry) => {
+    const outcomeLabel = entry.completed ? "hit" : "missed";
+    return `${entry.periodKey}: ${entry.current}/${entry.target} ${outcomeLabel}`;
+};
+
 const GoalCard = ({
     goal,
     onUpdateProgress,
@@ -19,6 +35,8 @@ const GoalCard = ({
         (goal.type === "tasks" && Number(goal.target) > 20);
     const isTrainingGoal = goal.type === "training";
     const isAutoTrackedGoal = goal.type === "tasks";
+    const historyEntries = Array.isArray(goal.history) ? goal.history.slice(0, 3) : [];
+    const resetLabel = goal.isRecurring ? formatDateLabel(goal.periodEnd) : null;
 
     const handleIncrement = () => {
         onUpdateProgress(goal.id, Math.min(goal.current + 1, goal.target * 2));
@@ -97,6 +115,54 @@ const GoalCard = ({
                         <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground capitalize">
                             {goal.trackingStyle} tracking
                         </span>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                        {goal.isRecurring ? (
+                            <div className="grid grid-cols-3 gap-2 text-center">
+                                <div className="rounded-lg bg-muted/40 px-2 py-2">
+                                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Streak</p>
+                                    <p className="text-sm font-semibold text-foreground">{goal.currentStreak}</p>
+                                </div>
+                                <div className="rounded-lg bg-muted/40 px-2 py-2">
+                                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Best</p>
+                                    <p className="text-sm font-semibold text-foreground">{goal.bestStreak}</p>
+                                </div>
+                                <div className="rounded-lg bg-muted/40 px-2 py-2">
+                                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Closed</p>
+                                    <p className="text-sm font-semibold text-foreground">{goal.completedPeriods}</p>
+                                </div>
+                            </div>
+                        ) : null}
+
+                        {goal.isRecurring ? (
+                            <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
+                                <p className="text-xs text-muted-foreground">
+                                    {goal.current >= goal.target
+                                        ? "This period is complete."
+                                        : "This period is still in progress."}
+                                </p>
+                                <p className="text-xs font-medium text-foreground mt-1">
+                                    {resetLabel ? `Resets ${resetLabel}` : "Resets automatically at the next period"}
+                                </p>
+                            </div>
+                        ) : null}
+
+                        {historyEntries.length ? (
+                            <div className="rounded-lg border border-border/70 bg-card/70 px-3 py-3">
+                                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Recent history</p>
+                                <div className="mt-2 space-y-1.5">
+                                    {historyEntries.map((entry) => (
+                                        <div key={entry.id} className="flex items-center justify-between gap-3 text-xs">
+                                            <span className="text-muted-foreground">{getHistorySummary(entry)}</span>
+                                            <span className={cn("font-medium", entry.completed ? "text-primary" : "text-muted-foreground")}>
+                                                {entry.completed ? "Complete" : "Incomplete"}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : null}
                     </div>
                 </CardContent>
             </Card>

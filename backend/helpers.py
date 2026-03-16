@@ -152,6 +152,36 @@ def setup_db_and_tables() -> None:
                 "ON goal_ai_checkins_cache(goal_id, input_hash)"
             )
         )
+        connection.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS goal_history ("
+                "  goal_history_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),"
+                "  goal_id UUID NOT NULL REFERENCES goals(goal_id) ON DELETE CASCADE,"
+                "  user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,"
+                "  tracking_style VARCHAR(20) NOT NULL,"
+                "  period_key VARCHAR(40) NOT NULL,"
+                "  period_started_at TIMESTAMPTZ,"
+                "  period_ended_at TIMESTAMPTZ,"
+                "  current_value INTEGER NOT NULL,"
+                "  target_value INTEGER NOT NULL,"
+                "  completed BOOLEAN NOT NULL DEFAULT FALSE,"
+                "  snapshot_data JSONB NOT NULL DEFAULT '{}'::jsonb,"
+                "  created_at TIMESTAMPTZ DEFAULT NOW()"
+                ")"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_goal_history_goal_period "
+                "ON goal_history(goal_id, period_key)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_goal_history_user_created "
+                "ON goal_history(user_id, created_at DESC)"
+            )
+        )
 
 
 def get_session_local() -> sessionmaker:

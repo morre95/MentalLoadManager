@@ -161,8 +161,27 @@ export type UiGoal = {
   name: string;
   current: number;
   target: number;
-  trackingStyle: "daily" | "weekly" | "total" | string;
+  trackingStyle: "daily" | "weekly" | "monthly" | "total" | string;
+  progressData: Record<string, any>;
   createdAt: Date | null;
+  isRecurring: boolean;
+  periodKey: string | null;
+  periodStart: Date | null;
+  periodEnd: Date | null;
+  currentStreak: number;
+  bestStreak: number;
+  completedPeriods: number;
+  history: Array<{
+    id: string;
+    trackingStyle: string;
+    periodKey: string;
+    periodStartedAt: Date | null;
+    periodEndedAt: Date | null;
+    current: number;
+    target: number;
+    completed: boolean;
+    createdAt: Date | null;
+  }>;
 };
 
 export function mapApiGoalToUi(goal: any): UiGoal;
@@ -214,12 +233,18 @@ export function createGoal(
     target_value: number;
     tracking_style: string;
     current_value?: number;
+    progress_data?: Record<string, any>;
   }
 ): Promise<UiGoal>;
 export function updateGoalProgress(
   apiClient: ApiClient,
   goalId: string,
-  currentValue: number
+  currentValue:
+    | number
+    | {
+        current_value: number;
+        progress_data?: Record<string, any>;
+      }
 ): Promise<UiGoal>;
 export function deleteGoal(
   apiClient: ApiClient,

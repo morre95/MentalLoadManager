@@ -11,6 +11,26 @@ export function mapApiGoalToUi(goal) {
         ? goal.progress_data
         : {},
     createdAt: goal.created_at ? new Date(goal.created_at) : null,
+    isRecurring: Boolean(goal?.is_recurring),
+    periodKey: goal?.period_key ? String(goal.period_key) : null,
+    periodStart: goal?.period_start ? new Date(goal.period_start) : null,
+    periodEnd: goal?.period_end ? new Date(goal.period_end) : null,
+    currentStreak: Number(goal?.current_streak || 0),
+    bestStreak: Number(goal?.best_streak || 0),
+    completedPeriods: Number(goal?.completed_periods || 0),
+    history: Array.isArray(goal?.history)
+      ? goal.history.map((item) => ({
+          id: String(item?.goal_history_id || ""),
+          trackingStyle: String(item?.tracking_style || ""),
+          periodKey: String(item?.period_key || ""),
+          periodStartedAt: item?.period_started_at ? new Date(item.period_started_at) : null,
+          periodEndedAt: item?.period_ended_at ? new Date(item.period_ended_at) : null,
+          current: Number(item?.current_value || 0),
+          target: Number(item?.target_value || 0),
+          completed: Boolean(item?.completed),
+          createdAt: item?.created_at ? new Date(item.created_at) : null,
+        }))
+      : [],
   };
 }
 
