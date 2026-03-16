@@ -90,3 +90,22 @@ export async function fetchGoalAICheckin(apiClient, goalId, options = {}) {
     generated_at: data?.generated_at || null,
   };
 }
+
+export async function fetchGoalsBoardAICheckin(apiClient, options = {}) {
+  const data = await apiClient.request("/api/goals/ai-checkin", {
+    method: "POST",
+    body: JSON.stringify({
+      refresh: Boolean(options.refresh),
+    }),
+  });
+
+  return {
+    headline: String(data?.headline || ""),
+    summary: String(data?.summary || ""),
+    priorities: Array.isArray(data?.priorities) ? data.priorities.map((item) => String(item)) : [],
+    wins: Array.isArray(data?.wins) ? data.wins.map((item) => String(item)) : [],
+    risks: Array.isArray(data?.risks) ? data.risks.map((item) => String(item)) : [],
+    model: data?.model ? String(data.model) : null,
+    generated_at: data?.generated_at || null,
+  };
+}

@@ -67,3 +67,17 @@ class GoalAICheckinResponse(BaseModel):
     cached: bool = False
     model: str | None = None
     generated_at: datetime
+
+
+class GoalsBoardAICheckinRequest(BaseModel):
+    refresh: bool = False
+
+
+class GoalsBoardAICheckinResponse(BaseModel):
+    headline: str
+    summary: str
+    priorities: list[str] = Field(default_factory=list)
+    wins: list[str] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
+    model: str | None = None
+    generated_at: datetime

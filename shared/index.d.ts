@@ -173,6 +173,18 @@ export function fetchGoalAICheckin(
   model: string | null;
   generated_at: string | null;
 }>;
+export function fetchGoalsBoardAICheckin(
+  apiClient: ApiClient,
+  options?: { refresh?: boolean }
+): Promise<{
+  headline: string;
+  summary: string;
+  priorities: string[];
+  wins: string[];
+  risks: string[];
+  model: string | null;
+  generated_at: string | null;
+}>;
 export function createGoal(
   apiClient: ApiClient,
   payload: {

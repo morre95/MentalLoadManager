@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Target, Plus, Trophy } from "lucide-react";
+import { Target, Plus, Trophy, Sparkles, RefreshCcw } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import GoalCard from "@/components/goals/GoalCard";
 import AddGoalDialog from "@/components/goals/AddGoalDialog";
 import AchievementCard from "@/components/goals/AchievementCard";
@@ -10,7 +11,7 @@ import {
     createGoal as createGoalRequest,
     deleteGoal as deleteGoalRequest,
     fetchAchievements as fetchAchievementsRequest,
-    fetchGoalAICheckin as fetchGoalAICheckinRequest,
+    fetchGoalsBoardAICheckin as fetchGoalsBoardAICheckinRequest,
     fetchGoals as fetchGoalsRequest,
     updateGoalProgress as updateGoalProgressRequest,
 } from "@/lib/utils";
@@ -116,8 +117,8 @@ const Goals = () => {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [syncError, setSyncError] = useState(null);
-    const [goalAICheckins, setGoalAICheckins] = useState({});
-    const [goalAILoading, setGoalAILoading] = useState({});
+    const [boardAICheckin, setBoardAICheckin] = useState(null);
+    const [boardAILoading, setBoardAILoading] = useState(false);
     const [highlightedGoalId, setHighlightedGoalId] = useState(() => String(location.state?.highlightGoalId || ""));
 
     const loadGoals = useCallback(async () => {
@@ -350,20 +351,20 @@ const Goals = () => {
         }
     };
 
-    const handleRunAICheckin = async (id, options = {}) => {
-        setGoalAILoading((prev) => ({ ...prev, [id]: true }));
+    const handleLoadBoardAICheckin = async (options = {}) => {
+        setBoardAILoading(true);
         setSyncError(null);
         try {
-            const checkin = await fetchGoalAICheckinRequest(id, options);
-            setGoalAICheckins((prev) => ({ ...prev, [id]: checkin }));
+            const checkin = await fetchGoalsBoardAICheckinRequest(options);
+            setBoardAICheckin(checkin);
         } catch (error) {
             if (error?.status === 401) {
                 navigate("/login", { replace: true });
                 return;
             }
-            setSyncError("Could not load AI goal check-in.");
+            setSyncError("Could not load AI goals board check-in.");
         } finally {
-            setGoalAILoading((prev) => ({ ...prev, [id]: false }));
+            setBoardAILoading(false);
         }
     };
 
@@ -385,6 +386,80 @@ const Goals = () => {
                 <Button className="gap-2" onClick={() => setIsAddDialogOpen(true)}>
                     <Plus className="h-4 w-4" /> Add Goal
                 </Button>
+            </motion.div>
+
+            <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 }}
+            >
+                <Card className="border-border">
+                    <CardHeader className="flex flex-row items-start justify-between gap-4">
+                        <div>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <Sparkles className="h-5 w-5 text-primary" />
+                                Goals Board Check-in
+                            </CardTitle>
+                            <p className="text-sm text-muted-foreground mt-1">
+                                Generate a quick board-level check-in to see which goals are on track and which need attention.
+                            </p>
+                        </div>
+                        <Button
+                            variant="outline"
+                            onClick={() => handleLoadBoardAICheckin({ refresh: true })}
+                            disabled={boardAILoading}
+                        >
+                            <RefreshCcw className="h-4 w-4 mr-2" />
+                            {boardAILoading ? "Refreshing..." : boardAICheckin ? "Refresh" : "Generate"}
+                        </Button>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {boardAICheckin ? (
+                            <>
+                                <div>
+                                    <p className="font-medium text-foreground">{boardAICheckin.headline}</p>
+                                    <p className="text-sm text-muted-foreground mt-1">{boardAICheckin.summary}</p>
+                                </div>
+
+                                {(boardAICheckin.priorities || []).length ? (
+                                    <div>
+                                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Priorities</p>
+                                        <ul className="mt-2 list-disc pl-4 text-sm text-foreground space-y-1">
+                                            {boardAICheckin.priorities.map((item) => (
+                                                <li key={item}>{item}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ) : null}
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {(boardAICheckin.wins || []).length ? (
+                                        <div>
+                                            <p className="text-xs uppercase tracking-wide text-muted-foreground">Wins</p>
+                                            <ul className="mt-2 list-disc pl-4 text-sm text-foreground space-y-1">
+                                                {boardAICheckin.wins.map((item) => (
+                                                    <li key={item}>{item}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ) : null}
+
+                                    {(boardAICheckin.risks || []).length ? (
+                                        <div>
+                                            <p className="text-xs uppercase tracking-wide text-muted-foreground">Risks</p>
+                                            <ul className="mt-2 list-disc pl-4 text-sm text-foreground space-y-1">
+                                                {boardAICheckin.risks.map((item) => (
+                                                    <li key={item}>{item}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            </>
+                        ) : (""
+                        )}
+                    </CardContent>
+                </Card>
             </motion.div>
 
             {/* Goals Grid - auto-sizing cards */}
@@ -414,9 +489,6 @@ const Goals = () => {
                             onUpdateProgress={handleUpdateProgress}
                             onToggleTrainingDay={handleToggleTrainingDay}
                             onDelete={handleDeleteGoal}
-                            onRunAICheckin={handleRunAICheckin}
-                            aiCheckin={goalAICheckins[goal.id]}
-                            aiLoading={Boolean(goalAILoading[goal.id])}
                             isHighlighted={goal.id === highlightedGoalId}
                         />
                     ))}

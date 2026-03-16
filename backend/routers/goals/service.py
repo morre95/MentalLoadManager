@@ -33,6 +33,8 @@ from .schemas import (
     DeleteGoalResponse,
     GoalAICheckinRequest,
     GoalAICheckinResponse,
+    GoalsBoardAICheckinRequest,
+    GoalsBoardAICheckinResponse,
     GoalResponse,
     GoalsResponse,
     UpdateGoalProgressRequest,
@@ -52,6 +54,14 @@ class _GoalAICheckinModelPayload(BaseModel):
     next_step: str
     adjustment_suggestion: str
     evidence: list[str] = Field(default_factory=list)
+
+
+class _GoalsBoardAICheckinPayload(BaseModel):
+    headline: str
+    summary: str
+    priorities: list[str] = Field(default_factory=list)
+    wins: list[str] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
 
 
 def _to_goal_response(goal) -> GoalResponse:
@@ -925,6 +935,157 @@ def _goal_checkin_cache_to_response(cache_item, goal_id: UUID, cached: bool) -> 
         model=cache_item.model,
         generated_at=generated_at,
     )
+
+
+def _generate_goals_board_ai_checkin(payload: dict[str, Any]) -> tuple[_GoalsBoardAICheckinPayload, str | None]:
+    api_key = settings.OPENROUTER_API_KEY
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="OPENROUTER_API_KEY is not configured",
+        )
+
+    system_prompt = (
+        "You are summarizing the state of a user's goals board. "
+        "Use only the provided computed data. "
+        "Do not mention implementation details or raw field names. "
+        "Keep it short, practical, and user-facing. "
+        "Return valid JSON only."
+    )
+    user_prompt = (
+        "Create a short board-level goals check-in.\n"
+        "Requirements:\n"
+        "1. Provide one headline.\n"
+        "2. Provide a short summary covering the overall board state.\n"
+        "3. Give up to 3 priorities.\n"
+        "4. Give up to 2 wins.\n"
+        "5. Give up to 2 risks.\n\n"
+        "Return JSON with exactly this shape:\n"
+        "{\n"
+        '  "headline": "string",\n'
+        '  "summary": "string",\n'
+        '  "priorities": ["string"],\n'
+        '  "wins": ["string"],\n'
+        '  "risks": ["string"]\n'
+        "}\n\n"
+        f"Data:\n{json.dumps(payload, sort_keys=True, ensure_ascii=True)}"
+    )
+
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    response = None
+    selected_model = None
+    failures: list[str] = []
+    for candidate in _load_model_candidates():
+        selected_model = candidate
+        for attempt in range(2):
+            try:
+                response = requests.post(
+                    OPENROUTER_CHAT_COMPLETIONS_URL,
+                    headers=headers,
+                    json={
+                        "model": candidate,
+                        "temperature": 0.2,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                    },
+                    timeout=60,
+                )
+            except requests.RequestException as exc:
+                failures.append(f"{candidate}: network error ({exc})")
+                break
+            if response.status_code == status.HTTP_429_TOO_MANY_REQUESTS and attempt == 0:
+                time_module.sleep(_parse_retry_after_seconds(response))
+                continue
+            if response.ok:
+                break
+            failures.append(f"{candidate}: {response.status_code} {response.text[:120]}")
+            break
+        if response is not None and response.ok:
+            break
+
+    if response is None or not response.ok:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Goals board AI check-in request failed" if not failures else " | ".join(failures),
+        )
+
+    raw_text = _extract_text_content(response.json())
+    if not raw_text:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Goals board AI check-in response did not contain text",
+        )
+
+    try:
+        validated = _GoalsBoardAICheckinPayload.model_validate(
+            json.loads(_extract_json_block(raw_text))
+        )
+    except (json.JSONDecodeError, ValidationError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Goals board AI check-in response was not valid JSON: {exc}",
+        ) from exc
+
+    return validated, selected_model[:100] if selected_model else None
+
+
+def get_goals_board_ai_checkin(
+    payload: GoalsBoardAICheckinRequest,
+    current_user: UserEmail,
+) -> GoalsBoardAICheckinResponse:
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        goals = list_goals_for_user(db, current_user.user_id)
+        goals = [_sync_derived_goal_progress(db, goal, current_user.user_id) for goal in goals]
+
+        metrics = [_goal_checkin_metrics(goal) for goal in goals]
+        completed_count = sum(1 for item in metrics if item["remaining"] == 0)
+        high_risk_count = sum(1 for item in metrics if item["risk_level"] == "high")
+        medium_risk_count = sum(1 for item in metrics if item["risk_level"] == "medium")
+        on_track_count = sum(1 for item in metrics if item["risk_level"] == "low" and item["remaining"] > 0)
+
+        input_payload = {
+            "totals": {
+                "goal_count": len(metrics),
+                "completed_count": completed_count,
+                "on_track_count": on_track_count,
+                "high_risk_count": high_risk_count,
+                "medium_risk_count": medium_risk_count,
+            },
+            "goals": [
+                {
+                    "name": item["goal_name"],
+                    "type": item["goal_type"],
+                    "tracking_style": item["tracking_style"],
+                    "progress_pct": item["progress_pct"],
+                    "remaining": item["remaining"],
+                    "risk_level": item["risk_level"],
+                    "pace_needed_per_day": item["pace_needed_per_day"],
+                    "projected_final": item["projected_final"],
+                }
+                for item in metrics
+            ],
+        }
+
+        ai_result, model_name = _generate_goals_board_ai_checkin(input_payload)
+        return GoalsBoardAICheckinResponse(
+            headline=ai_result.headline,
+            summary=ai_result.summary,
+            priorities=ai_result.priorities,
+            wins=ai_result.wins,
+            risks=ai_result.risks,
+            model=model_name,
+            generated_at=datetime.now(timezone.utc),
+        )
 
 
 def get_goal_ai_checkin(

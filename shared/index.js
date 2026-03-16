@@ -51,6 +51,7 @@ export {
   createGoal,
   deleteGoal,
   fetchGoalAICheckin,
+  fetchGoalsBoardAICheckin,
   fetchAchievements,
   fetchGoals,
   mapApiGoalToUi,

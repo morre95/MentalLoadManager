@@ -21,6 +21,7 @@ import {
   deleteHouseholdCategory as sharedDeleteHouseholdCategory,
   fetchAchievements as sharedFetchAchievements,
   fetchGoalAICheckin as sharedFetchGoalAICheckin,
+  fetchGoalsBoardAICheckin as sharedFetchGoalsBoardAICheckin,
   fetchGoals as sharedFetchGoals,
   fetchHouseholds as sharedFetchHouseholds,
   fetchHouseholdCategories as sharedFetchHouseholdCategories,
@@ -224,6 +225,10 @@ export async function fetchAchievements() {
 
 export async function fetchGoalAICheckin(goalId, options = {}) {
   return sharedFetchGoalAICheckin(apiClient, goalId, options);
+}
+
+export async function fetchGoalsBoardAICheckin(options = {}) {
+  return sharedFetchGoalsBoardAICheckin(apiClient, options);
 }
 
 export async function fetchMoodTrackerPeriod(periodType, anchorDate) {
