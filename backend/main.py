@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 import random
 from typing import Literal, cast
@@ -9,6 +10,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from cache_maintenance import run_ai_cache_maintenance_loop, stop_background_task
 from routers import all_routers
 from config import settings
 from helpers import setup_db_and_tables
@@ -18,7 +20,11 @@ from limiter import limiter
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     setup_db_and_tables()
-    yield
+    cache_cleanup_task = asyncio.create_task(run_ai_cache_maintenance_loop())
+    try:
+        yield
+    finally:
+        await stop_background_task(cache_cleanup_task)
 
 
 app = FastAPI(lifespan=lifespan, debug=True)

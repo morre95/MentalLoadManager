@@ -101,6 +101,19 @@ class SetupDbAndTablesTests(unittest.TestCase):
         self.assertIn("tasks_recurrence_frequency_check", executed)
         self.assertIn("tasks_recurrence_interval_check", executed)
         self.assertIn("idx_tasks_recurrence_parent", executed)
+        self.assertIn(
+            "ALTER TABLE analytics_ai_insights_cache ADD COLUMN IF NOT EXISTS created_at",
+            executed,
+        )
+        self.assertIn(
+            "ALTER TABLE analytics_ai_questions_cache ADD COLUMN IF NOT EXISTS created_at",
+            executed,
+        )
+        self.assertIn(
+            "ALTER TABLE goal_ai_checkins_cache ADD COLUMN IF NOT EXISTS created_at",
+            executed,
+        )
+
 
 
 if __name__ == "__main__":

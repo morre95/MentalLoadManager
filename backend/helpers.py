@@ -231,6 +231,18 @@ def setup_db_and_tables() -> None:
         )
         connection.execute(
             text(
+                "ALTER TABLE analytics_ai_insights_cache "
+                "ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE analytics_ai_insights_cache "
+                "ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()"
+            )
+        )
+        connection.execute(
+            text(
                 "CREATE TABLE IF NOT EXISTS analytics_ai_questions_cache ("
                 "  analytics_ai_question_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),"
                 "  household_id UUID NOT NULL REFERENCES households(household_id) ON DELETE CASCADE,"
@@ -252,6 +264,18 @@ def setup_db_and_tables() -> None:
         )
         connection.execute(
             text(
+                "ALTER TABLE analytics_ai_questions_cache "
+                "ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE analytics_ai_questions_cache "
+                "ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()"
+            )
+        )
+        connection.execute(
+            text(
                 "CREATE TABLE IF NOT EXISTS goal_ai_checkins_cache ("
                 "  goal_ai_checkin_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),"
                 "  goal_id UUID NOT NULL REFERENCES goals(goal_id) ON DELETE CASCADE,"
@@ -267,6 +291,18 @@ def setup_db_and_tables() -> None:
             text(
                 "CREATE UNIQUE INDEX IF NOT EXISTS uq_goal_ai_checkins_cache_lookup "
                 "ON goal_ai_checkins_cache(goal_id, input_hash)"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE goal_ai_checkins_cache "
+                "ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE goal_ai_checkins_cache "
+                "ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()"
             )
         )
         connection.execute(
