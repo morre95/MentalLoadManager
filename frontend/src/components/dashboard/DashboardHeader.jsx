@@ -72,6 +72,7 @@ const DashboardHeader = ({ onAddTask }) => {
   const [notifications, setNotifications] = useState([]);
   const [readNotifications, setReadNotifications] = useState(readReadNotifications);
   const notificationPanelRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   const handleAddClick = () => {
     setIsAddDialogOpen(true);
@@ -100,8 +101,74 @@ const DashboardHeader = ({ onAddTask }) => {
 
   const handleClearSearch = () => {
     setSearchQuery("");
-    navigate("/dashboard/tasks");
+    navigate("/dashboard/tasks", { replace: location.pathname === "/dashboard/tasks" });
   };
+
+  useEffect(() => {
+    if (location.pathname !== "/dashboard/tasks") {
+      return undefined;
+    }
+
+    const currentSearch = new URLSearchParams(location.search).get("search") || "";
+    if (currentSearch === searchQuery.trim()) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const nextQuery = searchQuery.trim();
+      const params = new URLSearchParams(location.search);
+
+      if (nextQuery) {
+        params.set("search", nextQuery);
+      } else {
+        params.delete("search");
+      }
+
+      navigate(
+        {
+          pathname: "/dashboard/tasks",
+          search: params.toString() ? `?${params.toString()}` : "",
+        },
+        { replace: true },
+      );
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [location.pathname, location.search, navigate, searchQuery]);
+
+  useEffect(() => {
+    const isEditableElement = (element) => {
+      if (!(element instanceof HTMLElement)) return false;
+      const tagName = element.tagName.toLowerCase();
+      return (
+        element.isContentEditable ||
+        tagName === "input" ||
+        tagName === "textarea" ||
+        tagName === "select"
+      );
+    };
+
+    const handleKeydown = (event) => {
+      const shortcutPressed = (event.key === "k" || event.key === "K") && (event.metaKey || event.ctrlKey);
+      const slashPressed = event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey;
+
+      if (!shortcutPressed && !slashPressed) {
+        return;
+      }
+
+      const activeElement = document.activeElement;
+      if (isEditableElement(activeElement)) {
+        return;
+      }
+
+      event.preventDefault();
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    };
+
+    window.addEventListener("keydown", handleKeydown);
+    return () => window.removeEventListener("keydown", handleKeydown);
+  }, []);
 
   const handleTaskCreated = (newTask) => {
     if (onAddTask) onAddTask(newTask);
@@ -347,6 +414,7 @@ const DashboardHeader = ({ onAddTask }) => {
           <form className="hidden md:flex items-center gap-2 relative" onSubmit={handleSearchSubmit}>
             <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
             <Input
+              ref={searchInputRef}
               placeholder="Search tasks..."
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}

@@ -76,23 +76,132 @@ const ARCHIVE_COLUMN_ID = "archive";
 const ALL_HOUSEHOLDS_VALUE = "__all_households__";
 const MAX_VISIBLE_TASKS_PER_COLUMN = 8;
 const TASK_CREATED_EVENT = "kanban-task-created";
+const STATUS_TOKEN_MAP = {
+  todo: "todo",
+  "to-do": "todo",
+  done: "done",
+  completed: "done",
+  complete: "done",
+  "in-progress": "in-progress",
+  inprogress: "in-progress",
+  progress: "in-progress",
+  archive: "archive",
+  archived: "archive",
+};
+
+const PRIORITY_TOKEN_MAP = {
+  low: "low",
+  medium: "medium",
+  med: "medium",
+  high: "high",
+};
 
 function normalizeSearchValue(value) {
   return String(value || "").trim().toLowerCase();
 }
 
-function taskMatchesSearch(task, searchTerm) {
-  if (!searchTerm) return true;
-
-  const fields = [
+function getTaskSearchText(task) {
+  return [
     task?.title,
     task?.description,
     task?.category,
     task?.assigneeLabel,
     task?.dueDate,
-  ];
+  ]
+    .map((field) => normalizeSearchValue(field))
+    .filter(Boolean)
+    .join(" ");
+}
 
-  return fields.some((field) => normalizeSearchValue(field).includes(searchTerm));
+function parseTaskSearchQuery(rawQuery) {
+  const tokens = normalizeSearchValue(rawQuery).split(/\s+/).filter(Boolean);
+  const filters = {
+    textTerms: [],
+    statuses: [],
+    priorities: [],
+    dueStates: [],
+    recurringOnly: false,
+  };
+
+  tokens.forEach((token) => {
+    if (STATUS_TOKEN_MAP[token]) {
+      filters.statuses.push(STATUS_TOKEN_MAP[token]);
+      return;
+    }
+
+    if (PRIORITY_TOKEN_MAP[token]) {
+      filters.priorities.push(PRIORITY_TOKEN_MAP[token]);
+      return;
+    }
+
+    if (token === "overdue" || token === "today" || token === "upcoming") {
+      filters.dueStates.push(token);
+      return;
+    }
+
+    if (token === "recurring" || token === "repeat" || token === "repeats") {
+      filters.recurringOnly = true;
+      return;
+    }
+
+    filters.textTerms.push(token);
+  });
+
+  return {
+    ...filters,
+    statuses: [...new Set(filters.statuses)],
+    priorities: [...new Set(filters.priorities)],
+    dueStates: [...new Set(filters.dueStates)],
+  };
+}
+
+function getTaskDueState(task) {
+  if (!task?.dueDateValue) return null;
+
+  const dueDate = new Date(`${task.dueDateValue}T00:00:00`);
+  if (Number.isNaN(dueDate.getTime())) return null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (dueDate.getTime() < today.getTime()) return "overdue";
+  if (dueDate.getTime() === today.getTime()) return "today";
+  return "upcoming";
+}
+
+function taskMatchesFilters(task, filters) {
+  const taskStatus = task?.status === "on-hold" ? "archive" : normalizeSearchValue(task?.status);
+  const taskPriority = normalizeSearchValue(task?.priority);
+  const taskDueState = getTaskDueState(task);
+  const taskSearchText = getTaskSearchText(task);
+
+  if (filters.statuses.length > 0 && !filters.statuses.includes(taskStatus)) {
+    return false;
+  }
+
+  if (filters.priorities.length > 0 && !filters.priorities.includes(taskPriority)) {
+    return false;
+  }
+
+  if (filters.dueStates.length > 0 && !filters.dueStates.includes(taskDueState)) {
+    return false;
+  }
+
+  if (filters.recurringOnly && !task?.recurrenceEnabled) {
+    return false;
+  }
+
+  return filters.textTerms.every((term) => taskSearchText.includes(term));
+}
+
+function buildSearchFilterBadges(filters) {
+  return [
+    ...filters.statuses.map((status) => ({ key: `status-${status}`, label: `Status: ${status}` })),
+    ...filters.priorities.map((priority) => ({ key: `priority-${priority}`, label: `Priority: ${priority}` })),
+    ...filters.dueStates.map((dueState) => ({ key: `due-${dueState}`, label: `Due: ${dueState}` })),
+    ...(filters.recurringOnly ? [{ key: "recurring", label: "Recurring" }] : []),
+    ...filters.textTerms.map((term) => ({ key: `term-${term}`, label: `Text: ${term}` })),
+  ];
 }
 
 function toApiStatus(status) {
@@ -325,9 +434,19 @@ const Tasks = () => {
     return normalizeSearchValue(rawSearchQuery);
   }, [rawSearchQuery]);
 
+  const activeSearchFilters = useMemo(
+    () => parseTaskSearchQuery(rawSearchQuery),
+    [rawSearchQuery]
+  );
+
+  const activeSearchBadges = useMemo(
+    () => buildSearchFilterBadges(activeSearchFilters),
+    [activeSearchFilters]
+  );
+
   const filteredTasks = useMemo(
-    () => tasks.filter((task) => taskMatchesSearch(task, searchTerm)),
-    [tasks, searchTerm]
+    () => tasks.filter((task) => taskMatchesFilters(task, activeSearchFilters)),
+    [activeSearchFilters, tasks]
   );
 
   const selectedTask = selectedTaskId
@@ -711,7 +830,17 @@ const Tasks = () => {
           <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
             <ListTodo className="h-7 w-7 text-primary" /> Tasks
           </h1>
-          <p className="text-muted-foreground mt-1">Drag tasks between columns to update status</p>
+          <p className="text-muted-foreground mt-1">
+            Drag tasks between columns to update status. Search supports terms like
+            {" "}
+            <span className="font-medium text-foreground/80">maria overdue</span>,
+            {" "}
+            <span className="font-medium text-foreground/80">shopping high</span>,
+            {" "}
+            or
+            {" "}
+            <span className="font-medium text-foreground/80">done recurring</span>.
+          </p>
           {loading ? <p className="text-sm text-muted-foreground mt-2">Loading tasks…</p> : null}
           {error?.status === 401 ? (
             <p className="text-sm text-red-600 mt-2">Your session has expired. Please log in again.</p>
@@ -744,12 +873,23 @@ const Tasks = () => {
       </Motion.div>
 
       {!loading && tasks.length > 0 ? (
-        <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-          <span>
-            {searchTerm
-              ? `Showing ${filteredTasks.length} matching tasks from ${tasks.length} loaded`
-              : `Showing ${tasks.length} of ${total} tasks`}
-          </span>
+        <div className="flex flex-col gap-3 text-sm text-muted-foreground md:flex-row md:items-start md:justify-between">
+          <div className="space-y-2">
+            <span className="block">
+              {searchTerm
+                ? `Showing ${filteredTasks.length} matching tasks from ${tasks.length} loaded`
+                : `Showing ${tasks.length} of ${total} tasks`}
+            </span>
+            {activeSearchBadges.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {activeSearchBadges.map((badge) => (
+                  <Badge key={badge.key} variant="outline" className="bg-background">
+                    {badge.label}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+          </div>
           {hasMore ? (
             <Button
               variant="outline"
@@ -764,7 +904,7 @@ const Tasks = () => {
 
       {!loading && tasks.length > 0 && searchTerm && filteredTasks.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
-          No tasks matched "{rawSearchQuery}". Try a task title, description, category, assignee, or due date.
+          No tasks matched "{rawSearchQuery}". Try a task title, category, or assignee, and combine it with filters like `overdue`, `high`, `done`, or `recurring`.
         </div>
       ) : null}
 
