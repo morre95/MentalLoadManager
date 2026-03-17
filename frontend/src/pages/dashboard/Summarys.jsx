@@ -70,7 +70,7 @@ export default function Summarys() {
     setRequestError(null);
 
     try {
-      const data = await apiFetch("/api/ai/weekly-summary", {
+      const data = await apiFetch("/api/v1/ai/weekly-summary", {
         method: "POST",
         body: JSON.stringify({
           household_id: selectedHouseholdId,
@@ -96,7 +96,7 @@ export default function Summarys() {
     const poll = async () => {
       try {
         const nextSummary = await apiFetch(
-          `/api/ai/weekly-summary/${summary.ai_summary_id}`,
+          `/api/v1/ai/weekly-summary/${summary.ai_summary_id}`,
           { method: "GET" }
         );
         if (active) {
@@ -132,7 +132,7 @@ export default function Summarys() {
     const loadReports = async () => {
       setIsLoadingReports(true);
       try {
-        const data = await apiFetch(`/api/ai/summaries?household_id=${encodeURIComponent(selectedHouseholdId)}`, {
+        const data = await apiFetch(`/api/v1/ai/summaries?household_id=${encodeURIComponent(selectedHouseholdId)}`, {
           method: "GET",
         });
         if (active) {

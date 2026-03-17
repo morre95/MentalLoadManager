@@ -112,7 +112,7 @@ export async function fetchAnalyticsSummary(
     const query = params.toString() ? `?${params.toString()}` : "";
 
     const data = await apiClient.request(
-        `/api/analytics/summary${query}`,
+        `/api/v1/analytics/summary${query}`,
         { method: "GET" }
     );
 
@@ -128,7 +128,7 @@ export async function fetchAnalyticsAIInsights(
         refresh = false,
     } = {}
 ) {
-    const data = await apiClient.request("/api/analytics/ai-insights", {
+    const data = await apiClient.request("/api/v1/analytics/ai-insights", {
         method: "POST",
         body: JSON.stringify({
             household_id: householdId,
@@ -149,7 +149,7 @@ export async function askAnalyticsQuestion(
         refresh = false,
     } = {}
 ) {
-    const data = await apiClient.request("/api/analytics/ask", {
+    const data = await apiClient.request("/api/v1/analytics/ask", {
         method: "POST",
         body: JSON.stringify({
             household_id: householdId,

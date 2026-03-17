@@ -128,7 +128,7 @@ export const fetchMe = async (options = {}) => {
     try {
     const data = await sharedFetchMe(apiClient);
     if (!data?.username) {
-      throw new Error("No username in /api/users/me response");
+      throw new Error("No username in /api/v1/users/me response");
     }
 
     saveUserToLocalStorage(data);
@@ -262,11 +262,11 @@ export async function fetchMoodTrackerPeriod(periodType, anchorDate) {
     params.set("anchor_date", String(anchorDate));
   }
 
-  return apiFetch(`/api/mood-tracker?${params.toString()}`, { method: "GET" });
+  return apiFetch(`/api/v1/mood-tracker?${params.toString()}`, { method: "GET" });
 }
 
 export async function upsertMoodTrackerEntry(payload) {
-  return apiFetch("/api/mood-tracker/entries", {
+  return apiFetch("/api/v1/mood-tracker/entries", {
     method: "PUT",
     body: JSON.stringify(payload),
   });
@@ -394,7 +394,7 @@ export async function fetchTaskReminderSummary() {
 }
 
 export async function fetchInviteEmailNotifications() {
-  return apiFetch("/api/household/invite/notifications");
+  return apiFetch("/api/v1/household/invite/notifications");
 }
 
 export async function fetchPreferences() {

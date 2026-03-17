@@ -74,7 +74,7 @@ export async function fetchCalendarMonth(apiClient, year = null, month = null) {
     if (month) params.set("month", String(month));
     const query = params.toString() ? `?${params.toString()}` : "";
 
-    const data = await apiClient.request(`/api/calendar/events${query}`, {
+    const data = await apiClient.request(`/api/v1/calendar/events${query}`, {
         method: "GET",
     });
 
@@ -88,7 +88,7 @@ export async function fetchCalendarRange(apiClient, from, to) {
 
     const query = `?${params.toString()}`;
 
-    const data = await apiClient.request(`/api/calendar/events/range${query}`, {
+    const data = await apiClient.request(`/api/v1/calendar/events/range${query}`, {
         method: "GET",
     });
 
