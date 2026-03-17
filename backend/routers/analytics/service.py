@@ -133,7 +133,7 @@ def _get_db_user(db, current_user: UserEmail):
 def _require_membership(db, user_id: UUID, household_id: UUID) -> None:
     if not has_membership(db, user_id, household_id):
         raise HTTPException(
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not a member of this household",
         )
 
