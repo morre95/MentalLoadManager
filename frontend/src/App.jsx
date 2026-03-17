@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import RequireAuth from "@/components/RequireAuth";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 
 // Pages
@@ -35,6 +36,14 @@ import DashboardLayout from "./layouts/DashboardLayout";
 
 const queryClient = new QueryClient();
 const THEME_STORAGE_KEY = "theme_preference";
+
+function RouteBoundary({ title, description, children }) {
+  return (
+    <ErrorBoundary title={title} description={description}>
+      {children}
+    </ErrorBoundary>
+  );
+}
 
 const App = () => {
   useEffect(() => {
@@ -74,28 +83,40 @@ const App = () => {
       <BrowserRouter>
         <Routes>
           {/* Public pages */}
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/features" element={<Features />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/how-it-works" element={<HowItWorks />} />
-          <Route path="/test" element={<Test />} />
-          <Route path="/join" element={<JoinHousehold />} />
+          <Route path="/" element={<RouteBoundary title="Home Unavailable"><Index /></RouteBoundary>} />
+          <Route path="/login" element={<RouteBoundary title="Login Unavailable"><Login /></RouteBoundary>} />
+          <Route path="/features" element={<RouteBoundary title="Features Unavailable"><Features /></RouteBoundary>} />
+          <Route path="/pricing" element={<RouteBoundary title="Pricing Unavailable"><Pricing /></RouteBoundary>} />
+          <Route path="/about" element={<RouteBoundary title="About Unavailable"><About /></RouteBoundary>} />
+          <Route path="/contact" element={<RouteBoundary title="Contact Unavailable"><Contact /></RouteBoundary>} />
+          <Route path="/how-it-works" element={<RouteBoundary title="How It Works Unavailable"><HowItWorks /></RouteBoundary>} />
+          <Route path="/test" element={<RouteBoundary title="Test Page Unavailable"><Test /></RouteBoundary>} />
+          <Route path="/join" element={<RouteBoundary title="Join Page Unavailable"><JoinHousehold /></RouteBoundary>} />
 
           {/* Dashboard layout wrapper */}
 
-          <Route path="/dashboard" element={<RequireAuth><DashboardLayout /></RequireAuth>}>
-            <Route index element={<Dashboard />} />
-            <Route path="tasks" element={<Tasks />} />
-            <Route path="calendar" element={<Calendar />} />
-            <Route path="goals" element={<Goals />} />
-            <Route path="mood" element={<MoodTracker />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="summarys" element={<Summarys />} />
-            <Route path="household" element={<Household />} />
-            <Route path="settings" element={<Settings />} />
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth>
+                <RouteBoundary
+                  title="Dashboard Unavailable"
+                  description="The dashboard shell failed to render. Reload and try again."
+                >
+                  <DashboardLayout />
+                </RouteBoundary>
+              </RequireAuth>
+            }
+          >
+            <Route index element={<RouteBoundary title="Dashboard Unavailable"><Dashboard /></RouteBoundary>} />
+            <Route path="tasks" element={<RouteBoundary title="Task Board Unavailable"><Tasks /></RouteBoundary>} />
+            <Route path="calendar" element={<RouteBoundary title="Calendar Unavailable"><Calendar /></RouteBoundary>} />
+            <Route path="goals" element={<RouteBoundary title="Goals Unavailable"><Goals /></RouteBoundary>} />
+            <Route path="mood" element={<RouteBoundary title="Mood Tracker Unavailable"><MoodTracker /></RouteBoundary>} />
+            <Route path="analytics" element={<RouteBoundary title="Analytics Unavailable"><Analytics /></RouteBoundary>} />
+            <Route path="summarys" element={<RouteBoundary title="Summaries Unavailable"><Summarys /></RouteBoundary>} />
+            <Route path="household" element={<RouteBoundary title="Household Unavailable"><Household /></RouteBoundary>} />
+            <Route path="settings" element={<RouteBoundary title="Settings Unavailable"><Settings /></RouteBoundary>} />
           </Route>
 
           {/* Catch all */}

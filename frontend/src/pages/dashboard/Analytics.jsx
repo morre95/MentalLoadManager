@@ -14,6 +14,7 @@ import ManageChartsDialog from "@/components/analytics/ManageChartsDialog";
 import ExpandedAnalyticsChart from "@/components/analytics/ExpandedAnalyticsChart";
 import AnalyticsDrilldownDialog from "@/components/analytics/AnalyticsDrilldownDialog";
 import AnalyticsError from "@/components/analytics/AnalyticsError";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 export default function Analytics() {
     const vm = useAnalyticsPage();
@@ -41,22 +42,40 @@ export default function Analytics() {
         <div className="p-4 md:p-6 space-y-6">
             <AnalyticsHeader vm={vm} />
             <AnalyticsStatsGrid stats={vm.enrichedStats} />
-            <AnalyticsInsightsPanel vm={vm} />
-            <AnalyticsAskPanel vm={vm} />
+            <ErrorBoundary
+                nonCritical={true}
+                title="Insights Temporarily Unavailable"
+                description="The analytics page is still usable, but the AI insights panel crashed."
+            >
+                <AnalyticsInsightsPanel vm={vm} />
+            </ErrorBoundary>
+            <ErrorBoundary
+                nonCritical={true}
+                title="Ask Panel Temporarily Unavailable"
+                description="The analytics page is still usable, but the question panel crashed."
+            >
+                <AnalyticsAskPanel vm={vm} />
+            </ErrorBoundary>
             <AnalyticsFiltersBar vm={vm} />
             <AnalyticsChartsGrid vm={vm} />
             <AnalyticsFairnessCard vm={vm} />
 
-            <ManageChartsDialog
-                open={vm.isManageOpen}
-                onOpenChange={vm.setIsManageOpen}
-                charts={vm.charts}
-                activeChartIds={vm.activeChartIds}
-                onToggle={vm.handleToggleChart}
-            />
+            <ErrorBoundary
+                nonCritical={true}
+                title="Chart Controls Temporarily Unavailable"
+                description="Analytics loaded, but some optional chart controls failed."
+            >
+                <ManageChartsDialog
+                    open={vm.isManageOpen}
+                    onOpenChange={vm.setIsManageOpen}
+                    charts={vm.charts}
+                    activeChartIds={vm.activeChartIds}
+                    onToggle={vm.handleToggleChart}
+                />
 
-            <ExpandedAnalyticsChart vm={vm} />
-            <AnalyticsDrilldownDialog vm={vm} />
+                <ExpandedAnalyticsChart vm={vm} />
+                <AnalyticsDrilldownDialog vm={vm} />
+            </ErrorBoundary>
         </div>
     );
 }
