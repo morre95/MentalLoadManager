@@ -63,11 +63,11 @@ export function createApiClient(options = {}) {
   const shouldRefresh = options.shouldRefresh || (() => true);
   const onNetworkError = options.onNetworkError || (() => {});
   const onOfflineQueue = options.onOfflineQueue || (() => {});
-  const refreshPath = options.refreshPath || "/api/password/refresh";
+  const refreshPath = options.refreshPath || "/api/v1/password/refresh";
   const refreshPathAlternatives = new Set([
     refreshPath,
-    "/api/password/refresh",
-    "/api/token/refresh",
+    "/api/v1/password/refresh",
+    "/api/v1/token/refresh",
   ]);
 
   const statusListeners = new Set();

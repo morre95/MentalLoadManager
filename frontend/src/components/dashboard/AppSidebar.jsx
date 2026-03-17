@@ -75,7 +75,7 @@ export function AppSidebar() {
 
   const handleSignOut = async () => {
     try {
-      await apiFetch("/api/password/logout", { method: "POST" });
+      await apiFetch("/api/v1/password/logout", { method: "POST" });
     } catch {
       // Ignore logout API errors and continue local cleanup.
     }

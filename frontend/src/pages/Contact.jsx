@@ -69,7 +69,7 @@ const Contact = () => {
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/contact/send/message`,
+        `${API_BASE_URL}/api/v1/contact/send/message`,
         {
           method: "POST",
           headers: {

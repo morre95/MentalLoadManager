@@ -10,11 +10,11 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from cache_maintenance import run_ai_cache_maintenance_loop, stop_background_task
-from routers import all_routers
-from config import settings
-from helpers import setup_db_and_tables
-from limiter import limiter
+from app.v1.cache_maintenance import run_ai_cache_maintenance_loop, stop_background_task
+from app.v1.routers import all_routers
+from app.v1.config import settings
+from app.v1.helpers import setup_db_and_tables
+from app.v1.limiter import limiter
 
 
 @asynccontextmanager
@@ -78,7 +78,7 @@ for router in all_routers:
     app.include_router(router)
 
 
-@app.get("/api/hello")
+@app.get("/api/v1/hello")
 def read_root():
     messages = [
         "Hello from FastAPI backend!",
@@ -90,6 +90,6 @@ def read_root():
         "Today is a great day to ship code.",
         "Request accepted. Sending positive vibes.",
         "Backend says hello from the server side.",
-        "You reached /api/hello successfully.",
+        "You reached /api/v1/hello successfully.",
     ]
     return {"message": random.choice(messages)}

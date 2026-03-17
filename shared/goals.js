@@ -35,7 +35,7 @@ export function mapApiGoalToUi(goal) {
 }
 
 export async function fetchGoals(apiClient) {
-  const data = await apiClient.request("/api/goals", { method: "GET" });
+  const data = await apiClient.request("/api/v1/goals", { method: "GET" });
   const goals = Array.isArray(data?.goals) ? data.goals : [];
 
   return {
@@ -45,7 +45,7 @@ export async function fetchGoals(apiClient) {
 }
 
 export async function fetchAchievements(apiClient) {
-  const data = await apiClient.request("/api/goals/achievements", {
+  const data = await apiClient.request("/api/v1/goals/achievements", {
     method: "GET",
   });
 
@@ -85,7 +85,7 @@ export async function fetchAchievements(apiClient) {
 }
 
 export async function createGoal(apiClient, payload) {
-  const data = await apiClient.request("/api/goals", {
+  const data = await apiClient.request("/api/v1/goals", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -105,7 +105,7 @@ export async function updateGoalProgress(apiClient, goalId, currentValueOrPayloa
         }
       : { current_value: Number(currentValueOrPayload || 0) };
 
-  const data = await apiClient.request(`/api/goals/${goalId}/progress`, {
+  const data = await apiClient.request(`/api/v1/goals/${goalId}/progress`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
@@ -113,13 +113,13 @@ export async function updateGoalProgress(apiClient, goalId, currentValueOrPayloa
 }
 
 export async function deleteGoal(apiClient, goalId) {
-  return apiClient.request(`/api/goals/${goalId}`, {
+  return apiClient.request(`/api/v1/goals/${goalId}`, {
     method: "DELETE",
   });
 }
 
 export async function fetchGoalAICheckin(apiClient, goalId, options = {}) {
-  const data = await apiClient.request(`/api/goals/${goalId}/ai-checkin`, {
+  const data = await apiClient.request(`/api/v1/goals/${goalId}/ai-checkin`, {
     method: "POST",
     body: JSON.stringify({
       refresh: Boolean(options.refresh),
@@ -141,7 +141,7 @@ export async function fetchGoalAICheckin(apiClient, goalId, options = {}) {
 }
 
 export async function fetchGoalsBoardAICheckin(apiClient, options = {}) {
-  const data = await apiClient.request("/api/goals/ai-checkin", {
+  const data = await apiClient.request("/api/v1/goals/ai-checkin", {
     method: "POST",
     body: JSON.stringify({
       refresh: Boolean(options.refresh),

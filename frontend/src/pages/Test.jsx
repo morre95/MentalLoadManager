@@ -12,7 +12,7 @@ import {
 const API_BASE_URL = GET_API_BASE_URL();
 
 function Test() {
-  const [message, setMessage] = useState("Click to test /api/hello");
+  const [message, setMessage] = useState("Click to test /api/v1/hello");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
@@ -23,11 +23,11 @@ function Test() {
 
   const fetchData = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/hello`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/hello`);
       const data = await response.json();
       setMessage(data.message);
     } catch (error) {
-      setMessage("Failed to fetch /api/hello");
+      setMessage("Failed to fetch /api/v1/hello");
       console.error(error);
     }
   };
@@ -55,7 +55,7 @@ function Test() {
       body.set("username", username);
       body.set("password", password);
 
-      const res = await fetch(`${API_BASE_URL}/api/password/login`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/password/login`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body,
@@ -92,7 +92,7 @@ function Test() {
 
     setAuthError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/users/me`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
         headers: { Authorization: `Bearer ${t}` },
       });
 
@@ -128,7 +128,7 @@ function Test() {
   };
 
   const loginWithProvider = (provider) => {
-    window.location.href = `${API_BASE_URL}/api/auth/${provider}/login`;
+    window.location.href = `${API_BASE_URL}/api/v1/auth/${provider}/login`;
   };
 
   return (
@@ -143,7 +143,7 @@ function Test() {
             </p>
             <div className="mt-4 grid gap-2 text-sm text-blue-900">
               <div><strong>1.</strong> Fill credentials and run password login</div>
-              <div><strong>2.</strong> Test <code>/api/users/me</code> with the returned token</div>
+              <div><strong>2.</strong> Test <code>/api/v1/users/me</code> with the returned token</div>
               <div><strong>3.</strong> Try OAuth provider redirects if needed</div>
             </div>
           </section>
@@ -256,7 +256,7 @@ function Test() {
                 onClick={fetchData}
                 type="button"
               >
-                Test /api/hello
+                Test /api/v1/hello
               </button>
               <button
                 className="rounded bg-slate-700 px-4 py-2 font-bold text-white hover:bg-slate-800 disabled:opacity-60"
@@ -264,10 +264,10 @@ function Test() {
                 disabled={!token}
                 type="button"
               >
-                Test /api/users/me
+                Test /api/v1/users/me
               </button>
             </div>
-            <p className="mt-3 text-sm text-indigo-900">/api/hello response: {message}</p>
+            <p className="mt-3 text-sm text-indigo-900">/api/v1/hello response: {message}</p>
           </section>
 
         </div>

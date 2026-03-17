@@ -86,7 +86,7 @@ const Login = () => {
           throw new Error("Passwords do not match.");
         }
 
-        const registerRes = await fetch(`${API_BASE_URL}/api/users/register`, {
+        const registerRes = await fetch(`${API_BASE_URL}/api/v1/users/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -108,7 +108,7 @@ const Login = () => {
       body.set("username", identifier);
       body.set("password", password);
 
-      const loginRes = await fetch(`${API_BASE_URL}/api/password/login`, {
+      const loginRes = await fetch(`${API_BASE_URL}/api/v1/password/login`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         credentials: "include",
@@ -131,7 +131,7 @@ const Login = () => {
   };
 
   const loginWithProvider = (provider) => {
-    window.location.href = `${API_BASE_URL}/api/auth/${provider}/login`;
+    window.location.href = `${API_BASE_URL}/api/v1/auth/${provider}/login`;
   };
 
   return (

@@ -113,8 +113,8 @@ export async function fetchKanbanTasks(apiClient, householdId, options = {}) {
   }
 
   const path = params.toString()
-    ? `/api/kanban/tasks?${params.toString()}`
-    : "/api/kanban/tasks";
+    ? `/api/v1/kanban/tasks?${params.toString()}`
+    : "/api/v1/kanban/tasks";
   const data = await apiClient.request(path, { method: "GET" });
   const tasks = Array.isArray(data?.tasks) ? data.tasks : [];
 
@@ -132,7 +132,7 @@ export async function fetchKanbanAssignees(apiClient, householdId) {
     String(householdId || "").trim(),
   );
   const data = await apiClient.request(
-    `/api/kanban/households/${encodedHouseholdId}/assignees`,
+    `/api/v1/kanban/households/${encodedHouseholdId}/assignees`,
     { method: "GET" },
   );
   const assignees = Array.isArray(data?.assignees) ? data.assignees : [];
@@ -148,7 +148,7 @@ export async function fetchHouseholdCategories(apiClient, householdId) {
     String(householdId || "").trim(),
   );
   const data = await apiClient.request(
-    `/api/household/${encodedHouseholdId}/categories`,
+    `/api/v1/household/${encodedHouseholdId}/categories`,
     { method: "GET" },
   );
 
@@ -163,7 +163,7 @@ export async function createHouseholdCategory(apiClient, householdId, name) {
     String(householdId || "").trim(),
   );
 
-  return apiClient.request(`/api/household/${encodedHouseholdId}/categories`, {
+  return apiClient.request(`/api/v1/household/${encodedHouseholdId}/categories`, {
     method: "POST",
     body: JSON.stringify({ name: String(name || "").trim() }),
   });
@@ -180,20 +180,20 @@ export async function deleteHouseholdCategory(
   const encodedCategoryId = encodeURIComponent(String(categoryId || "").trim());
 
   return apiClient.request(
-    `/api/household/${encodedHouseholdId}/categories/${encodedCategoryId}`,
+    `/api/v1/household/${encodedHouseholdId}/categories/${encodedCategoryId}`,
     { method: "DELETE" },
   );
 }
 
 export async function updateKanbanTaskStatus(apiClient, taskId, status) {
-  return apiClient.request(`/api/kanban/tasks/${taskId}/status`, {
+  return apiClient.request(`/api/v1/kanban/tasks/${taskId}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status: toApiTaskStatus(status) }),
   });
 }
 
 export async function updateKanbanTaskOrder(apiClient, status, orderedTaskIds) {
-  return apiClient.request("/api/kanban/tasks/reorder", {
+  return apiClient.request("/api/v1/kanban/tasks/reorder", {
     method: "PATCH",
     body: JSON.stringify({
       status: toApiTaskStatus(status),
@@ -203,7 +203,7 @@ export async function updateKanbanTaskOrder(apiClient, status, orderedTaskIds) {
 }
 
 export async function updateKanbanTaskPriority(apiClient, taskId, priority) {
-  return apiClient.request(`/api/kanban/tasks/${taskId}/priority`, {
+  return apiClient.request(`/api/v1/kanban/tasks/${taskId}/priority`, {
     method: "PATCH",
     body: JSON.stringify({
       priority: String(priority || "")
@@ -214,7 +214,7 @@ export async function updateKanbanTaskPriority(apiClient, taskId, priority) {
 }
 
 export async function updateKanbanTaskDueDate(apiClient, taskId, dueDate) {
-  return apiClient.request(`/api/kanban/tasks/${taskId}/due-date`, {
+  return apiClient.request(`/api/v1/kanban/tasks/${taskId}/due-date`, {
     method: "PATCH",
     body: JSON.stringify({
       due_date: dueDate || null,
@@ -228,7 +228,7 @@ export async function updateKanbanTaskRecurrence(
   recurrenceFrequency,
   recurrenceInterval = 1,
 ) {
-  return apiClient.request(`/api/kanban/tasks/${taskId}/recurrence`, {
+  return apiClient.request(`/api/v1/kanban/tasks/${taskId}/recurrence`, {
     method: "PATCH",
     body: JSON.stringify({
       recurrence_frequency: recurrenceFrequency || null,
@@ -238,7 +238,7 @@ export async function updateKanbanTaskRecurrence(
 }
 
 export async function skipKanbanTaskOccurrence(apiClient, taskId, occurrenceDate) {
-  return apiClient.request(`/api/kanban/tasks/${taskId}/skip-occurrence`, {
+  return apiClient.request(`/api/v1/kanban/tasks/${taskId}/skip-occurrence`, {
     method: "PATCH",
     body: JSON.stringify({
       occurrence_date: occurrenceDate,
@@ -251,7 +251,7 @@ export async function updateKanbanTaskDescription(
   taskId,
   description,
 ) {
-  return apiClient.request(`/api/kanban/tasks/${taskId}/description`, {
+  return apiClient.request(`/api/v1/kanban/tasks/${taskId}/description`, {
     method: "PATCH",
     body: JSON.stringify({
       description: description ?? null,
@@ -260,7 +260,7 @@ export async function updateKanbanTaskDescription(
 }
 
 export async function updateKanbanTaskAssignee(apiClient, taskId, assigneeId) {
-  return apiClient.request(`/api/kanban/tasks/${taskId}/assignee`, {
+  return apiClient.request(`/api/v1/kanban/tasks/${taskId}/assignee`, {
     method: "PATCH",
     body: JSON.stringify({
       assigns_to: assigneeId || null,
@@ -273,7 +273,7 @@ export async function updateKanbanTaskCategory(
   taskId,
   categoryName,
 ) {
-  return apiClient.request(`/api/kanban/tasks/${taskId}/category`, {
+  return apiClient.request(`/api/v1/kanban/tasks/${taskId}/category`, {
     method: "PATCH",
     body: JSON.stringify({
       category_name: categoryName || null,
@@ -282,7 +282,7 @@ export async function updateKanbanTaskCategory(
 }
 
 export async function updateKanbanTaskName(apiClient, taskId, name) {
-  return apiClient.request(`/api/kanban/tasks/${taskId}/name`, {
+  return apiClient.request(`/api/v1/kanban/tasks/${taskId}/name`, {
     method: "PATCH",
     body: JSON.stringify({
       name: String(name || "").trim(),
@@ -291,13 +291,13 @@ export async function updateKanbanTaskName(apiClient, taskId, name) {
 }
 
 export async function deleteKanbanTask(apiClient, taskId) {
-  return apiClient.request(`/api/kanban/tasks/${taskId}`, {
+  return apiClient.request(`/api/v1/kanban/tasks/${taskId}`, {
     method: "DELETE",
   });
 }
 
 export async function createKanbanTask(apiClient, payload) {
-  return apiClient.request("/api/kanban", {
+  return apiClient.request("/api/v1/kanban", {
     method: "POST",
     body: JSON.stringify(payload),
   });
