@@ -5,7 +5,7 @@ import logging
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError
 
 from app.v1.helpers import get_session_local
 from app.v1.models import UserEmail
@@ -289,21 +289,31 @@ def process_pending_mood_tracker_artworks_once(*, limit: int = 4) -> None:
             artwork.error = None
             artwork.updated_at = datetime.now(timezone.utc)
         db.commit()
+        artwork_jobs = [
+            {
+                "user_id": artwork.user_id,
+                "period_type": artwork.period_type,
+                "period_key": artwork.period_key,
+                "start_date": artwork.start_date,
+                "end_date": artwork.end_date,
+            }
+            for artwork in artworks
+        ]
 
-    for artwork in artworks:
+    for artwork in artwork_jobs:
         try:
             generated = generate_mood_artwork(
-                period_type=artwork.period_type,
-                period_key=artwork.period_key,
-                start_date=artwork.start_date,
-                end_date=artwork.end_date,
+                period_type=artwork["period_type"],
+                period_key=artwork["period_key"],
+                start_date=artwork["start_date"],
+                end_date=artwork["end_date"],
             )
             with session_local() as db:
                 fresh = get_mood_tracker_artwork_for_period(
                     db,
-                    user_id=artwork.user_id,
-                    period_type=artwork.period_type,
-                    period_key=artwork.period_key,
+                    user_id=artwork["user_id"],
+                    period_type=artwork["period_type"],
+                    period_key=artwork["period_key"],
                 )
                 if fresh is None:
                     continue
@@ -320,16 +330,16 @@ def process_pending_mood_tracker_artworks_once(*, limit: int = 4) -> None:
         except Exception as exc:
             logger.exception(
                 "Mood artwork generation failed for user=%s period=%s key=%s",
-                artwork.user_id,
-                artwork.period_type,
-                artwork.period_key,
+                artwork["user_id"],
+                artwork["period_type"],
+                artwork["period_key"],
             )
             with session_local() as db:
                 fresh = get_mood_tracker_artwork_for_period(
                     db,
-                    user_id=artwork.user_id,
-                    period_type=artwork.period_type,
-                    period_key=artwork.period_key,
+                    user_id=artwork["user_id"],
+                    period_type=artwork["period_type"],
+                    period_key=artwork["period_key"],
                 )
                 if fresh is None:
                     continue

@@ -57,6 +57,49 @@ class _FakeDB:
         return None
 
 
+class _DetachableArtwork:
+    def __init__(
+        self,
+        *,
+        user_id,
+        period_type: str,
+        period_key: str,
+        start_date: date,
+        end_date: date,
+    ) -> None:
+        self._attached = True
+        self.user_id = user_id
+        self.period_type = period_type
+        self.period_key = period_key
+        self.start_date = start_date
+        self.end_date = end_date
+        self.status = "pending"
+        self.error = None
+        self.updated_at = None
+
+    def detach(self) -> None:
+        self._attached = False
+
+    def __getattribute__(self, name: str):  # noqa: ANN204
+        tracked_fields = {"user_id", "period_type", "period_key", "start_date", "end_date"}
+        if name in tracked_fields and not object.__getattribute__(self, "_attached"):
+            raise RuntimeError(f"Detached artwork attribute access: {name}")
+        return object.__getattribute__(self, name)
+
+
+class _DetachingSessionContext:
+    def __init__(self, db, artwork) -> None:  # noqa: ANN001
+        self._db = db
+        self._artwork = artwork
+
+    def __enter__(self):  # noqa: ANN001
+        return self._db
+
+    def __exit__(self, exc_type, exc, tb) -> bool:  # noqa: ANN001
+        self._artwork.detach()
+        return False
+
+
 class MoodTrackerArtworkGeneratorTests(unittest.TestCase):
     def test_weekly_artwork_has_exactly_seven_regions(self) -> None:
         artwork = generate_procedural_mood_artwork(
@@ -109,6 +152,52 @@ class MoodTrackerServiceTests(unittest.TestCase):
         self.assertEqual(result.artwork_source, "procedural")
         self.assertEqual(result.region_ids, ["week-region-1"])
         self.assertEqual(result.svg_markup, "<svg><rect data-region-id='week-region-1' /></svg>")
+
+    def test_process_pending_artworks_uses_snapshotted_values_after_session_close(self) -> None:
+        fake_db = _FakeDB()
+        user_id = uuid4()
+        pending_artwork = _DetachableArtwork(
+            user_id=user_id,
+            period_type="weekly",
+            period_key="2026-W11",
+            start_date=date(2026, 3, 9),
+            end_date=date(2026, 3, 15),
+        )
+        refreshed_artwork = SimpleNamespace(
+            image_id=None,
+            source=None,
+            svg_markup=None,
+            region_ids=[],
+            prompt_version=None,
+            status="in_progress",
+            error=None,
+            generated_at=None,
+            updated_at=None,
+        )
+        generated = SimpleNamespace(
+            image_id="generated-image",
+            source="procedural",
+            svg_markup="<svg />",
+            region_ids=["week-region-1"],
+            prompt_version="v-test",
+        )
+
+        def _session_local():
+            return _DetachingSessionContext(fake_db, pending_artwork)
+
+        with patch.object(service, "get_session_local", return_value=_session_local):
+            with patch.object(service, "list_pending_mood_tracker_artworks", return_value=[pending_artwork]):
+                with patch.object(service, "generate_mood_artwork", return_value=generated):
+                    with patch.object(
+                        service,
+                        "get_mood_tracker_artwork_for_period",
+                        return_value=refreshed_artwork,
+                    ):
+                        service.process_pending_mood_tracker_artworks_once(limit=1)
+
+        self.assertEqual(refreshed_artwork.image_id, "generated-image")
+        self.assertEqual(refreshed_artwork.status, "completed")
+        self.assertEqual(fake_db.commit_calls, 2)
 
 
 if __name__ == "__main__":
