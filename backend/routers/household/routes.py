@@ -1,8 +1,9 @@
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, status
 
 from helpers import get_current_user
+from limiter import limiter
 from models import UserEmail
 from ..kanban.schemas import (
     CreateHouseholdCategoryRequest,
@@ -62,10 +63,13 @@ def list_household_members_route(current_user: UserEmail = Depends(get_current_u
 
 
 @router.post("", response_model=CreateHouseholdResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/minute")
 def create_household_route(
+    request: Request,
     payload: CreateHouseholdRequest,
     current_user: UserEmail = Depends(get_current_user),
 ):
+    del request
     return create_household(payload, current_user)
 
 
@@ -91,19 +95,25 @@ def get_my_households_route(current_user: UserEmail = Depends(get_current_user))
 
 
 @router.post("/invite", response_model=InviteResponse)
+@limiter.limit("5/minute")
 def create_invite_route(
+    request: Request,
     payload: InviteCreateRequest,
     current_user: UserEmail = Depends(get_current_user),
 ):
+    del request
     return create_invite(payload, current_user)
 
 
 @router.post("/invite/email", response_model=InviteEmailResponse)
+@limiter.limit("10/hour")
 def email_invite_route(
+    request: Request,
     payload: InviteEmailRequest,
     background_tasks: BackgroundTasks,
     current_user: UserEmail = Depends(get_current_user),
 ):
+    del request
     return email_invite(payload, current_user, background_tasks)
 
 
