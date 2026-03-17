@@ -217,9 +217,13 @@ export function fetchAchievements(apiClient: ApiClient): Promise<{
     target: number;
     category: string;
     completed: boolean;
+    current_milestone_complete: boolean;
+    has_unlocked_before: boolean;
     entity_id?: string | null;
     completion_key?: string | null;
     unlocked_at?: string | null;
+    last_unlocked_at?: string | null;
+    last_unlocked_label?: string | null;
     rarity: string;
   }>;
   timeline: Array<{

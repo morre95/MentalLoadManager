@@ -8,6 +8,7 @@ import { toast } from "@/components/ui/sonner";
 import GoalCard from "@/components/goals/GoalCard";
 import AddGoalDialog from "@/components/goals/AddGoalDialog";
 import AchievementCard from "@/components/goals/AchievementCard";
+import AchievementTimelineJourney from "@/components/goals/AchievementTimelineJourney";
 import {
     createGoal as createGoalRequest,
     deleteGoal as deleteGoalRequest,
@@ -23,14 +24,33 @@ const ACHIEVEMENT_CELEBRATION_STORAGE_KEY = "achievements-celebrated-v1";
 
 const sortAchievements = (items) =>
     [...items].sort((left, right) => {
-        const leftComplete = Boolean(left?.completed);
-        const rightComplete = Boolean(right?.completed);
+        const leftState = left?.current_milestone_complete ?? left?.completed
+            ? 0
+            : left?.has_unlocked_before
+            ? 2
+            : 1;
+        const rightState = right?.current_milestone_complete ?? right?.completed
+            ? 0
+            : right?.has_unlocked_before
+            ? 2
+            : 1;
 
-        if (leftComplete !== rightComplete) {
-            return leftComplete ? -1 : 1;
+        if (leftState !== rightState) {
+            return leftState - rightState;
         }
 
         return String(left?.title || "").localeCompare(String(right?.title || ""));
+    });
+
+const sortGoalsByActivity = (items) =>
+    [...items].sort((left, right) => {
+        const leftIsActive = Number(left?.current || 0) < Math.max(1, Number(left?.target) || 1);
+        const rightIsActive = Number(right?.current || 0) < Math.max(1, Number(right?.target) || 1);
+
+        if (leftIsActive !== rightIsActive) {
+            return leftIsActive ? -1 : 1;
+        }
+        return 0;
     });
 
 const readCelebratedAchievements = () => {
@@ -454,12 +474,24 @@ const Goals = () => {
         }
     };
 
+    const sortedGoals = sortGoalsByActivity(goals);
+    const activeGoalsCount = sortedGoals.filter(
+        (goal) => Number(goal.current || 0) < Math.max(1, Number(goal.target) || 1)
+    ).length;
+    const recurringCompletedCount = sortedGoals.filter(
+        (goal) => goal.isRecurring && Number(goal.current || 0) >= Number(goal.target || 0)
+    ).length;
+    const unlockedAchievementsCount = achievements.filter((achievement) => achievement.has_unlocked_before).length;
+    const readyAchievementsCount = achievements.filter(
+        (achievement) => achievement.current_milestone_complete ?? achievement.completed
+    ).length;
+
     return (
-        <div className="p-4 md:p-6 space-y-6">
+        <div className="w-full min-w-0 max-w-full overflow-x-hidden p-4 md:p-6 space-y-6">
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center justify-between"
+                className="min-w-0 flex items-center justify-between gap-4"
             >
                 <div>
                     <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
@@ -478,46 +510,39 @@ const Goals = () => {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 }}
+                className="min-w-0 space-y-4"
             >
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <Card className="border-border">
-                        <CardContent className="p-4">
-                            <p className="text-xs uppercase tracking-wide text-muted-foreground">Recurring goals</p>
-                            <p className="text-2xl font-display font-bold text-foreground mt-2">
-                                {goals.filter((goal) => goal.isRecurring).length}
-                            </p>
-                            <p className="text-sm text-muted-foreground mt-1">
-                                Daily, weekly, and monthly goals now reset by period.
-                            </p>
-                        </CardContent>
-                    </Card>
-                    <Card className="border-border">
-                        <CardContent className="p-4">
-                            <p className="text-xs uppercase tracking-wide text-muted-foreground">Completed this period</p>
-                            <p className="text-2xl font-display font-bold text-foreground mt-2">
-                                {
-                                    goals.filter(
-                                        (goal) => goal.isRecurring && Number(goal.current) >= Number(goal.target)
-                                    ).length
-                                }
-                            </p>
-                            <p className="text-sm text-muted-foreground mt-1">
-                                These count toward goal-based achievements.
-                            </p>
-                        </CardContent>
-                    </Card>
-                    <Card className="border-border">
-                        <CardContent className="p-4">
-                            <p className="text-xs uppercase tracking-wide text-muted-foreground">Best live streak</p>
-                            <p className="text-2xl font-display font-bold text-foreground mt-2">
-                                {goals.reduce((best, goal) => Math.max(best, Number(goal.bestStreak || 0)), 0)}
-                            </p>
-                            <p className="text-sm text-muted-foreground mt-1">
-                                Based on completed recurring periods in your history.
-                            </p>
-                        </CardContent>
-                    </Card>
-                </div>
+                <Card className="border-border bg-[linear-gradient(135deg,hsl(var(--primary)/0.08),hsl(var(--background)))]">
+                    <CardContent className="p-4 md:p-5">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                            <div>
+                                <p className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Overview</p>
+                                <p className="mt-2 text-sm text-foreground">
+                                    Focus on the goals still moving, then use achievements as a separate reward layer.
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                                <div className="rounded-2xl bg-background/80 px-4 py-3">
+                                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Active goals</p>
+                                    <p className="mt-1 text-xl font-display font-bold text-foreground">{activeGoalsCount}</p>
+                                </div>
+                                <div className="rounded-2xl bg-background/80 px-4 py-3">
+                                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Recurring done</p>
+                                    <p className="mt-1 text-xl font-display font-bold text-foreground">{recurringCompletedCount}</p>
+                                </div>
+                                <div className="rounded-2xl bg-background/80 px-4 py-3">
+                                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Unlocked</p>
+                                    <p className="mt-1 text-xl font-display font-bold text-foreground">{unlockedAchievementsCount}</p>
+                                </div>
+                                <div className="rounded-2xl bg-background/80 px-4 py-3">
+                                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Ready now</p>
+                                    <p className="mt-1 text-xl font-display font-bold text-foreground">{readyAchievementsCount}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
 
                 <Card className="border-border">
                     <CardHeader className="flex flex-row items-start justify-between gap-4">
@@ -582,70 +607,83 @@ const Goals = () => {
                                     ) : null}
                                 </div>
                             </>
-                        ) : (""
-                        )}
+                        ) : null}
                     </CardContent>
                 </Card>
             </motion.div>
 
-            {/* Goals Grid - auto-sizing cards */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-auto"
+                className="min-w-0"
             >
-                {isLoading ? (
-                    <div className="col-span-full rounded-xl border border-border bg-muted/30 p-6 text-sm text-muted-foreground">
-                        Loading goals...
+                <div className="mb-4 flex items-center justify-between gap-3">
+                    <div>
+                        <h2 className="font-display text-xl font-bold text-foreground">Active Goals</h2>
+                        <p className="text-sm text-muted-foreground">
+                            Simplified cards with quick updates first, details on demand.
+                        </p>
                     </div>
-                ) : null}
+                </div>
 
-                {syncError ? (
-                    <div className="col-span-full rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-                        {syncError}
-                    </div>
-                ) : null}
+                <div className="min-w-0 grid grid-cols-1 gap-6 auto-rows-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {isLoading ? (
+                        <div className="col-span-full rounded-xl border border-border bg-muted/30 p-6 text-sm text-muted-foreground">
+                            Loading goals...
+                        </div>
+                    ) : null}
 
-                <AnimatePresence>
-                    {goals.map((goal) => (
-                        <GoalCard
-                            key={goal.id}
-                            goal={goal}
-                            linkedAchievement={achievements.find((achievement) => achievement.entity_id === goal.id) || null}
-                            onUpdateProgress={handleUpdateProgress}
-                            onToggleTrainingDay={handleToggleTrainingDay}
-                            onDelete={handleDeleteGoal}
-                            isHighlighted={goal.id === highlightedGoalId}
-                        />
-                    ))}
-                </AnimatePresence>
+                    {syncError ? (
+                        <div className="col-span-full rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+                            {syncError}
+                        </div>
+                    ) : null}
 
-                <motion.button
-                    layout
-                    onClick={() => setIsAddDialogOpen(true)}
-                    className="min-h-[300px] rounded-xl border-2 border-dashed border-border hover:border-primary bg-muted/30 hover:bg-muted/50 transition-all flex flex-col items-center justify-center gap-3"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                >
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Plus className="h-6 w-6 text-primary" />
-                    </div>
-                    <span className="font-medium text-muted-foreground">Add New Goal</span>
-                </motion.button>
+                    <AnimatePresence>
+                        {sortedGoals.map((goal) => (
+                            <GoalCard
+                                key={goal.id}
+                                goal={goal}
+                                linkedAchievement={achievements.find((achievement) => achievement.entity_id === goal.id) || null}
+                                onUpdateProgress={handleUpdateProgress}
+                                onToggleTrainingDay={handleToggleTrainingDay}
+                                onDelete={handleDeleteGoal}
+                                isHighlighted={goal.id === highlightedGoalId}
+                            />
+                        ))}
+                    </AnimatePresence>
+
+                    <motion.button
+                        onClick={() => setIsAddDialogOpen(true)}
+                        className="min-h-[300px] rounded-xl border-2 border-dashed border-border hover:border-primary bg-muted/30 hover:bg-muted/50 transition-all flex flex-col items-center justify-center gap-3"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                    >
+                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Plus className="h-6 w-6 text-primary" />
+                        </div>
+                        <span className="font-medium text-muted-foreground">Add New Goal</span>
+                    </motion.button>
+                </div>
             </motion.div>
 
-            {/* Achievements Section */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
+                className="min-w-0"
             >
-                <div className="flex items-center gap-3 mb-4">
+                <div className="mb-4 flex items-center gap-3">
                     <Trophy className="h-6 w-6 text-status-todo" />
-                    <h2 className="font-display text-xl font-bold text-foreground">Achievements</h2>
+                    <div>
+                        <h2 className="font-display text-xl font-bold text-foreground">Achievements</h2>
+                        <p className="text-sm text-muted-foreground">
+                            Progress toward the next milestone is separate from past unlock history.
+                        </p>
+                    </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="min-w-0 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {achievements.map((achievement) => (
                         <AchievementCard key={achievement.id} achievement={achievement} />
                     ))}
@@ -657,31 +695,18 @@ const Goals = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.25 }}
+                    className="min-w-0"
                 >
-                    <div className="flex items-center gap-3 mb-4">
+                    <div className="mb-4 flex items-center gap-3">
                         <Trophy className="h-6 w-6 text-primary" />
-                        <h2 className="font-display text-xl font-bold text-foreground">Achievement Timeline</h2>
+                        <div>
+                            <h2 className="font-display text-xl font-bold text-foreground">Achievement Journey</h2>
+                            <p className="text-sm text-muted-foreground">
+                                A lighter timeline of the milestones you have already collected.
+                            </p>
+                        </div>
                     </div>
-                    <Card className="border-border">
-                        <CardContent className="p-4 space-y-3">
-                            {achievementTimeline.slice(0, 8).map((item) => (
-                                <div
-                                    key={item.achievement_unlock_id}
-                                    className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 px-3 py-3"
-                                >
-                                    <div>
-                                        <p className="text-sm font-medium text-foreground">{item.title}</p>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            {item.category} · {item.rarity}
-                                        </p>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">
-                                        {item.unlocked_at ? new Date(item.unlocked_at).toLocaleDateString() : ""}
-                                    </p>
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
+                    <AchievementTimelineJourney timeline={achievementTimeline} />
                 </motion.div>
             ) : null}
 

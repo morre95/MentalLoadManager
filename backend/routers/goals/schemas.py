@@ -48,9 +48,13 @@ class AchievementResponse(BaseModel):
     target: int
     category: str
     completed: bool = False
+    current_milestone_complete: bool = False
+    has_unlocked_before: bool = False
     entity_id: str | None = None
     completion_key: str | None = None
     unlocked_at: datetime | None = None
+    last_unlocked_at: datetime | None = None
+    last_unlocked_label: str | None = None
     rarity: str = "common"
 
 

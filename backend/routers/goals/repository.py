@@ -170,6 +170,17 @@ def list_achievement_unlocks_for_user(
     ).all()
 
 
+def list_all_achievement_unlocks_for_user(
+    db: Session,
+    user_id: UUID,
+) -> list[AchievementUnlock]:
+    return db.scalars(
+        select(AchievementUnlock)
+        .where(AchievementUnlock.user_id == user_id)
+        .order_by(AchievementUnlock.unlocked_at.desc(), AchievementUnlock.achievement_unlock_id.desc())
+    ).all()
+
+
 def list_personal_tasks_for_achievements(db: Session, user_id: UUID):
     return db.execute(
         select(

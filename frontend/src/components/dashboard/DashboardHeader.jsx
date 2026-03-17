@@ -320,7 +320,7 @@ const DashboardHeader = ({ onAddTask }) => {
           <div className="hidden md:flex items-center gap-2 relative">
             <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="earch tasks..."
+              placeholder="Search tasks..."
               className="w-64 pl-9 h-9 bg-muted/50 border-transparent focus:border-border"
             />
           </div>

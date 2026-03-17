@@ -23,6 +23,7 @@ from .repository import (
     get_achievement_unlock_by_completion_key,
     get_cached_goal_ai_checkin,
     get_goal_for_user,
+    list_all_achievement_unlocks_for_user,
     list_available_category_names_for_user_households,
     list_achievement_unlocks_for_user,
     list_goal_history_for_user,
@@ -141,6 +142,16 @@ def _to_achievement_timeline_response(unlock) -> AchievementTimelineResponse:
     )
 
 
+def _last_unlocked_label_from_completion_key(completion_key: str | None) -> str | None:
+    if not completion_key:
+        return None
+
+    last_segment = str(completion_key).rsplit(":", 1)[-1].strip()
+    if last_segment.isdigit():
+        return last_segment
+    return None
+
+
 def _apply_achievement_unlock_state(
     db,
     *,
@@ -149,6 +160,12 @@ def _apply_achievement_unlock_state(
 ) -> tuple[list[AchievementResponse], list[Any]]:
     timeline_additions = []
     enriched: list[AchievementResponse] = []
+    unlock_rows = list_all_achievement_unlocks_for_user(db, user_id)
+    latest_unlock_by_achievement_id: dict[str, Any] = {}
+
+    for row in unlock_rows:
+        if row.achievement_id not in latest_unlock_by_achievement_id:
+            latest_unlock_by_achievement_id[row.achievement_id] = row
 
     for achievement in achievements:
         unlock = None
@@ -160,10 +177,11 @@ def _apply_achievement_unlock_state(
                 completion_key=completion_key,
             )
 
-        completed_now = bool(achievement.completed or (achievement.current >= achievement.target))
+        current_milestone_complete = bool(achievement.current >= achievement.target)
         unlocked_at = unlock.unlocked_at if unlock is not None else None
+        latest_unlock = latest_unlock_by_achievement_id.get(achievement.id)
 
-        if completed_now and completion_key and unlock is None:
+        if current_milestone_complete and completion_key and unlock is None:
             unlock = create_achievement_unlock(
                 db,
                 user_id=user_id,
@@ -176,12 +194,22 @@ def _apply_achievement_unlock_state(
             )
             timeline_additions.append(unlock)
             unlocked_at = unlock.unlocked_at
+            latest_unlock = unlock
+            latest_unlock_by_achievement_id[achievement.id] = unlock
 
         enriched.append(
             achievement.model_copy(
                 update={
-                    "completed": unlock is not None or completed_now,
+                    "completed": current_milestone_complete,
+                    "current_milestone_complete": current_milestone_complete,
+                    "has_unlocked_before": latest_unlock is not None,
                     "unlocked_at": unlocked_at,
+                    "last_unlocked_at": latest_unlock.unlocked_at if latest_unlock is not None else None,
+                    "last_unlocked_label": (
+                        _last_unlocked_label_from_completion_key(latest_unlock.completion_key)
+                        if latest_unlock is not None
+                        else None
+                    ),
                 }
             )
         )
@@ -661,7 +689,7 @@ def _build_equal_split_achievement(household_rows, user_id: UUID, today_date):
         current=achieved_days,
         target=_next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
         category="Balance",
-        completed=achieved_days > 0,
+        completed=achieved_days >= _next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
         rarity=_achievement_rarity_for_target(max(1, achieved_days)),
         completion_key=f"a2:{achieved_days}" if achieved_days > 0 else None,
     )
@@ -696,7 +724,7 @@ def _build_perfect_week_achievement(personal_rows, today_date):
         current=achieved_days,
         target=_next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
         category="Consistency",
-        completed=achieved_days > 0,
+        completed=achieved_days >= _next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
         rarity=_achievement_rarity_for_target(max(1, achieved_days)),
         completion_key=f"a3:{achieved_days}" if achieved_days > 0 else None,
     )
@@ -731,7 +759,7 @@ def _build_early_bird_achievement(personal_rows, today_date):
         current=achieved_days,
         target=_next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
         category="Consistency",
-        completed=achieved_days > 0,
+        completed=achieved_days >= _next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
         rarity=_achievement_rarity_for_target(max(1, achieved_days)),
         completion_key=f"a5:{achieved_days}" if achieved_days > 0 else None,
     )
@@ -756,7 +784,7 @@ def _build_goal_completion_achievement(history_rows) -> AchievementResponse:
         current=completed_periods,
         target=_next_milestone(completed_periods, [1, 3, 5, 10, 20, 40]),
         category="Goals",
-        completed=completed_periods > 0,
+        completed=completed_periods >= _next_milestone(completed_periods, [1, 3, 5, 10, 20, 40]),
         rarity=_achievement_rarity_for_target(max(1, completed_periods)),
         completion_key=f"a7:{completed_periods}" if completed_periods > 0 else None,
     )
@@ -781,7 +809,7 @@ def _build_goal_streak_achievement(goals) -> AchievementResponse:
         current=best_streak,
         target=target,
         category="Goals",
-        completed=best_streak > 0,
+        completed=best_streak >= target,
         rarity=_achievement_rarity_for_target(max(1, best_streak)),
         completion_key=f"a8:{best_streak}" if best_streak > 0 else None,
     )
@@ -825,7 +853,7 @@ def _build_goal_variety_achievement(history_rows, goals) -> AchievementResponse:
         current=len(completed_types),
         target=target,
         category="Goals",
-        completed=len(completed_types) > 0,
+        completed=len(completed_types) >= target,
         rarity=_achievement_rarity_for_target(max(1, len(completed_types))),
         completion_key=f"a10:{len(completed_types)}" if len(completed_types) > 0 else None,
     )
@@ -852,7 +880,7 @@ def _build_training_master_achievement(history_rows, goals) -> AchievementRespon
         current=current_value,
         target=target,
         category="Goals",
-        completed=current_value > 0,
+        completed=current_value >= target,
         rarity=_achievement_rarity_for_target(max(1, current_value)),
         completion_key=f"a11:{current_value}" if current_value > 0 else None,
     )
@@ -956,7 +984,7 @@ def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
                 current=best_category_count,
                 target=_next_milestone(best_category_count, [5, 15, 30, 60, 120, 250]),
                 category="Tasks",
-                completed=best_category_count > 0,
+                completed=best_category_count >= _next_milestone(best_category_count, [5, 15, 30, 60, 120, 250]),
                 rarity=_achievement_rarity_for_target(max(1, best_category_count)),
                 completion_key=f"a1:{best_category_count}" if best_category_count > 0 else None,
             ),
@@ -970,7 +998,7 @@ def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
                 current=completed_tasks_count,
                 target=_next_milestone(completed_tasks_count, [100, 250, 500, 1000, 2000]),
                 category="Tasks",
-                completed=completed_tasks_count > 0,
+                completed=completed_tasks_count >= _next_milestone(completed_tasks_count, [100, 250, 500, 1000, 2000]),
                 rarity=_achievement_rarity_for_target(max(1, completed_tasks_count)),
                 completion_key=f"a4:{completed_tasks_count}" if completed_tasks_count > 0 else None,
             ),
@@ -983,7 +1011,7 @@ def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
                 current=len(distinct_completed_categories),
                 target=max(total_available_categories, len(distinct_completed_categories)),
                 category="Tasks",
-                completed=len(distinct_completed_categories) > 0,
+                completed=len(distinct_completed_categories) >= max(total_available_categories, len(distinct_completed_categories)),
                 rarity=_achievement_rarity_for_target(max(1, len(distinct_completed_categories))),
                 completion_key=f"a6:{len(distinct_completed_categories)}" if len(distinct_completed_categories) > 0 else None,
             ),

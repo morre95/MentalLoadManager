@@ -55,9 +55,17 @@ export async function fetchAchievements(apiClient) {
       ? data.achievements.map((achievement) => ({
           ...achievement,
           completed: Boolean(achievement?.completed),
+          current_milestone_complete: Boolean(
+            achievement?.current_milestone_complete ?? achievement?.completed
+          ),
+          has_unlocked_before: Boolean(achievement?.has_unlocked_before),
           entity_id: achievement?.entity_id ? String(achievement.entity_id) : null,
           completion_key: achievement?.completion_key ? String(achievement.completion_key) : null,
           unlocked_at: achievement?.unlocked_at ? String(achievement.unlocked_at) : null,
+          last_unlocked_at: achievement?.last_unlocked_at ? String(achievement.last_unlocked_at) : null,
+          last_unlocked_label: achievement?.last_unlocked_label
+            ? String(achievement.last_unlocked_label)
+            : null,
           rarity: String(achievement?.rarity || "common"),
         }))
       : [],
