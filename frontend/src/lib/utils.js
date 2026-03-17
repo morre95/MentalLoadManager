@@ -1,5 +1,6 @@
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { toast } from "@/components/ui/sonner";
 import {
   clearAuth,
   isUserLoggedIn,
@@ -51,6 +52,7 @@ const API_BASE_URL = getApiBaseUrl({
 });
 
 const GOAL_MILESTONES_UPDATED_EVENT = "goals:changed";
+const NETWORK_ERROR_TOAST_ID = "network-connection-lost";
 
 function emitGoalMilestonesUpdated() {
   if (typeof window === "undefined") return;
@@ -80,10 +82,23 @@ function getHouseholdIdFromStoredValue(value) {
 export const apiClient = createApiClient({
   onUnauthorized: clearAuth,
   shouldRefresh: isUserLoggedIn,
+  onNetworkError: () => {
+    toast.error("Connection lost. Changes not saved.", {
+      id: NETWORK_ERROR_TOAST_ID,
+    });
+  },
   envOptions: {
     locationHref: typeof window !== "undefined" ? window.location?.href : "",
   },
 });
+
+export function getApiClientNetworkStatus() {
+  return apiClient.getNetworkStatus();
+}
+
+export function subscribeToApiClientNetworkStatus(listener) {
+  return apiClient.subscribeNetworkStatus(listener);
+}
 
 let fetchMeInFlight = null;
 let lastFetchMeAt = 0;

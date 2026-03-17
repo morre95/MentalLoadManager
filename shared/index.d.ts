@@ -1,5 +1,18 @@
 export type ApiClient = {
   request: (path: string, requestOptions?: RequestInit) => Promise<any>;
+  flushQueuedRequests: () => Promise<void>;
+  getNetworkStatus: () => {
+    online: boolean;
+    queueSize: number;
+    isSyncing: boolean;
+  };
+  subscribeNetworkStatus: (
+    listener: (status: {
+      online: boolean;
+      queueSize: number;
+      isSyncing: boolean;
+    }) => void
+  ) => () => void;
 };
 
 export function getApiBaseUrl(options?: {
@@ -16,6 +29,13 @@ export function createApiClient(options?: {
     refreshToken?: string | null;
   }) => void | Promise<void>;
   onUnauthorized?: () => void;
+  onNetworkError?: (error: Error & { queued?: boolean }) => void;
+  onOfflineQueue?: (entry: {
+    id: string;
+    path: string;
+    requestOptions: RequestInit;
+    queuedAt: string;
+  }) => void;
   refreshPath?: string;
   envOptions?: {
     env?: Record<string, string | undefined>;

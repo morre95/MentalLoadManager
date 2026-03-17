@@ -46,3 +46,35 @@ Use feature-oriented placement: UI in `components/`, route-level views in `pages
   - linked issue/task (if available),
   - testing notes (what was run),
   - screenshots or recordings for frontend/mobile UI changes.
+
+ Security & Quality Rules
+ Authentication & Authorization
+- ALWAYS verify user membership in household before returning any household-related data
+- Use @limiter.limit() decorator on all public endpoints (default: 10/minute)
+- Return generic error messages for auth failures: "Invalid credentials" (never reveal if user exists)
+- Implement account lockout after 5 failed login attempts
+ CORS & Security Headers
+- NEVER use wildcard (*) for CORS methods or headers
+- Explicitly list allowed methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+- Explicitly list allowed headers: ["Authorization", "Content-Type"]
+- Disable debug mode in production (DEBUG=false)
+ Input Validation
+- ALWAYS validate and sanitize all user inputs
+- Limit string lengths (task names: 255, descriptions: 5000)
+- Strip HTML/script tags from text fields
+- Return 400 Bad Request with specific validation errors
+ Database & Performance
+- ALWAYS add indexes on foreign keys and frequently queried fields
+- Implement pagination for ALL list endpoints (default: 50 items)
+- Add database query timeout (30 seconds max)
+- Use connection pooling for database connections
+ Error Handling
+- Wrap all routes in try-catch blocks
+- Log errors server-side but return generic messages client-side
+- Never expose stack traces or database details in production
+- Implement React Error Boundaries for all major features
+ API Design
+- ALL endpoints must verify user has permission to access requested resource
+- Use 403 Forbidden for unauthorized access, 404 for not found (don't reveal existence)
+- Include rate limiting headers in responses: X-RateLimit-Limit, X-RateLimit-Remaining
+- Version your API URLs: /api/v1/...
