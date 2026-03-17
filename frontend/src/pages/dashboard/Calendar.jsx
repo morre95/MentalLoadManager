@@ -104,7 +104,7 @@ const Calendar = () => {
     householdPalette,
   } = useCalendarPage();
   const { households } = useHousehold();
-  const { tasks, setTasks } = useTaskboardTasks(null);
+  const { tasks, setTasks } = useTaskboardTasks(null, { pageSize: 5000 });
   const [selectedTaskContext, setSelectedTaskContext] = useState(null);
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [dragOverDayKey, setDragOverDayKey] = useState(null);

@@ -272,7 +272,16 @@ const Tasks = () => {
     selectedHouseholdId === ALL_HOUSEHOLDS_VALUE ? null : selectedHouseholdId;
 
   const { households } = useHousehold();
-  const { tasks, setTasks, loading, error } = useTaskboardTasks(selectedHouseholdFilter);
+  const {
+    tasks,
+    setTasks,
+    loading,
+    loadingMore,
+    error,
+    total,
+    hasMore,
+    loadMoreTasks,
+  } = useTaskboardTasks(selectedHouseholdFilter);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
@@ -699,6 +708,23 @@ const Tasks = () => {
           </select>
         </div>
       </Motion.div>
+
+      {!loading && tasks.length > 0 ? (
+        <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+          <span>
+            Showing {tasks.length} of {total} tasks
+          </span>
+          {hasMore ? (
+            <Button
+              variant="outline"
+              onClick={() => loadMoreTasks().catch(() => {})}
+              disabled={loadingMore}
+            >
+              {loadingMore ? "Loading..." : "Load More"}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
 
       <DndContext
         sensors={sensors}

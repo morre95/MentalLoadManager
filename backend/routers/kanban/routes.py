@@ -55,9 +55,11 @@ router = APIRouter(prefix="/api/kanban", tags=["kanban"])
 @router.get("/tasks", response_model=KanbanTasksResponse)
 def list_kamban_tasks_route(
     household_id: UUID | None = None,
+    limit: int = 50,
+    offset: int = 0,
     current_user: UserEmail = Depends(get_current_user),
 ):
-    return list_kanban_tasks(household_id, current_user)
+    return list_kanban_tasks(household_id, limit, offset, current_user)
 
 
 @router.get("/households/{household_id}/assignees", response_model=KanbanAssigneesResponse)

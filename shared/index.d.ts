@@ -72,8 +72,9 @@ export function deleteKanbanTask(
 ): Promise<any>;
 export function fetchKanbanTasks(
   apiClient: ApiClient,
-  householdId?: string | null
-): Promise<{ tasks: UiTask[] }>;
+  householdId?: string | null,
+  options?: { limit?: number; offset?: number }
+): Promise<{ tasks: UiTask[]; total: number; limit: number | null; offset: number }>;
 export function fetchKanbanAssignees(
   apiClient: ApiClient,
   householdId: string | number

@@ -9,6 +9,7 @@ from helpers import get_session_local
 from models import Categories, Tasks, UserEmail
 
 from .repository import (
+    count_tasks_for_member,
     find_membership,
     get_generated_recurring_child,
     get_assignee_by_id,
@@ -332,8 +333,12 @@ def _get_task_with_membership(db, task_id: UUID, me_user_id: UUID):
 
 def list_kanban_tasks(
     household_id: UUID | None,
+    limit: int,
+    offset: int,
     current_user: UserEmail,
 ) -> KanbanTasksResponse:
+    normalized_limit = max(1, min(limit, 5000))
+    normalized_offset = max(0, offset)
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
@@ -353,7 +358,14 @@ def list_kanban_tasks(
                 "User is not a member of the specified household",
             )
 
-        rows = list_tasks_for_member(db, me.user_id, household_id)
+        total = count_tasks_for_member(db, me.user_id, household_id)
+        rows = list_tasks_for_member(
+            db,
+            me.user_id,
+            household_id,
+            limit=normalized_limit,
+            offset=normalized_offset,
+        )
 
     return KanbanTasksResponse(
         tasks=[
@@ -375,7 +387,10 @@ def list_kanban_tasks(
                 category_name=row.category_name,
             )
             for row in rows
-        ]
+        ],
+        total=total,
+        limit=normalized_limit,
+        offset=normalized_offset,
     )
 
 

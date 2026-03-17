@@ -149,6 +149,9 @@ CREATE TABLE IF NOT EXISTS goals (
   updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_tasks_household_id ON tasks(household_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+
 -- Junction table: tasks <-> calendar_connections (M:N)
 CREATE TABLE IF NOT EXISTS task_calendar_links (
   task_link_id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),

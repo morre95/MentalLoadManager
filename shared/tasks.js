@@ -96,10 +96,24 @@ export function mapApiTaskToUi(task) {
   };
 }
 
-export async function fetchKanbanTasks(apiClient, householdId) {
+export async function fetchKanbanTasks(apiClient, householdId, options = {}) {
   const normalizedHouseholdId = String(householdId || "").trim();
-  const path = normalizedHouseholdId
-    ? `/api/kanban/tasks?household_id=${encodeURIComponent(normalizedHouseholdId)}`
+  const params = new URLSearchParams();
+  const limit = Number(options?.limit);
+  const offset = Number(options?.offset);
+
+  if (normalizedHouseholdId) {
+    params.set("household_id", normalizedHouseholdId);
+  }
+  if (Number.isFinite(limit) && limit > 0) {
+    params.set("limit", String(limit));
+  }
+  if (Number.isFinite(offset) && offset >= 0) {
+    params.set("offset", String(offset));
+  }
+
+  const path = params.toString()
+    ? `/api/kanban/tasks?${params.toString()}`
     : "/api/kanban/tasks";
   const data = await apiClient.request(path, { method: "GET" });
   const tasks = Array.isArray(data?.tasks) ? data.tasks : [];
@@ -107,6 +121,9 @@ export async function fetchKanbanTasks(apiClient, householdId) {
   return {
     ...data,
     tasks: tasks.map(mapApiTaskToUi),
+    total: Number.isFinite(Number(data?.total)) ? Number(data.total) : tasks.length,
+    limit: Number.isFinite(Number(data?.limit)) ? Number(data.limit) : null,
+    offset: Number.isFinite(Number(data?.offset)) ? Number(data.offset) : 0,
   };
 }
 

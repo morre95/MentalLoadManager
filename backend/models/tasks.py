@@ -10,6 +10,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -37,6 +38,8 @@ class Tasks(Base):
             "status IN ('todo', 'in_progress', 'done', 'on_hold', 'archive')",
             name="tasks_status_check",
         ),
+        Index("idx_tasks_household_id", "household_id"),
+        Index("idx_tasks_status", "status"),
     )
 
     task_id: Mapped[UUID] = mapped_column(

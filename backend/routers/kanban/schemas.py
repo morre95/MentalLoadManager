@@ -58,6 +58,9 @@ class KanbanTask(BaseModel):
 
 class KanbanTasksResponse(BaseModel):
     tasks: list[KanbanTask]
+    total: int
+    limit: int
+    offset: int
 
 
 class KanbanAssignee(BaseModel):

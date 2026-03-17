@@ -156,8 +156,8 @@ export async function changeMyPassword(payload) {
   return sharedChangeMyPassword(apiClient, payload);
 }
 
-export async function fetchKanbanTasks(householdId) {
-  return sharedFetchKanbanTasks(apiClient, householdId);
+export async function fetchKanbanTasks(householdId, options = {}) {
+  return sharedFetchKanbanTasks(apiClient, householdId, options);
 }
 
 export async function fetchKanbanAssignees(householdId) {

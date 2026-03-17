@@ -81,7 +81,14 @@ def list_categories_for_household(db: Session, household_id: UUID):
     ).all()
 
 
-def list_tasks_for_member(db: Session, user_id: UUID, household_id: UUID | None):
+def list_tasks_for_member(
+    db: Session,
+    user_id: UUID,
+    household_id: UUID | None,
+    *,
+    limit: int,
+    offset: int,
+):
     priority_sort = case(
         (Tasks.priority == "high", 0),
         (Tasks.priority == "medium", 1),
@@ -125,7 +132,27 @@ def list_tasks_for_member(db: Session, user_id: UUID, household_id: UUID | None)
     if household_id:
         query = query.where(Tasks.household_id == household_id)
 
+    query = query.limit(limit).offset(offset)
+
     return db.execute(query).all()
+
+
+def count_tasks_for_member(db: Session, user_id: UUID, household_id: UUID | None) -> int:
+    query = (
+        select(func.count())
+        .select_from(Tasks)
+        .join(
+            UsersHouseholds,
+            and_(
+                UsersHouseholds.household_id == Tasks.household_id,
+                UsersHouseholds.user_id == user_id,
+            ),
+        )
+    )
+    if household_id:
+        query = query.where(Tasks.household_id == household_id)
+
+    return int(db.scalar(query) or 0)
 
 
 def list_assignees_for_household(db: Session, household_id: UUID):

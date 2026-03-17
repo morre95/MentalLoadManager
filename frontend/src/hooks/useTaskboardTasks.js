@@ -1,25 +1,44 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchKanbanTasks } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 const TASK_UPDATED_EVENT = "kanban-task-updated";
+const DEFAULT_PAGE_SIZE = 50;
 
-export function useTaskboardTasks(householdId) {
+export function useTaskboardTasks(householdId, options = {}) {
   const navigate = useNavigate();
+  const pageSize = Number(options.pageSize) > 0 ? Number(options.pageSize) : DEFAULT_PAGE_SIZE;
 
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
+  const [total, setTotal] = useState(0);
+  const tasksRef = useRef([]);
 
-  const loadTasks = useCallback(async () => {
-    setLoading(true);
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+
+  const loadTasks = useCallback(async ({ append = false } = {}) => {
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
 
     try {
-      const data = await fetchKanbanTasks(householdId || undefined);
+      const currentTasks = append ? tasksRef.current : [];
+      const data = await fetchKanbanTasks(householdId || undefined, {
+        limit: pageSize,
+        offset: currentTasks.length,
+      });
       const uiTasks = Array.isArray(data?.tasks) ? data.tasks : [];
-      setTasks(uiTasks);
-      return uiTasks;
+      const nextTasks = append ? [...currentTasks, ...uiTasks] : uiTasks;
+      setTasks(nextTasks);
+      setTotal(Number.isFinite(Number(data?.total)) ? Number(data.total) : nextTasks.length);
+      return nextTasks;
     } catch (err) {
       if (err?.status === 401) {
         navigate("/login", { replace: true });
@@ -30,8 +49,9 @@ export function useTaskboardTasks(householdId) {
       throw err;
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [navigate, householdId]);
+  }, [navigate, householdId, pageSize]);
 
   useEffect(() => {
     let alive = true;
@@ -66,7 +86,11 @@ export function useTaskboardTasks(householdId) {
     tasks,
     setTasks,
     loading,
+    loadingMore,
     error,
+    total,
+    hasMore: tasks.length < total,
+    loadMoreTasks: () => loadTasks({ append: true }),
     refreshTasks: loadTasks,
   };
 }

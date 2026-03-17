@@ -145,6 +145,18 @@ def setup_db_and_tables() -> None:
                 "ON tasks(recurrence_parent_task_id)"
             )
         )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_tasks_household_id "
+                "ON tasks(household_id)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_tasks_status "
+                "ON tasks(status)"
+            )
+        )
         if "achievement_notifications" not in notification_setting_columns:
             connection.execute(
                 text(
