@@ -6,8 +6,8 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from helpers import get_session_local, setup_db_and_tables, password_hasher
-from models import (
+from app.v1.helpers import get_session_local, setup_db_and_tables, password_hasher
+from app.v1.models import (
     Categories,
     Households,
     Preferences,
@@ -116,12 +116,24 @@ def seed_household(db: Session) -> Households:
 
 def seed_user_households(db: Session, users: dict[str, UserDB]) -> None:
     links = [
-        UsersHouseholds(user_id=users["rebecka"].user_id, household_id=HOUSEHOLD_ID, role="owner"),
-        UsersHouseholds(user_id=users["alex"].user_id, household_id=HOUSEHOLD_ID, role="admin"),
-        UsersHouseholds(user_id=users["sofia"].user_id, household_id=HOUSEHOLD_ID, role="admin"),
-        UsersHouseholds(user_id=users["mattias"].user_id, household_id=HOUSEHOLD_ID, role="member"),
-        UsersHouseholds(user_id=users["lina"].user_id, household_id=HOUSEHOLD_ID, role="member"),
-        UsersHouseholds(user_id=users["noah"].user_id, household_id=HOUSEHOLD_ID, role="member"),
+        UsersHouseholds(
+            user_id=users["rebecka"].user_id, household_id=HOUSEHOLD_ID, role="owner"
+        ),
+        UsersHouseholds(
+            user_id=users["alex"].user_id, household_id=HOUSEHOLD_ID, role="admin"
+        ),
+        UsersHouseholds(
+            user_id=users["sofia"].user_id, household_id=HOUSEHOLD_ID, role="admin"
+        ),
+        UsersHouseholds(
+            user_id=users["mattias"].user_id, household_id=HOUSEHOLD_ID, role="member"
+        ),
+        UsersHouseholds(
+            user_id=users["lina"].user_id, household_id=HOUSEHOLD_ID, role="member"
+        ),
+        UsersHouseholds(
+            user_id=users["noah"].user_id, household_id=HOUSEHOLD_ID, role="member"
+        ),
     ]
     for link in links:
         db.merge(link)
@@ -227,7 +239,9 @@ def seed_categories(db: Session) -> dict[str, Categories]:
     return {str(c.category_id): c for c in result}
 
 
-def seed_tasks(db: Session, users: dict[str, UserDB], categories: dict[str, Categories]) -> dict[str, Tasks]:
+def seed_tasks(
+    db: Session, users: dict[str, UserDB], categories: dict[str, Categories]
+) -> dict[str, Tasks]:
     now = datetime.now(timezone.utc)
 
     def cat(cid: str) -> UUID:
@@ -311,7 +325,6 @@ def seed_tasks(db: Session, users: dict[str, UserDB], categories: dict[str, Cate
             started_at=now - timedelta(days=23),
             complete_date=now - timedelta(days=17),
         ),
-
         # Groceries & Meals
         Tasks(
             task_id=as_uuid("f1f2f3f4-4444-4444-4444-444444444444"),
@@ -367,7 +380,6 @@ def seed_tasks(db: Session, users: dict[str, UserDB], categories: dict[str, Cate
             created_by=users["rebecka"].user_id,
             created_at=now - timedelta(days=6),
         ),
-
         # Home & Cleaning
         Tasks(
             task_id=as_uuid("f1f2f3f4-7777-7777-7777-777777777777"),
@@ -439,7 +451,6 @@ def seed_tasks(db: Session, users: dict[str, UserDB], categories: dict[str, Cate
             created_by=users["sofia"].user_id,
             created_at=now - timedelta(days=2),
         ),
-
         # Maintenance & Repairs
         Tasks(
             task_id=as_uuid("f1f2f3f4-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
@@ -496,7 +507,6 @@ def seed_tasks(db: Session, users: dict[str, UserDB], categories: dict[str, Cate
             created_by=users["rebecka"].user_id,
             created_at=now - timedelta(days=4),
         ),
-
         # Kids & School (optional but realistic dataset)
         Tasks(
             task_id=as_uuid("f1f2f3f4-dddd-dddd-dddd-dddddddddddd"),
@@ -550,15 +560,28 @@ def seed_tasks(db: Session, users: dict[str, UserDB], categories: dict[str, Cate
     return {str(t.task_id): t for t in result}
 
 
-def seed_user_task_links(db: Session, users: dict[str, UserDB], tasks: dict[str, Tasks]) -> None:
+def seed_user_task_links(
+    db: Session, users: dict[str, UserDB], tasks: dict[str, Tasks]
+) -> None:
     # Link a few tasks to multiple users for realism
     by_name = {t.name: t for t in tasks.values()}
 
     links = [
-        UserTask(user_id=users["alex"].user_id, task_id=by_name["Plan March budget"].task_id),
-        UserTask(user_id=users["rebecka"].user_id, task_id=by_name["Fix kitchen cabinet hinge"].task_id),
-        UserTask(user_id=users["sofia"].user_id, task_id=by_name["Weekly grocery run"].task_id),
-        UserTask(user_id=users["lina"].user_id, task_id=by_name["Pay electricity bill"].task_id),
+        UserTask(
+            user_id=users["alex"].user_id, task_id=by_name["Plan March budget"].task_id
+        ),
+        UserTask(
+            user_id=users["rebecka"].user_id,
+            task_id=by_name["Fix kitchen cabinet hinge"].task_id,
+        ),
+        UserTask(
+            user_id=users["sofia"].user_id,
+            task_id=by_name["Weekly grocery run"].task_id,
+        ),
+        UserTask(
+            user_id=users["lina"].user_id,
+            task_id=by_name["Pay electricity bill"].task_id,
+        ),
     ]
     for link in links:
         db.merge(link)
