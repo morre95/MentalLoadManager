@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import {
   ListTodo,
@@ -29,6 +29,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,6 +76,24 @@ const ARCHIVE_COLUMN_ID = "archive";
 const ALL_HOUSEHOLDS_VALUE = "__all_households__";
 const MAX_VISIBLE_TASKS_PER_COLUMN = 8;
 const TASK_CREATED_EVENT = "kanban-task-created";
+
+function normalizeSearchValue(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function taskMatchesSearch(task, searchTerm) {
+  if (!searchTerm) return true;
+
+  const fields = [
+    task?.title,
+    task?.description,
+    task?.category,
+    task?.assigneeLabel,
+    task?.dueDate,
+  ];
+
+  return fields.some((field) => normalizeSearchValue(field).includes(searchTerm));
+}
 
 function toApiStatus(status) {
   if (status === "in-progress") return "in_progress";
@@ -256,6 +275,7 @@ const DroppableColumn = ({
 };
 
 const Tasks = () => {
+  const location = useLocation();
   const [selectedHouseholdId, setSelectedHouseholdId] = useState(() => {
     try {
       const selectedHouseholdRaw = localStorage.getItem("household");
@@ -295,6 +315,20 @@ const Tasks = () => {
   const visibleColumns = showArchive
     ? columns
     : columns.filter((column) => column.id !== ARCHIVE_COLUMN_ID);
+
+  const rawSearchQuery = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return String(params.get("search") || "").trim();
+  }, [location.search]);
+
+  const searchTerm = useMemo(() => {
+    return normalizeSearchValue(rawSearchQuery);
+  }, [rawSearchQuery]);
+
+  const filteredTasks = useMemo(
+    () => tasks.filter((task) => taskMatchesSearch(task, searchTerm)),
+    [tasks, searchTerm]
+  );
 
   const selectedTask = selectedTaskId
     ? tasks.find((task) => task.id === selectedTaskId) || null
@@ -659,8 +693,8 @@ const Tasks = () => {
 
   const getColumnTasks = (status) =>
     status === ARCHIVE_COLUMN_ID
-      ? tasks.filter((task) => task.status === ARCHIVE_COLUMN_ID)
-      : tasks.filter((task) => task.status === status);
+      ? filteredTasks.filter((task) => task.status === ARCHIVE_COLUMN_ID)
+      : filteredTasks.filter((task) => task.status === status);
 
   if (!Array.isArray(households) || households.length === 0) {
     return <NoHouseholdState />;
@@ -712,7 +746,9 @@ const Tasks = () => {
       {!loading && tasks.length > 0 ? (
         <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
           <span>
-            Showing {tasks.length} of {total} tasks
+            {searchTerm
+              ? `Showing ${filteredTasks.length} matching tasks from ${tasks.length} loaded`
+              : `Showing ${tasks.length} of ${total} tasks`}
           </span>
           {hasMore ? (
             <Button
@@ -723,6 +759,12 @@ const Tasks = () => {
               {loadingMore ? "Loading..." : "Load More"}
             </Button>
           ) : null}
+        </div>
+      ) : null}
+
+      {!loading && tasks.length > 0 && searchTerm && filteredTasks.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
+          No tasks matched "{rawSearchQuery}". Try a task title, description, category, assignee, or due date.
         </div>
       ) : null}
 

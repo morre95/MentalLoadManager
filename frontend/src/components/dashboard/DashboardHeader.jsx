@@ -1,5 +1,5 @@
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Bell, Search, Plus, Target, Clock3, Mail } from "lucide-react";
+import { Bell, Search, Plus, Target, Clock3, Mail, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -63,6 +63,7 @@ const DashboardHeader = ({ onAddTask }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { households, membersFlat: members } = useHousehold();
+  const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
@@ -74,6 +75,32 @@ const DashboardHeader = ({ onAddTask }) => {
 
   const handleAddClick = () => {
     setIsAddDialogOpen(true);
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    setSearchQuery(params.get("search") || "");
+  }, [location.search]);
+
+  const handleSearchSubmit = (event) => {
+    event.preventDefault();
+
+    const nextQuery = searchQuery.trim();
+    const params = new URLSearchParams();
+
+    if (nextQuery) {
+      params.set("search", nextQuery);
+    }
+
+    navigate({
+      pathname: "/dashboard/tasks",
+      search: params.toString() ? `?${params.toString()}` : "",
+    });
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    navigate("/dashboard/tasks");
   };
 
   const handleTaskCreated = (newTask) => {
@@ -317,13 +344,27 @@ const DashboardHeader = ({ onAddTask }) => {
         <div className="flex items-center gap-4">
           <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
 
-          <div className="hidden md:flex items-center gap-2 relative">
+          <form className="hidden md:flex items-center gap-2 relative" onSubmit={handleSearchSubmit}>
             <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search tasks..."
-              className="w-64 pl-9 h-9 bg-muted/50 border-transparent focus:border-border"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              className="w-64 h-9 bg-muted/50 border-transparent pl-9 pr-9 focus:border-border"
             />
-          </div>
+            {searchQuery ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 h-7 w-7 text-muted-foreground hover:text-foreground"
+                onClick={handleClearSearch}
+                aria-label="Clear task search"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            ) : null}
+          </form>
         </div>
 
         <div className="flex items-center gap-3">
