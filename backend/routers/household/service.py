@@ -14,6 +14,10 @@ from sqlalchemy.exc import IntegrityError
 from helpers import get_session_local
 from models import Households, Invitations, UserEmail, UsersHouseholds
 
+from ..input_validation import (
+    HOUSEHOLD_NAME_MAX_LENGTH,
+    validate_required_name,
+)
 from .repository import (
     count_household_members,
     delete_household,
@@ -205,9 +209,11 @@ def create_household(
     payload: CreateHouseholdRequest,
     current_user: UserEmail,
 ) -> CreateHouseholdResponse:
-    name = payload.name.strip()
-    if not name:
-        raise HTTPException(status_code=400, detail="Household name is required")
+    name = validate_required_name(
+        payload.name,
+        field_name="Household name",
+        max_length=HOUSEHOLD_NAME_MAX_LENGTH,
+    )
 
     try:
         session_local = get_session_local()
@@ -247,9 +253,11 @@ def update_household(
     payload: UpdateHouseholdRequest,
     current_user: UserEmail,
 ) -> UpdateHouseholdResponse:
-    name = payload.name.strip()
-    if not name:
-        raise HTTPException(status_code=400, detail="Household name is required")
+    name = validate_required_name(
+        payload.name,
+        field_name="Household name",
+        max_length=HOUSEHOLD_NAME_MAX_LENGTH,
+    )
 
     session_local = get_session_local()
 

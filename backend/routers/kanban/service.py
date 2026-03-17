@@ -8,6 +8,13 @@ from sqlalchemy.exc import IntegrityError
 from helpers import get_session_local
 from models import Categories, Tasks, UserEmail
 
+from ..input_validation import (
+    CATEGORY_NAME_MAX_LENGTH,
+    TASK_NAME_MAX_LENGTH,
+    sanitize_description,
+    validate_optional_name,
+    validate_required_name,
+)
 from .repository import (
     count_tasks_for_member,
     find_membership,
@@ -229,12 +236,11 @@ def create_household_category(
     payload: CreateHouseholdCategoryRequest,
     current_user: UserEmail,
 ) -> HouseholdCategory:
-    category_name = payload.name.strip()
-    if not category_name:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Category name is required",
-        )
+    category_name = validate_required_name(
+        payload.name,
+        field_name="Category name",
+        max_length=CATEGORY_NAME_MAX_LENGTH,
+    )
 
     try:
         session_local = get_session_local()
@@ -431,15 +437,20 @@ def list_household_assignees(
 
 
 def create_task(payload: CreateTaskRequest, current_user: UserEmail) -> TaskResponse:
-    task_name = payload.name.strip()
+    task_name = validate_required_name(
+        payload.name,
+        field_name="Task name",
+        max_length=TASK_NAME_MAX_LENGTH,
+    )
     task_status = payload.status.strip().lower()
     recurrence_frequency = _normalize_recurrence_frequency(payload.recurrence_frequency)
     recurrence_interval = payload.recurrence_interval or 1
-    if not task_name:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Task name is required",
-        )
+    task_description = sanitize_description(payload.description)
+    category_name = validate_optional_name(
+        payload.category_name,
+        field_name="Category name",
+        max_length=CATEGORY_NAME_MAX_LENGTH,
+    )
     if task_status not in ALLOWED_TASK_STATUSES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -483,17 +494,16 @@ def create_task(payload: CreateTaskRequest, current_user: UserEmail) -> TaskResp
                     detail="Category does not belong to the specified household",
                 )
             resolved_category_id = category.category_id
-        elif payload.category_name and payload.category_name.strip():
-            normalized_category_name = payload.category_name.strip()
+        elif category_name:
             category = get_category_by_name(
                 db,
                 payload.household_id,
-                normalized_category_name,
+                category_name,
             )
             if not category:
                 category = Categories(
                     household_id=payload.household_id,
-                    name=normalized_category_name,
+                    name=category_name,
                 )
                 db.add(category)
                 db.flush()
@@ -530,7 +540,7 @@ def create_task(payload: CreateTaskRequest, current_user: UserEmail) -> TaskResp
         new_task = Tasks(
             household_id=payload.household_id,
             name=task_name,
-            description=payload.description,
+            description=task_description,
             status=task_status,
             priority=payload.priority,
             due_date=payload.due_date,
@@ -903,9 +913,7 @@ def update_task_description(
         me = _get_me(db, current_user)
         task = _get_task_with_membership(db, task_id, me.user_id)
 
-        next_description = (
-            payload.description.strip() if isinstance(payload.description, str) else None
-        )
+        next_description = sanitize_description(payload.description)
         task.description = next_description or None
         task.updated_at = datetime.now(timezone.utc)
 
@@ -943,7 +951,11 @@ def update_task_category(
         me = _get_me(db, current_user)
         task = _get_task_with_membership(db, task_id, me.user_id)
 
-        category_name = payload.category_name.strip() if payload.category_name else ""
+        category_name = validate_optional_name(
+            payload.category_name,
+            field_name="Category name",
+            max_length=CATEGORY_NAME_MAX_LENGTH,
+        ) or ""
         if not category_name:
             task.category_id = None
             task.updated_at = datetime.now(timezone.utc)
@@ -985,12 +997,11 @@ def update_task_name(
     payload: UpdateTaskNameRequest,
     current_user: UserEmail,
 ) -> UpdateTaskNameResponse:
-    next_name = payload.name.strip()
-    if not next_name:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Task name is required",
-        )
+    next_name = validate_required_name(
+        payload.name,
+        field_name="Task name",
+        max_length=TASK_NAME_MAX_LENGTH,
+    )
 
     try:
         session_local = get_session_local()

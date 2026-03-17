@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from ..input_validation import HOUSEHOLD_NAME_MAX_LENGTH
+
 
 class HouseholdMember(BaseModel):
     user_id: str
@@ -26,7 +28,9 @@ class AddHouseholdMemberRequest(BaseModel):
 
 
 class CreateHouseholdRequest(BaseModel):
-    name: str
+    name: str = Field(
+        description=f"Household name, max {HOUSEHOLD_NAME_MAX_LENGTH} characters"
+    )
 
 
 class CreateHouseholdResponse(BaseModel):
@@ -36,7 +40,9 @@ class CreateHouseholdResponse(BaseModel):
 
 class UpdateHouseholdRequest(BaseModel):
     household_id: UUID
-    name: str
+    name: str = Field(
+        description=f"Household name, max {HOUSEHOLD_NAME_MAX_LENGTH} characters"
+    )
 
 
 class UpdateHouseholdResponse(BaseModel):

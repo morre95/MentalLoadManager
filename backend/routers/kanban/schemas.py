@@ -3,18 +3,30 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from ..input_validation import (
+    CATEGORY_NAME_MAX_LENGTH,
+    TASK_DESCRIPTION_MAX_LENGTH,
+    TASK_NAME_MAX_LENGTH,
+)
+
 
 class CreateTaskRequest(BaseModel):
     household_id: UUID
-    name: str = Field(min_length=1, max_length=200)
+    name: str = Field(description=f"Task name, max {TASK_NAME_MAX_LENGTH} characters")
     status: str = Field(default="todo", max_length=20)
-    description: str | None = Field(default=None, max_length=2000)
+    description: str | None = Field(
+        default=None,
+        description=f"Task description, max {TASK_DESCRIPTION_MAX_LENGTH} characters",
+    )
     priority: str | None = Field(default=None, max_length=20)
     due_date: datetime | None = None
     recurrence_frequency: str | None = Field(default=None, max_length=20)
     recurrence_interval: int | None = Field(default=1, ge=1, le=365)
     category_id: UUID | None = None
-    category_name: str | None = Field(default=None, max_length=100)
+    category_name: str | None = Field(
+        default=None,
+        description=f"Category name, max {CATEGORY_NAME_MAX_LENGTH} characters",
+    )
     assigns_to: UUID | None = None
     started_at: datetime | None = None
     complete_date: datetime | None = None
@@ -83,7 +95,9 @@ class HouseholdCategoriesResponse(BaseModel):
 
 
 class CreateHouseholdCategoryRequest(BaseModel):
-    name: str = Field(min_length=1, max_length=100)
+    name: str = Field(
+        description=f"Category name, max {CATEGORY_NAME_MAX_LENGTH} characters"
+    )
 
 
 class DeleteHouseholdCategoryResponse(BaseModel):
@@ -159,7 +173,10 @@ class UpdateTaskAssigneeResponse(BaseModel):
 
 
 class UpdateTaskCategoryRequest(BaseModel):
-    category_name: str | None = Field(default=None, max_length=100)
+    category_name: str | None = Field(
+        default=None,
+        description=f"Category name, max {CATEGORY_NAME_MAX_LENGTH} characters",
+    )
 
 
 class UpdateTaskCategoryResponse(BaseModel):
@@ -170,7 +187,10 @@ class UpdateTaskCategoryResponse(BaseModel):
 
 
 class UpdateTaskDescriptionRequest(BaseModel):
-    description: str | None = Field(default=None, max_length=2000)
+    description: str | None = Field(
+        default=None,
+        description=f"Task description, max {TASK_DESCRIPTION_MAX_LENGTH} characters",
+    )
 
 
 class UpdateTaskDescriptionResponse(BaseModel):
@@ -180,7 +200,7 @@ class UpdateTaskDescriptionResponse(BaseModel):
 
 
 class UpdateTaskNameRequest(BaseModel):
-    name: str = Field(min_length=1, max_length=200)
+    name: str = Field(description=f"Task name, max {TASK_NAME_MAX_LENGTH} characters")
 
 
 class UpdateTaskNameResponse(BaseModel):
