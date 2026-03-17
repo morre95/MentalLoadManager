@@ -8,6 +8,7 @@ export default function MoodArtwork({
   selectedDate,
   onRegionClick,
   onRegionHover,
+  colorClassByToken,
 }) {
   const renderTheme = moodArtworkThemes[imageId] || fallbackThemeByPeriod[periodType];
 
@@ -17,5 +18,6 @@ export default function MoodArtwork({
     selectedDate,
     onRegionClick,
     onRegionHover,
+    colorClassByToken,
   });
 }

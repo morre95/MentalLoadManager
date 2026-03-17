@@ -11,9 +11,14 @@ export const COLOR_FILL_CLASS_BY_TOKEN = {
   "status-done": "fill-status-done",
 };
 
-const getRegionClasses = (entry, isSelectedDateRegion, isOccupiedByOtherDate) => {
+const getRegionClasses = (
+  entry,
+  isSelectedDateRegion,
+  isOccupiedByOtherDate,
+  colorClassByToken = COLOR_FILL_CLASS_BY_TOKEN
+) => {
   const fillClass = entry
-    ? COLOR_FILL_CLASS_BY_TOKEN[entry.color_token] || "fill-primary"
+    ? colorClassByToken[entry.color_token] || COLOR_FILL_CLASS_BY_TOKEN[entry.color_token] || "fill-primary"
     : "fill-muted/50";
   const strokeClass = isSelectedDateRegion
     ? "stroke-foreground"
@@ -30,6 +35,7 @@ export const renderInteractiveShape = ({
   selectedDate,
   onRegionClick,
   onRegionHover,
+  colorClassByToken,
   children,
 }) => {
   const isSelectedDateRegion = entry?.date === selectedDate;
@@ -47,7 +53,7 @@ export const renderInteractiveShape = ({
       onMouseLeave={() => onRegionHover(null)}
     >
       {children(
-        getRegionClasses(entry, isSelectedDateRegion, isOccupiedByOtherDate),
+        getRegionClasses(entry, isSelectedDateRegion, isOccupiedByOtherDate, colorClassByToken),
         isSelectedDateRegion
       )}
     </g>

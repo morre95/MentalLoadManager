@@ -12,11 +12,17 @@ const MOOD_OPTIONS = [
   { token: "sky", label: "Calm", swatchClass: "bg-sky" },
   { token: "sage", label: "Balanced", swatchClass: "bg-sage" },
   { token: "lavender", label: "Dreamy", swatchClass: "bg-lavender" },
-  { token: "terracotta", label: "Warm", swatchClass: "bg-terracotta" },
+  { token: "terracotta", label: "Warm", swatchClass: "bg-[#c08497]" },
   { token: "status-todo", label: "Energized", swatchClass: "bg-status-todo" },
-  { token: "primary", label: "Focused", swatchClass: "bg-primary" },
-  { token: "status-done", label: "Proud", swatchClass: "bg-status-done" },
+  { token: "primary", label: "Focused", swatchClass: "bg-[#2c3e50]" },
+  { token: "status-done", label: "Proud", swatchClass: "bg-[#3cb371]" },
 ];
+
+const MOOD_ARTWORK_COLOR_OVERRIDES = {
+  terracotta: "fill-[#c08497]",
+  primary: "fill-[#2c3e50]",
+  "status-done": "fill-[#3cb371]",
+};
 
 const PERIOD_OPTIONS = [
   { value: "weekly", label: "Weekly" },
@@ -248,6 +254,7 @@ export default function MoodTracker() {
                       regionIds={trackerData?.region_ids || []}
                       paintedByRegion={paintedByRegion}
                       selectedDate={selectedDate}
+                      colorClassByToken={MOOD_ARTWORK_COLOR_OVERRIDES}
                       onRegionClick={handlePaintRegion}
                       onRegionHover={setHoveredRegionId}
                     />

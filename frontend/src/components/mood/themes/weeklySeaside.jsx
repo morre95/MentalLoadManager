@@ -6,6 +6,7 @@ export default function renderWeeklySeaside({
   selectedDate,
   onRegionClick,
   onRegionHover,
+  colorClassByToken,
 }) {
   const shells = [
     { cx: 56, cy: 212, rx: 24, ry: 18, rotate: -18 },
@@ -29,6 +30,7 @@ export default function renderWeeklySeaside({
           selectedDate,
           onRegionClick,
           onRegionHover,
+          colorClassByToken,
           children: (regionClass, isSelected) => (
             <ellipse
               cx={shell.cx}

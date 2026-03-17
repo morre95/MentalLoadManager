@@ -25,6 +25,7 @@ export default function renderWeeklyCactus({
     selectedDate,
     onRegionClick,
     onRegionHover,
+    colorClassByToken,
 }) {
     return (
         <svg viewBox="0 0 88 132" className="h-full w-full">
@@ -38,6 +39,7 @@ export default function renderWeeklyCactus({
                         selectedDate,
                         onRegionClick,
                         onRegionHover,
+                        colorClassByToken,
                         children: (regionClass, isSelected) => (
                             <path
                                 d={REGION_SHAPES[index]}

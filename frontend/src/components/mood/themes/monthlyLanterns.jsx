@@ -6,6 +6,7 @@ export default function renderMonthlyLanterns({
   selectedDate,
   onRegionClick,
   onRegionHover,
+  colorClassByToken,
 }) {
   const columns = regionIds.length > 30 ? 6 : 5;
   const startX = 36;
@@ -33,6 +34,7 @@ export default function renderMonthlyLanterns({
               selectedDate,
               onRegionClick,
               onRegionHover,
+              colorClassByToken,
               children: (regionClass, isSelected) => (
                 <rect
                   x={x - 15}

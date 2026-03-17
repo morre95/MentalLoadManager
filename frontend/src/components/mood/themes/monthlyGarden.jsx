@@ -6,6 +6,7 @@ export default function renderMonthlyGarden({
   selectedDate,
   onRegionClick,
   onRegionHover,
+  colorClassByToken,
 }) {
   const columns = regionIds.length > 30 ? 6 : 5;
   const startX = 34;
@@ -34,6 +35,7 @@ export default function renderMonthlyGarden({
               selectedDate,
               onRegionClick,
               onRegionHover,
+              colorClassByToken,
               children: (regionClass, isSelected) => (
                 <circle
                   cx={x}

@@ -6,6 +6,7 @@ export default function renderMonthlyMosaic({
   selectedDate,
   onRegionClick,
   onRegionHover,
+  colorClassByToken,
 }) {
   const columns = regionIds.length > 30 ? 6 : 5;
   const tileWidth = 50;
@@ -31,6 +32,7 @@ export default function renderMonthlyMosaic({
           selectedDate,
           onRegionClick,
           onRegionHover,
+          colorClassByToken,
           children: (regionClass, isSelected) => (
             <rect
               x={x}

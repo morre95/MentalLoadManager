@@ -6,6 +6,7 @@ export default function renderWeeklyButterfly({
   selectedDate,
   onRegionClick,
   onRegionHover,
+  colorClassByToken,
 }) {
   const segments = [
     { cx: 96, cy: 108, rx: 46, ry: 38, rotate: -20 },
@@ -27,6 +28,7 @@ export default function renderWeeklyButterfly({
           selectedDate,
           onRegionClick,
           onRegionHover,
+          colorClassByToken,
           children: (regionClass, isSelected) => (
             <ellipse
               cx={segment.cx}

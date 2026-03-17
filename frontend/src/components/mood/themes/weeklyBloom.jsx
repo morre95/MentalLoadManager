@@ -6,6 +6,7 @@ export default function renderWeeklyBloom({
   selectedDate,
   onRegionClick,
   onRegionHover,
+  colorClassByToken,
 }) {
   const petals = regionIds.map((regionId, index) => {
     const angle = (360 / regionIds.length) * index;
@@ -15,6 +16,7 @@ export default function renderWeeklyBloom({
       selectedDate,
       onRegionClick,
       onRegionHover,
+      colorClassByToken,
       children: (regionClass, isSelected) => (
         <ellipse
           cx="150"
