@@ -19,9 +19,14 @@ const MOOD_OPTIONS = [
 ];
 
 const MOOD_ARTWORK_COLOR_OVERRIDES = {
-  terracotta: "fill-[#c08497]",
-  primary: "fill-[#2c3e50]",
-  "status-done": "fill-[#3cb371]",
+  accent: "hsl(var(--accent))",
+  sky: "hsl(var(--sky))",
+  sage: "hsl(var(--sage))",
+  lavender: "hsl(var(--lavender))",
+  terracotta: "#c08497",
+  "status-todo": "hsl(var(--status-todo))",
+  primary: "#2c3e50",
+  "status-done": "#3cb371",
 };
 
 const PERIOD_OPTIONS = [
@@ -108,6 +113,26 @@ export default function MoodTracker() {
       isMounted = false;
     };
   }, [anchorDate, periodType]);
+
+  useEffect(() => {
+    if (!trackerData) {
+      return undefined;
+    }
+    if (!["pending", "in_progress"].includes(String(trackerData.artwork_status || ""))) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(async () => {
+      try {
+        const response = await fetchMoodTrackerPeriod(periodType, anchorDate);
+        setTrackerData(response);
+      } catch {
+        // Keep polling silent; the main load path already handles user-facing errors.
+      }
+    }, 2500);
+
+    return () => window.clearInterval(intervalId);
+  }, [anchorDate, periodType, trackerData]);
 
   useEffect(() => {
     if (!trackerData?.dates?.length) {
@@ -244,6 +269,17 @@ export default function MoodTracker() {
               <div className="flex h-[520px] items-center justify-center rounded-3xl border border-dashed border-border bg-muted/20 text-muted-foreground">
                 Loading artwork...
               </div>
+            ) : trackerData?.artwork_status === "failed" ? (
+              <div className="flex h-[520px] items-center justify-center rounded-3xl border border-dashed border-destructive/30 bg-destructive/5 px-6 text-center text-sm text-destructive">
+                {trackerData?.artwork_error || "Artwork generation failed. Retrying soon."}
+              </div>
+            ) : trackerData?.artwork_status !== "completed" || !trackerData?.svg_markup ? (
+              <div className="flex h-[520px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-muted/20 px-6 text-center">
+                <p className="text-base font-medium text-foreground">Generating artwork...</p>
+                <p className="mt-2 max-w-md text-sm text-muted-foreground">
+                  Your mood illustration is being prepared in the background. This view refreshes automatically when it is ready.
+                </p>
+              </div>
             ) : (
               <div className="space-y-5">
                 <div className="rounded-[2rem] border border-border bg-gradient-to-b from-card via-card to-sand-light/50 p-4 shadow-sm">
@@ -251,10 +287,11 @@ export default function MoodTracker() {
                     <MoodArtwork
                       periodType={periodType}
                       imageId={trackerData?.image_id}
+                      svgMarkup={trackerData?.svg_markup}
                       regionIds={trackerData?.region_ids || []}
                       paintedByRegion={paintedByRegion}
                       selectedDate={selectedDate}
-                      colorClassByToken={MOOD_ARTWORK_COLOR_OVERRIDES}
+                      colorValueByToken={MOOD_ARTWORK_COLOR_OVERRIDES}
                       onRegionClick={handlePaintRegion}
                       onRegionHover={setHoveredRegionId}
                     />

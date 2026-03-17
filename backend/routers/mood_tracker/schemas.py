@@ -1,4 +1,5 @@
 from datetime import date
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -29,7 +30,12 @@ class MoodTrackerPeriodResponse(BaseModel):
     anchor_date: date
     start_date: date
     end_date: date
-    image_id: str
+    image_id: str | None = None
+    artwork_source: str | None = None
+    artwork_status: Literal["pending", "in_progress", "completed", "failed"] = "pending"
+    artwork_error: str | None = None
+    artwork_generated_at: datetime | None = None
+    svg_markup: str | None = None
     region_ids: list[str]
     painted_days: list[MoodTrackerDayResponse]
     dates: list[MoodTrackerDateStatusResponse]

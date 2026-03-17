@@ -159,6 +159,29 @@ CREATE TABLE IF NOT EXISTS mood_entries (
 
 CREATE INDEX IF NOT EXISTS idx_mood_entries_user_date ON mood_entries(user_id, entry_date);
 
+CREATE TABLE IF NOT EXISTS mood_tracker_artworks (
+  mood_tracker_artwork_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id                 UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  period_type             VARCHAR(20) NOT NULL,
+  period_key              VARCHAR(40) NOT NULL,
+  start_date              DATE NOT NULL,
+  end_date                DATE NOT NULL,
+  image_id                VARCHAR(80),
+  source                  VARCHAR(20),
+  status                  VARCHAR(20) NOT NULL DEFAULT 'pending',
+  error                   TEXT,
+  svg_markup              TEXT,
+  region_ids              JSONB NOT NULL DEFAULT '[]'::jsonb,
+  prompt_version          VARCHAR(40),
+  generated_at            TIMESTAMPTZ,
+  created_at              TIMESTAMPTZ DEFAULT NOW(),
+  updated_at              TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT uq_mood_tracker_artworks_user_period UNIQUE (user_id, period_type, period_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_mood_tracker_artworks_user_created
+  ON mood_tracker_artworks(user_id, created_at DESC);
+
 
 ALTER TABLE categories
   ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();

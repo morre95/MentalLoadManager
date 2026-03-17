@@ -113,6 +113,8 @@ class SetupDbAndTablesTests(unittest.TestCase):
             "ALTER TABLE goal_ai_checkins_cache ADD COLUMN IF NOT EXISTS created_at",
             executed,
         )
+        self.assertIn("CREATE TABLE IF NOT EXISTS mood_tracker_artworks", executed)
+        self.assertIn("uq_mood_tracker_artworks_user_period", executed)
 
 
 
