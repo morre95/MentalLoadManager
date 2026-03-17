@@ -45,6 +45,11 @@ def setup_db_and_tables() -> None:
     inspector = inspect(engine)
 
     try:
+        task_columns = {column["name"] for column in inspector.get_columns("tasks")}
+    except Exception:
+        task_columns = set()
+
+    try:
         goal_columns = {column["name"] for column in inspector.get_columns("goals")}
     except Exception:
         goal_columns = set()
@@ -72,6 +77,74 @@ def setup_db_and_tables() -> None:
         notification_setting_columns = set()
 
     with engine.begin() as connection:
+        if "recurrence_enabled" not in task_columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE tasks "
+                    "ADD COLUMN IF NOT EXISTS recurrence_enabled BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            )
+        if "recurrence_frequency" not in task_columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE tasks "
+                    "ADD COLUMN IF NOT EXISTS recurrence_frequency VARCHAR(20)"
+                )
+            )
+        if "recurrence_interval" not in task_columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE tasks "
+                    "ADD COLUMN IF NOT EXISTS recurrence_interval INTEGER"
+                )
+            )
+        if "recurrence_parent_task_id" not in task_columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE tasks "
+                    "ADD COLUMN IF NOT EXISTS recurrence_parent_task_id UUID "
+                    "REFERENCES tasks(task_id) ON DELETE SET NULL"
+                )
+            )
+        if "recurrence_exceptions" not in task_columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE tasks "
+                    "ADD COLUMN IF NOT EXISTS recurrence_exceptions DATE[]"
+                )
+            )
+        connection.execute(
+            text(
+                "ALTER TABLE tasks "
+                "DROP CONSTRAINT IF EXISTS tasks_recurrence_frequency_check"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE tasks "
+                "ADD CONSTRAINT tasks_recurrence_frequency_check "
+                "CHECK (recurrence_frequency IS NULL OR recurrence_frequency IN ('daily', 'weekly', 'monthly'))"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE tasks "
+                "DROP CONSTRAINT IF EXISTS tasks_recurrence_interval_check"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE tasks "
+                "ADD CONSTRAINT tasks_recurrence_interval_check "
+                "CHECK (recurrence_interval IS NULL OR recurrence_interval > 0)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_tasks_recurrence_parent "
+                "ON tasks(recurrence_parent_task_id)"
+            )
+        )
         if "achievement_notifications" not in notification_setting_columns:
             connection.execute(
                 text(
