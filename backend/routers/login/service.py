@@ -22,14 +22,22 @@ from helpers import (
     create_access_token,
     get_session_local,
 )
-from models import PasswordRefreshToken, Token, UserDB
+from models import LoginAttempt, PasswordRefreshToken, Token, UserDB
 
-from .repository import find_user, get_google_oauth_account, get_user_by_username
+from .repository import (
+    find_user,
+    get_google_oauth_account,
+    get_login_attempt,
+    get_user_by_username,
+)
 from .schemas import RefreshTokenRequest
 from config import settings
 
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.JWT_EXPIRE_MINUTES or 30  # 1440 min = 24h
 REFRESH_TOKEN_EXPIRE_DAYS = 30
+LOGIN_FAILURE_LIMIT = 5
+CAPTCHA_THRESHOLD = 3
+LOCKOUT_WINDOW_MINUTES = 15
 
 logger = logging.getLogger(__name__)
 
@@ -268,6 +276,128 @@ def _resolve_client_ip(request: Request) -> str | None:
     return None
 
 
+def _normalize_login_identifier(username: str) -> str:
+    return username.strip().lower()[:255]
+
+
+def _login_failure_headers(
+    *,
+    captcha_required: bool,
+    locked_until: datetime | None = None,
+) -> dict[str, str]:
+    headers = {}
+    if captcha_required:
+        headers["X-Captcha-Required"] = "true"
+    if locked_until is not None:
+        retry_after_seconds = max(
+            1,
+            int((locked_until - datetime.now(timezone.utc)).total_seconds()),
+        )
+        headers["Retry-After"] = str(retry_after_seconds)
+    return headers
+
+
+def _raise_invalid_credentials(
+    *,
+    captcha_required: bool = False,
+    locked_until: datetime | None = None,
+) -> None:
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid credentials",
+        headers=_login_failure_headers(
+            captcha_required=captcha_required,
+            locked_until=locked_until,
+        ),
+    )
+
+
+def _get_or_create_login_attempt(
+    db,
+    *,
+    username_key: str,
+    ip_address: str,
+) -> LoginAttempt:
+    attempt = get_login_attempt(
+        db,
+        username_key=username_key,
+        ip_address=ip_address,
+    )
+    if attempt is None:
+        attempt = LoginAttempt(
+            username_key=username_key,
+            ip_address=ip_address,
+        )
+        db.add(attempt)
+    return attempt
+
+
+def _ensure_login_not_locked(db, *, username_key: str, ip_address: str) -> None:
+    attempt = get_login_attempt(
+        db,
+        username_key=username_key,
+        ip_address=ip_address,
+    )
+    now_utc = datetime.now(timezone.utc)
+    if attempt is None:
+        return
+    if attempt.locked_until is None:
+        return
+    if attempt.locked_until <= now_utc:
+        attempt.failed_attempts = 0
+        attempt.captcha_required = False
+        attempt.first_failed_at = None
+        attempt.last_failed_at = None
+        attempt.locked_until = None
+        attempt.updated_at = now_utc
+        db.commit()
+        return
+    _raise_invalid_credentials(
+        captcha_required=attempt.captcha_required,
+        locked_until=attempt.locked_until,
+    )
+
+
+def _record_failed_login_attempt(db, *, username_key: str, ip_address: str) -> LoginAttempt:
+    now_utc = datetime.now(timezone.utc)
+    attempt = _get_or_create_login_attempt(
+        db,
+        username_key=username_key,
+        ip_address=ip_address,
+    )
+    if attempt.locked_until is not None and attempt.locked_until <= now_utc:
+        attempt.failed_attempts = 0
+        attempt.locked_until = None
+        attempt.first_failed_at = None
+    if attempt.first_failed_at is None:
+        attempt.first_failed_at = now_utc
+    attempt.failed_attempts += 1
+    attempt.last_failed_at = now_utc
+    attempt.updated_at = now_utc
+    attempt.captcha_required = attempt.failed_attempts >= CAPTCHA_THRESHOLD
+    if attempt.failed_attempts >= LOGIN_FAILURE_LIMIT:
+        attempt.locked_until = now_utc + timedelta(minutes=LOCKOUT_WINDOW_MINUTES)
+    db.commit()
+    return attempt
+
+
+def _reset_failed_login_attempts(db, *, username_key: str, ip_address: str) -> None:
+    attempt = get_login_attempt(
+        db,
+        username_key=username_key,
+        ip_address=ip_address,
+    )
+    if attempt is None:
+        return
+    now_utc = datetime.now(timezone.utc)
+    attempt.failed_attempts = 0
+    attempt.captcha_required = False
+    attempt.first_failed_at = None
+    attempt.last_failed_at = None
+    attempt.locked_until = None
+    attempt.updated_at = now_utc
+
+
 def _issue_password_refresh_token(
     db,
     *,
@@ -495,6 +625,33 @@ def create_calendar_event(access_token, username):
 
 
 def login(form: OAuth2PasswordRequestForm, request: Request) -> Token:
+    username_key = _normalize_login_identifier(form.username)
+    ip_address = _resolve_client_ip(request) or "unknown"
+
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    try:
+        with session_local() as db:
+            _ensure_login_not_locked(
+                db,
+                username_key=username_key,
+                ip_address=ip_address,
+            )
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        logger.exception("Login lockout query failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Login lockout query failed: {exc}",
+        ) from exc
+
     try:
         user = authenticate_user(form.username, form.password)
     except RuntimeError as exc:
@@ -516,9 +673,23 @@ def login(form: OAuth2PasswordRequestForm, request: Request) -> Token:
         ) from exc
 
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+        try:
+            with session_local() as db:
+                attempt = _record_failed_login_attempt(
+                    db,
+                    username_key=username_key,
+                    ip_address=ip_address,
+                )
+        except SQLAlchemyError as exc:
+            logger.exception("Failed to record login attempt: %s", exc)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to record login attempt: {exc}",
+            ) from exc
+
+        _raise_invalid_credentials(
+            captcha_required=attempt.captcha_required,
+            locked_until=attempt.locked_until,
         )
 
     if not user.user_id:
@@ -534,15 +705,12 @@ def login(form: OAuth2PasswordRequestForm, request: Request) -> Token:
     )
 
     try:
-        session_local = get_session_local()
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
-
-    try:
         with session_local() as db:
+            _reset_failed_login_attempts(
+                db,
+                username_key=username_key,
+                ip_address=ip_address,
+            )
             _, raw_refresh_token = _issue_password_refresh_token(
                 db,
                 user_id=user.user_id,

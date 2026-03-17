@@ -12,6 +12,7 @@ from .goal_ai_checkins_cache import GoalAICheckinsCache
 from .goal_history import GoalHistory
 from .households import Households
 from .invitations import Invitations
+from .login_attempt import LoginAttempt
 from .monthly_reports import MonthlyReports
 from .mood_entries import MoodEntries
 from .notification_settings import NotificationSettings
@@ -50,6 +51,7 @@ __all__ = [
     "UserTask",
     "TaskAttachment",
     "Invitations",
+    "LoginAttempt",
     "Reminders",
     "WeeklyReports",
     "MonthlyReports",

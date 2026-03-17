@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from models import OAuthAccounts, UserDB
+from models import LoginAttempt, OAuthAccounts, UserDB
 
 
 def find_user(db: Session, email: str | None, username: str) -> UserDB | None:
@@ -22,5 +22,19 @@ def get_google_oauth_account(db: Session, user_id):
         select(OAuthAccounts).where(
             OAuthAccounts.user_id == user_id,
             OAuthAccounts.provider == "google",
+        )
+    )
+
+
+def get_login_attempt(
+    db: Session,
+    *,
+    username_key: str,
+    ip_address: str,
+) -> LoginAttempt | None:
+    return db.scalar(
+        select(LoginAttempt).where(
+            LoginAttempt.username_key == username_key,
+            LoginAttempt.ip_address == ip_address,
         )
     )
