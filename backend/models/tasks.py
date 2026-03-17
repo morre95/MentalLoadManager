@@ -40,6 +40,9 @@ class Tasks(Base):
         ),
         Index("idx_tasks_household_id", "household_id"),
         Index("idx_tasks_status", "status"),
+        Index("idx_tasks_assigns_to", "assigns_to"),
+        Index("idx_tasks_created_at", "created_at"),
+        Index("idx_tasks_household_status", "household_id", "status"),
     )
 
     task_id: Mapped[UUID] = mapped_column(

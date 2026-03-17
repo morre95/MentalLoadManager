@@ -37,6 +37,9 @@ CHECK (recurrence_interval IS NULL OR recurrence_interval > 0);
 CREATE INDEX IF NOT EXISTS idx_tasks_recurrence_parent ON tasks(recurrence_parent_task_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_household_id ON tasks(household_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+CREATE INDEX IF NOT EXISTS idx_tasks_assigns_to ON tasks(assigns_to);
+CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at);
+CREATE INDEX IF NOT EXISTS idx_tasks_household_status ON tasks(household_id, status);
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 

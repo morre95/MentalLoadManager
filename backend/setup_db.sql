@@ -151,6 +151,9 @@ CREATE TABLE IF NOT EXISTS goals (
 
 CREATE INDEX IF NOT EXISTS idx_tasks_household_id ON tasks(household_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+CREATE INDEX IF NOT EXISTS idx_tasks_assigns_to ON tasks(assigns_to);
+CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at);
+CREATE INDEX IF NOT EXISTS idx_tasks_household_status ON tasks(household_id, status);
 
 -- Junction table: tasks <-> calendar_connections (M:N)
 CREATE TABLE IF NOT EXISTS task_calendar_links (
