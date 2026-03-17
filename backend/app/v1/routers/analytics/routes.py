@@ -3,8 +3,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
-from helpers import get_current_user
-from models import UserEmail
+from app.v1.helpers import get_current_user
+from app.v1.models import UserEmail
 
 from .schemas import (
     AnalyticsAskRequest,
@@ -13,7 +13,11 @@ from .schemas import (
     AnalyticsAIInsightsResponse,
     AnalyticsSummaryResponse,
 )
-from .service import get_analytics_ai_insights, get_analytics_ask_answer, get_analytics_summary
+from .service import (
+    get_analytics_ai_insights,
+    get_analytics_ask_answer,
+    get_analytics_summary,
+)
 
 router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
 

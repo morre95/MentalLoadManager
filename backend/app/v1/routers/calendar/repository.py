@@ -3,7 +3,7 @@ from datetime import datetime, time, timezone, date as date_type
 from sqlalchemy import and_, or_, select, func
 from sqlalchemy.orm import Session
 
-from models import Tasks, UsersHouseholds, Households, UserDB
+from app.v1.models import Tasks, UsersHouseholds, Households, UserDB
 
 DONE_STATUSES = ("done", "completed", "complete")
 

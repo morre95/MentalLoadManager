@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from models import MoodEntries, MoodTrackerArtworks
+from app.v1.models import MoodEntries, MoodTrackerArtworks
 
 
 def list_mood_entries_for_date_range(

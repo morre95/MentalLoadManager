@@ -9,9 +9,9 @@ import requests
 from fastapi import HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 
-from config import settings
-from helpers import get_session_local
-from models import UserEmail
+from app.v1.config import settings
+from app.v1.helpers import get_session_local
+from app.v1.models import UserEmail
 
 from .repository import (
     create_ai_summary,
@@ -432,7 +432,9 @@ def _run_weekly_summary_generation_task(
             username=username,
         )
     except Exception as exc:
-        logger.exception("Weekly summary generation failed for ai_summary %s", ai_summary_id)
+        logger.exception(
+            "Weekly summary generation failed for ai_summary %s", ai_summary_id
+        )
         with session_local() as db:
             ai_summary = get_ai_summary(db, ai_summary_id)
             if not ai_summary:
@@ -443,7 +445,9 @@ def _run_weekly_summary_generation_task(
                 db.commit()
             except SQLAlchemyError:
                 db.rollback()
-                logger.exception("Failed to persist ai_summary failure state for %s", ai_summary_id)
+                logger.exception(
+                    "Failed to persist ai_summary failure state for %s", ai_summary_id
+                )
         return
 
     with session_local() as db:
@@ -553,7 +557,9 @@ def list_summaries(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Could not validate credentials",
             )
-        if household_id and not has_household_membership(db, user.user_id, household_id):
+        if household_id and not has_household_membership(
+            db, user.user_id, household_id
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User is not a member of the specified household",

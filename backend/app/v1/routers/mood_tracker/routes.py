@@ -1,7 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 
-from helpers import get_current_user
-from models import UserEmail
+from app.v1.helpers import get_current_user
+from app.v1.models import UserEmail
 
 from .schemas import MoodTrackerPeriodResponse, UpsertMoodEntryRequest
 from .service import (

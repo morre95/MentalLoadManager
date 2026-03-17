@@ -8,8 +8,8 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from helpers import get_session_local
-from routers.mood_tracker.service import (
+from app.v1.helpers import get_session_local
+from app.v1.routers.mood_tracker.service import (
     process_pending_mood_tracker_artworks_once,
     queue_pre_generation_for_active_users,
 )

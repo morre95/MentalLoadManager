@@ -4,7 +4,15 @@ from uuid import UUID
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
-from models import AchievementUnlock, Categories, GoalAICheckinsCache, GoalHistory, Goals, Tasks, UsersHouseholds
+from app.v1.models import (
+    AchievementUnlock,
+    Categories,
+    GoalAICheckinsCache,
+    GoalHistory,
+    Goals,
+    Tasks,
+    UsersHouseholds,
+)
 
 
 def list_goals_for_user(db: Session, user_id: UUID) -> list[Goals]:
@@ -165,7 +173,10 @@ def list_achievement_unlocks_for_user(
     return db.scalars(
         select(AchievementUnlock)
         .where(AchievementUnlock.user_id == user_id)
-        .order_by(AchievementUnlock.unlocked_at.desc(), AchievementUnlock.achievement_unlock_id.desc())
+        .order_by(
+            AchievementUnlock.unlocked_at.desc(),
+            AchievementUnlock.achievement_unlock_id.desc(),
+        )
         .limit(limit)
     ).all()
 
@@ -177,7 +188,10 @@ def list_all_achievement_unlocks_for_user(
     return db.scalars(
         select(AchievementUnlock)
         .where(AchievementUnlock.user_id == user_id)
-        .order_by(AchievementUnlock.unlocked_at.desc(), AchievementUnlock.achievement_unlock_id.desc())
+        .order_by(
+            AchievementUnlock.unlocked_at.desc(),
+            AchievementUnlock.achievement_unlock_id.desc(),
+        )
     ).all()
 
 
@@ -235,8 +249,7 @@ def list_household_completed_tasks_for_achievements(db: Session, user_id: UUID):
 
 def list_available_category_names_for_user_households(db: Session, user_id: UUID):
     return db.execute(
-        select(Categories.name)
-        .join(
+        select(Categories.name).join(
             UsersHouseholds,
             and_(
                 UsersHouseholds.household_id == Categories.household_id,

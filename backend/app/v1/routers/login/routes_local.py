@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from helpers import get_current_user
-from limiter import limiter
-from models import User
+from app.v1.helpers import get_current_user
+from app.v1.limiter import limiter
+from app.v1.models import User
 
 from .schemas import RefreshTokenRequest, Token
 

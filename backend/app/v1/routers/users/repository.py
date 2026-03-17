@@ -1,7 +1,7 @@
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from models import UserDB
+from app.v1.models import UserDB
 
 
 def find_existing_user(db: Session, username: str, email: str | None) -> UserDB | None:

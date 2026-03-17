@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import and_, desc, or_, select
 from sqlalchemy.orm import Session, aliased
 
-from models import AISummaries, Tasks, UserDB, UsersHouseholds
+from app.v1.models import AISummaries, Tasks, UserDB, UsersHouseholds
 
 
 def get_user_by_username(db: Session, username: str) -> UserDB | None:
@@ -48,12 +48,19 @@ def fetch_weekly_tasks(
             Tasks.assigns_to,
             creator_user.username.label("created_by_username"),
             assignee_user.username.label("assignee_username"),
-        ).where(
+        )
+        .where(
             and_(
                 Tasks.household_id == household_id,
                 or_(
-                    and_(Tasks.created_at >= week_start_dt, Tasks.created_at < week_end_dt),
-                    and_(Tasks.started_at >= week_start_dt, Tasks.started_at < week_end_dt),
+                    and_(
+                        Tasks.created_at >= week_start_dt,
+                        Tasks.created_at < week_end_dt,
+                    ),
+                    and_(
+                        Tasks.started_at >= week_start_dt,
+                        Tasks.started_at < week_end_dt,
+                    ),
                     and_(
                         Tasks.complete_date >= week_start_dt,
                         Tasks.complete_date < week_end_dt,

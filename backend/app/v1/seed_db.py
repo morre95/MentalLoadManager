@@ -6,8 +6,8 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from helpers import get_session_local, setup_db_and_tables, password_hasher
-from models import (
+from app.v1.helpers import get_session_local, setup_db_and_tables, password_hasher
+from app.v1.models import (
     Categories,
     Households,
     Preferences,

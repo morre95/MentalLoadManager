@@ -7,8 +7,8 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from helpers import get_session_local
-from models import UserEmail
+from app.v1.helpers import get_session_local
+from app.v1.models import UserEmail
 
 from .artwork_generator import PROMPT_VERSION, generate_mood_artwork
 from .repository import (
@@ -116,11 +116,16 @@ def _pick_region_for_date(
             detail="No mood tracker regions are available for this period",
         )
 
-    seed = sum((index + 1) * ord(char) for index, char in enumerate(f"{period_key}:{entry_date.isoformat()}"))
+    seed = sum(
+        (index + 1) * ord(char)
+        for index, char in enumerate(f"{period_key}:{entry_date.isoformat()}")
+    )
     return available_region_ids[seed % len(available_region_ids)]
 
 
-def _validate_entry_date(period_type: str, entry_date: date, start_date: date, end_date: date):
+def _validate_entry_date(
+    period_type: str, entry_date: date, start_date: date, end_date: date
+):
     today = datetime.now(timezone.utc).date()
     if entry_date < start_date or entry_date > end_date:
         raise HTTPException(
@@ -145,7 +150,9 @@ def _build_period_response(
     entries: list,
 ) -> MoodTrackerPeriodResponse:
     region_field_name = _region_field_name(period_type)
-    region_ids = list(artwork.region_ids or _region_ids(period_type, start_date, end_date))
+    region_ids = list(
+        artwork.region_ids or _region_ids(period_type, start_date, end_date)
+    )
     entries_by_date = {entry.entry_date: entry for entry in entries}
     today = datetime.now(timezone.utc).date()
     dates = []
@@ -404,12 +411,19 @@ def get_mood_tracker_period(
             for entry in entries
             if getattr(entry, region_field_name)
         }
-        region_ids = list(artwork.region_ids or _region_ids(normalized_period_type, start_date, end_date))
+        region_ids = list(
+            artwork.region_ids
+            or _region_ids(normalized_period_type, start_date, end_date)
+        )
         did_assign_regions = False
         for entry in entries:
             if getattr(entry, region_field_name):
                 continue
-            available_region_ids = [region_id for region_id in region_ids if region_id not in assigned_region_ids]
+            available_region_ids = [
+                region_id
+                for region_id in region_ids
+                if region_id not in assigned_region_ids
+            ]
             selected_region_id = _pick_region_for_date(
                 period_key=period_key,
                 entry_date=entry.entry_date,
@@ -468,7 +482,9 @@ def upsert_mood_tracker_entry(
             start_date=start_date,
             end_date=end_date,
         )
-        region_ids = list(artwork.region_ids or _region_ids(period_type, start_date, end_date))
+        region_ids = list(
+            artwork.region_ids or _region_ids(period_type, start_date, end_date)
+        )
         if payload.region_id not in region_ids:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

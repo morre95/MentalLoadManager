@@ -15,14 +15,14 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import select
 
-from helpers import (
+from app.v1.helpers import (
     ALGORITHM,
     SECRET_KEY,
     authenticate_user,
     create_access_token,
     get_session_local,
 )
-from models import LoginAttempt, PasswordRefreshToken, Token, UserDB
+from app.v1.models import LoginAttempt, PasswordRefreshToken, Token, UserDB
 
 from .repository import (
     find_user,
@@ -31,7 +31,7 @@ from .repository import (
     get_user_by_username,
 )
 from .schemas import RefreshTokenRequest
-from config import settings
+from app.v1.config import settings
 
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.JWT_EXPIRE_MINUTES or 30  # 1440 min = 24h
 REFRESH_TOKEN_EXPIRE_DAYS = 30
@@ -358,7 +358,9 @@ def _ensure_login_not_locked(db, *, username_key: str, ip_address: str) -> None:
     )
 
 
-def _record_failed_login_attempt(db, *, username_key: str, ip_address: str) -> LoginAttempt:
+def _record_failed_login_attempt(
+    db, *, username_key: str, ip_address: str
+) -> LoginAttempt:
     now_utc = datetime.now(timezone.utc)
     attempt = _get_or_create_login_attempt(
         db,

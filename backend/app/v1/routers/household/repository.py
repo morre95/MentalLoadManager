@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.orm import Session
 
-from models import Households, Invitations, Tasks, UserDB, UsersHouseholds
+from app.v1.models import Households, Invitations, Tasks, UserDB, UsersHouseholds
 
 
 def get_user_by_username(db: Session, username: str) -> UserDB | None:

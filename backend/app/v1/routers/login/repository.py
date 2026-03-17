@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from models import LoginAttempt, OAuthAccounts, UserDB
+from app.v1.models import LoginAttempt, OAuthAccounts, UserDB
 
 
 def find_user(db: Session, email: str | None, username: str) -> UserDB | None:

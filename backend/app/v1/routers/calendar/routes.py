@@ -2,8 +2,8 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Query
 
-from helpers import get_current_user
-from models import UserEmail
+from app.v1.helpers import get_current_user
+from app.v1.models import UserEmail
 
 from .schemas import CalendarEventsResponse, CalendarRangeEventsResponse
 from .service import list_calendar_events, list_calendar_events_range

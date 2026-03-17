@@ -6,8 +6,8 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from helpers import get_session_local, password_hasher, setup_db_and_tables
-from models import (
+from app.v1.helpers import get_session_local, password_hasher, setup_db_and_tables
+from app.v1.models import (
     Categories,
     Goals,
     Households,
@@ -73,7 +73,9 @@ def seed_users(db: Session, now: datetime) -> dict[str, UserDB]:
         db.merge(user)
 
     db.flush()
-    rows = db.scalars(select(UserDB).where(UserDB.username.in_(list(USERS.keys())))).all()
+    rows = db.scalars(
+        select(UserDB).where(UserDB.username.in_(list(USERS.keys())))
+    ).all()
     return {row.username: row for row in rows}
 
 
@@ -138,16 +140,38 @@ def seed_preferences(db: Session, users: dict[str, UserDB]) -> None:
 
 def seed_categories(db: Session) -> dict[str, Categories]:
     categories = [
-        Categories(category_id=CATEGORY_IDS["cleaning"], household_id=HOUSEHOLD_ID, name="Cleaning"),
-        Categories(category_id=CATEGORY_IDS["groceries_meals"], household_id=HOUSEHOLD_ID, name="Groceries & Meals"),
-        Categories(category_id=CATEGORY_IDS["school_family"], household_id=HOUSEHOLD_ID, name="School & Family"),
-        Categories(category_id=CATEGORY_IDS["admin_bills"], household_id=HOUSEHOLD_ID, name="Admin & Bills"),
-        Categories(category_id=CATEGORY_IDS["health_habits"], household_id=HOUSEHOLD_ID, name="Health & Habits"),
+        Categories(
+            category_id=CATEGORY_IDS["cleaning"],
+            household_id=HOUSEHOLD_ID,
+            name="Cleaning",
+        ),
+        Categories(
+            category_id=CATEGORY_IDS["groceries_meals"],
+            household_id=HOUSEHOLD_ID,
+            name="Groceries & Meals",
+        ),
+        Categories(
+            category_id=CATEGORY_IDS["school_family"],
+            household_id=HOUSEHOLD_ID,
+            name="School & Family",
+        ),
+        Categories(
+            category_id=CATEGORY_IDS["admin_bills"],
+            household_id=HOUSEHOLD_ID,
+            name="Admin & Bills",
+        ),
+        Categories(
+            category_id=CATEGORY_IDS["health_habits"],
+            household_id=HOUSEHOLD_ID,
+            name="Health & Habits",
+        ),
     ]
     for category in categories:
         db.merge(category)
     db.flush()
-    rows = db.scalars(select(Categories).where(Categories.household_id == HOUSEHOLD_ID)).all()
+    rows = db.scalars(
+        select(Categories).where(Categories.household_id == HOUSEHOLD_ID)
+    ).all()
     return {row.name: row for row in rows}
 
 
@@ -167,8 +191,12 @@ def build_task(
     completed_days_ago: int | None = None,
 ) -> Tasks:
     due_date = now - timedelta(days=due_days_ago)
-    started_at = None if started_days_ago is None else now - timedelta(days=started_days_ago)
-    complete_date = None if completed_days_ago is None else now - timedelta(days=completed_days_ago)
+    started_at = (
+        None if started_days_ago is None else now - timedelta(days=started_days_ago)
+    )
+    complete_date = (
+        None if completed_days_ago is None else now - timedelta(days=completed_days_ago)
+    )
     created_at = due_date - timedelta(days=2)
 
     return Tasks(
@@ -189,7 +217,12 @@ def build_task(
     )
 
 
-def seed_tasks(db: Session, users: dict[str, UserDB], categories: dict[str, Categories], now: datetime) -> list[Tasks]:
+def seed_tasks(
+    db: Session,
+    users: dict[str, UserDB],
+    categories: dict[str, Categories],
+    now: datetime,
+) -> list[Tasks]:
     emma = users["emma_lindberg"].user_id
     marcus = users["marcus_lindberg"].user_id
     lea = users["lea_lindberg"].user_id

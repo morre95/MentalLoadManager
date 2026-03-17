@@ -2,7 +2,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from models import ContactMessages
+from app.v1.models import ContactMessages
 
 
 def save_contact_message(

@@ -8,10 +8,10 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import create_engine, func, inspect, or_, select, text
 from sqlalchemy.orm import sessionmaker
 
-from config import settings
+from app.v1.config import settings
 
 from pwdlib.hashers.argon2 import Argon2Hasher
-from models import User, UserDB, UserEmail, Base
+from app.v1.models import User, UserDB, UserEmail, Base
 
 password_hasher = PasswordHash([Argon2Hasher()])
 ACCESS_TOKEN_COOKIE_KEY = "access_token"
@@ -152,22 +152,13 @@ def setup_db_and_tables() -> None:
             )
         )
         connection.execute(
-            text(
-                "CREATE INDEX IF NOT EXISTS idx_tasks_status "
-                "ON tasks(status)"
-            )
+            text("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)")
         )
         connection.execute(
-            text(
-                "CREATE INDEX IF NOT EXISTS idx_tasks_assigns_to "
-                "ON tasks(assigns_to)"
-            )
+            text("CREATE INDEX IF NOT EXISTS idx_tasks_assigns_to ON tasks(assigns_to)")
         )
         connection.execute(
-            text(
-                "CREATE INDEX IF NOT EXISTS idx_tasks_created_at "
-                "ON tasks(created_at)"
-            )
+            text("CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at)")
         )
         connection.execute(
             text(
@@ -384,12 +375,36 @@ def setup_db_and_tables() -> None:
                 ")"
             )
         )
-        connection.execute(text("ALTER TABLE mood_tracker_artworks ADD COLUMN IF NOT EXISTS image_id VARCHAR(80)"))
-        connection.execute(text("ALTER TABLE mood_tracker_artworks ADD COLUMN IF NOT EXISTS source VARCHAR(20)"))
-        connection.execute(text("ALTER TABLE mood_tracker_artworks ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'pending'"))
-        connection.execute(text("ALTER TABLE mood_tracker_artworks ADD COLUMN IF NOT EXISTS error TEXT"))
-        connection.execute(text("ALTER TABLE mood_tracker_artworks ADD COLUMN IF NOT EXISTS svg_markup TEXT"))
-        connection.execute(text("ALTER TABLE mood_tracker_artworks ADD COLUMN IF NOT EXISTS generated_at TIMESTAMPTZ"))
+        connection.execute(
+            text(
+                "ALTER TABLE mood_tracker_artworks ADD COLUMN IF NOT EXISTS image_id VARCHAR(80)"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE mood_tracker_artworks ADD COLUMN IF NOT EXISTS source VARCHAR(20)"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE mood_tracker_artworks ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'pending'"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE mood_tracker_artworks ADD COLUMN IF NOT EXISTS error TEXT"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE mood_tracker_artworks ADD COLUMN IF NOT EXISTS svg_markup TEXT"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE mood_tracker_artworks ADD COLUMN IF NOT EXISTS generated_at TIMESTAMPTZ"
+            )
+        )
         connection.execute(
             text(
                 "CREATE UNIQUE INDEX IF NOT EXISTS uq_mood_tracker_artworks_user_period "

@@ -3,7 +3,7 @@ from uuid import UUID
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
-from models import NotificationSettings, Preferences, Tasks, UsersHouseholds
+from app.v1.models import NotificationSettings, Preferences, Tasks, UsersHouseholds
 
 
 def find_notification_settings(

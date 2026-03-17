@@ -2,8 +2,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
-from helpers import get_current_user
-from models import UserEmail
+from app.v1.helpers import get_current_user
+from app.v1.models import UserEmail
 
 from .schemas import (
     CreateTaskRequest,
@@ -62,7 +62,9 @@ def list_kamban_tasks_route(
     return list_kanban_tasks(household_id, limit, offset, current_user)
 
 
-@router.get("/households/{household_id}/assignees", response_model=KanbanAssigneesResponse)
+@router.get(
+    "/households/{household_id}/assignees", response_model=KanbanAssigneesResponse
+)
 def list_household_assignees_route(
     household_id: UUID,
     current_user: UserEmail = Depends(get_current_user),
@@ -105,7 +107,9 @@ def update_task_due_date_route(
     return update_task_due_date(task_id, payload, current_user)
 
 
-@router.patch("/tasks/{task_id}/recurrence", response_model=UpdateTaskRecurrenceResponse)
+@router.patch(
+    "/tasks/{task_id}/recurrence", response_model=UpdateTaskRecurrenceResponse
+)
 def update_task_recurrence_route(
     task_id: UUID,
     payload: UpdateTaskRecurrenceRequest,
@@ -114,7 +118,9 @@ def update_task_recurrence_route(
     return update_task_recurrence(task_id, payload, current_user)
 
 
-@router.patch("/tasks/{task_id}/skip-occurrence", response_model=SkipTaskOccurrenceResponse)
+@router.patch(
+    "/tasks/{task_id}/skip-occurrence", response_model=SkipTaskOccurrenceResponse
+)
 def skip_task_occurrence_route(
     task_id: UUID,
     payload: SkipTaskOccurrenceRequest,
@@ -132,7 +138,9 @@ def update_task_assignee_route(
     return update_task_assignee(task_id, payload, current_user)
 
 
-@router.patch("/tasks/{task_id}/description", response_model=UpdateTaskDescriptionResponse)
+@router.patch(
+    "/tasks/{task_id}/description", response_model=UpdateTaskDescriptionResponse
+)
 def update_task_description_route(
     task_id: UUID,
     payload: UpdateTaskDescriptionRequest,

@@ -11,8 +11,8 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 
-from helpers import get_session_local
-from models import Households, Invitations, UserEmail, UsersHouseholds
+from app.v1.helpers import get_session_local
+from app.v1.models import Households, Invitations, UserEmail, UsersHouseholds
 
 from ..input_validation import (
     HOUSEHOLD_NAME_MAX_LENGTH,
@@ -55,7 +55,7 @@ from .schemas import (
     UpdateHouseholdResponse,
     UpdateHouseholdMemberRoleRequest,
 )
-from config import settings
+from app.v1.config import settings
 
 FRONTEND_BASE_URL = settings.FRONTEND_URL or "http://localhost:5173"
 ROLE_OWNER = "owner"
@@ -94,7 +94,9 @@ def _get_db_user(db, current_user: UserEmail):
     return user
 
 
-def _create_invite_for_household(db, household_id: UUID, user_id: UUID) -> InviteResponse:
+def _create_invite_for_household(
+    db, household_id: UUID, user_id: UUID
+) -> InviteResponse:
     code = secrets.token_urlsafe(16)
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
 
@@ -121,7 +123,9 @@ def _build_household_invite_email_body(
     escaped_household_name = escape(household_name)
     escaped_invite_url = escape(invite_url)
     escaped_inviter_name = escape(inviter_name)
-    expires_label = escape(expires_at.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
+    expires_label = escape(
+        expires_at.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    )
 
     return (
         f"<h2>{escaped_inviter_name} invited you to join {escaped_household_name}</h2>"
@@ -265,7 +269,9 @@ def update_household(
         me = _get_db_user(db, current_user)
         my_membership = find_membership(db, me.user_id, payload.household_id)
         if not my_membership:
-            raise HTTPException(status_code=403, detail="Not a member of that household")
+            raise HTTPException(
+                status_code=403, detail="Not a member of that household"
+            )
         if my_membership.role not in PRIVILEGED_HOUSEHOLD_ROLES:
             raise HTTPException(
                 status_code=403,
@@ -649,13 +655,17 @@ def update_household_member_role(
 
         my_membership = find_membership(db, me.user_id, payload.household_id)
         if not my_membership:
-            raise HTTPException(status_code=403, detail="Not a member of that household")
+            raise HTTPException(
+                status_code=403, detail="Not a member of that household"
+            )
         if my_membership.role not in PRIVILEGED_HOUSEHOLD_ROLES:
             raise HTTPException(
                 status_code=403, detail="Only owners and admins can change member roles"
             )
         if payload.user_id == me.user_id:
-            raise HTTPException(status_code=400, detail="You cannot change your own role")
+            raise HTTPException(
+                status_code=400, detail="You cannot change your own role"
+            )
 
         target_membership = find_membership(db, payload.user_id, payload.household_id)
         if not target_membership:

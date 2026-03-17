@@ -3,8 +3,8 @@ from calendar import monthrange
 
 from fastapi import HTTPException, status
 
-from helpers import get_session_local
-from models import UserEmail
+from app.v1.helpers import get_session_local
+from app.v1.models import UserEmail
 
 from .repository import fetch_calendar_event_rows_range
 from .schemas import CalendarEvent, CalendarEventsResponse, CalendarRangeEventsResponse
@@ -28,7 +28,9 @@ def _calculate_next_due_date(
     return _add_months(due_date, recurrence_interval)
 
 
-def _build_calendar_events(rows, from_date: date_type, to_date: date_type, current_user: UserEmail):
+def _build_calendar_events(
+    rows, from_date: date_type, to_date: date_type, current_user: UserEmail
+):
     events: list[CalendarEvent] = []
 
     for row in rows:
@@ -63,7 +65,10 @@ def _build_calendar_events(rows, from_date: date_type, to_date: date_type, curre
         next_due_date = row.due_date
         while next_due_date.date() <= to_date:
             occurrence_date = next_due_date.date()
-            if occurrence_date >= from_date and occurrence_date not in recurrence_exceptions:
+            if (
+                occurrence_date >= from_date
+                and occurrence_date not in recurrence_exceptions
+            ):
                 events.append(
                     CalendarEvent(
                         id=f"{row.task_id}:{occurrence_date.isoformat()}",

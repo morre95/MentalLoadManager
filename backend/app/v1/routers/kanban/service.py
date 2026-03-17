@@ -5,8 +5,8 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 
-from helpers import get_session_local
-from models import Categories, Tasks, UserEmail
+from app.v1.helpers import get_session_local
+from app.v1.models import Categories, Tasks, UserEmail
 
 from ..input_validation import (
     CATEGORY_NAME_MAX_LENGTH,
@@ -135,7 +135,11 @@ def _find_next_unskipped_due_date(task: Tasks) -> datetime:
 
 
 def _maybe_spawn_next_recurring_task(db, task: Tasks, now_utc: datetime) -> None:
-    if not task.recurrence_enabled or not task.recurrence_frequency or not task.due_date:
+    if (
+        not task.recurrence_enabled
+        or not task.recurrence_frequency
+        or not task.due_date
+    ):
         return
     if get_generated_recurring_child(db, task.task_id):
         return
@@ -805,7 +809,11 @@ def skip_task_occurrence(
         me = _get_me(db, current_user)
         task = _get_task_with_membership(db, task_id, me.user_id)
 
-        if not task.recurrence_enabled or not task.recurrence_frequency or not task.due_date:
+        if (
+            not task.recurrence_enabled
+            or not task.recurrence_frequency
+            or not task.due_date
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Only recurring tasks can skip one occurrence",
@@ -866,7 +874,9 @@ def update_task_assignee(
                     detail="Assignee was not found",
                 )
 
-            assignee_membership = find_membership(db, next_assignee_id, task.household_id)
+            assignee_membership = find_membership(
+                db, next_assignee_id, task.household_id
+            )
             if assignee_membership is None:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -951,11 +961,14 @@ def update_task_category(
         me = _get_me(db, current_user)
         task = _get_task_with_membership(db, task_id, me.user_id)
 
-        category_name = validate_optional_name(
-            payload.category_name,
-            field_name="Category name",
-            max_length=CATEGORY_NAME_MAX_LENGTH,
-        ) or ""
+        category_name = (
+            validate_optional_name(
+                payload.category_name,
+                field_name="Category name",
+                max_length=CATEGORY_NAME_MAX_LENGTH,
+            )
+            or ""
+        )
         if not category_name:
             task.category_id = None
             task.updated_at = datetime.now(timezone.utc)
@@ -1073,7 +1086,9 @@ def reorder_tasks(
             detail="Invalid task status",
         )
 
-    ordered_ids_raw = [task_id.strip() for task_id in payload.ordered_task_ids if task_id]
+    ordered_ids_raw = [
+        task_id.strip() for task_id in payload.ordered_task_ids if task_id
+    ]
     if not ordered_ids_raw:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
-from helpers import get_user_id_from_token
+from app.v1.helpers import get_user_id_from_token
 
 from .schemas import SendMessageRequest
 from .service import send_message

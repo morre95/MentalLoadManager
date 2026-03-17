@@ -1,4 +1,4 @@
-from models import Token
+from app.v1.models import Token
 from pydantic import BaseModel, Field
 
 

@@ -10,7 +10,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from cache_maintenance import run_ai_cache_maintenance_loop, stop_background_task
+from app.v1.cache_maintenance import run_ai_cache_maintenance_loop, stop_background_task
 from app.v1.routers import all_routers
 from app.v1.config import settings
 from app.v1.helpers import setup_db_and_tables

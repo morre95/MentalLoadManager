@@ -6,8 +6,8 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from config import settings
-from helpers import get_session_local
+from app.v1.config import settings
+from app.v1.helpers import get_session_local
 
 from .repository import save_contact_message
 from .schemas import SendMessageRequest

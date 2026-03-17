@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
 
-from models import (
+from app.v1.models import (
     AnalyticsAIInsightsCache,
     AnalyticsAIQuestionsCache,
     Categories,
@@ -351,7 +351,8 @@ def fetch_open_assignee_counts(
         )
         .group_by(Tasks.assigns_to)
     ).all()
-    
+
+
 def count_done_in_range(
     db: Session,
     household_id: UUID,

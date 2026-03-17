@@ -12,9 +12,9 @@ from fastapi import HTTPException, status
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from config import settings
-from helpers import get_session_local
-from models import UserEmail
+from app.v1.config import settings
+from app.v1.helpers import get_session_local
+from app.v1.models import UserEmail
 
 from .repository import (
     count_completed_personal_tasks_in_window,
@@ -204,9 +204,13 @@ def _apply_achievement_unlock_state(
                     "current_milestone_complete": current_milestone_complete,
                     "has_unlocked_before": latest_unlock is not None,
                     "unlocked_at": unlocked_at,
-                    "last_unlocked_at": latest_unlock.unlocked_at if latest_unlock is not None else None,
+                    "last_unlocked_at": latest_unlock.unlocked_at
+                    if latest_unlock is not None
+                    else None,
                     "last_unlocked_label": (
-                        _last_unlocked_label_from_completion_key(latest_unlock.completion_key)
+                        _last_unlocked_label_from_completion_key(
+                            latest_unlock.completion_key
+                        )
                         if latest_unlock is not None
                         else None
                     ),
@@ -297,7 +301,9 @@ def _to_goal_history_response(history_item) -> GoalHistoryResponse:
     )
 
 
-def _period_bounds_for_goal(goal, now_utc: datetime) -> tuple[str | None, datetime | None, datetime | None]:
+def _period_bounds_for_goal(
+    goal, now_utc: datetime
+) -> tuple[str | None, datetime | None, datetime | None]:
     tracking_style = (goal.tracking_style or "total").strip().lower()
     if tracking_style == "total":
         return None, goal.created_at or now_utc, None
@@ -306,12 +312,18 @@ def _period_bounds_for_goal(goal, now_utc: datetime) -> tuple[str | None, dateti
     now_local = now_utc.astimezone(zone)
 
     if tracking_style == "daily":
-        period_start_local = datetime.combine(now_local.date(), datetime.min.time(), tzinfo=zone)
+        period_start_local = datetime.combine(
+            now_local.date(), datetime.min.time(), tzinfo=zone
+        )
         period_end_local = period_start_local + timedelta(days=1)
         period_key = period_start_local.date().isoformat()
     elif tracking_style == "weekly":
-        period_start_local = datetime.combine(now_local.date(), datetime.min.time(), tzinfo=zone)
-        period_start_local = period_start_local - timedelta(days=period_start_local.weekday())
+        period_start_local = datetime.combine(
+            now_local.date(), datetime.min.time(), tzinfo=zone
+        )
+        period_start_local = period_start_local - timedelta(
+            days=period_start_local.weekday()
+        )
         period_end_local = period_start_local + timedelta(days=7)
         period_key = period_start_local.date().isoformat()
     elif tracking_style == "monthly":
@@ -322,9 +334,13 @@ def _period_bounds_for_goal(goal, now_utc: datetime) -> tuple[str | None, dateti
             tzinfo=zone,
         )
         if now_local.month == 12:
-            period_end_local = datetime(year=now_local.year + 1, month=1, day=1, tzinfo=zone)
+            period_end_local = datetime(
+                year=now_local.year + 1, month=1, day=1, tzinfo=zone
+            )
         else:
-            period_end_local = datetime(year=now_local.year, month=now_local.month + 1, day=1, tzinfo=zone)
+            period_end_local = datetime(
+                year=now_local.year, month=now_local.month + 1, day=1, tzinfo=zone
+            )
         period_key = f"{period_start_local.year:04d}-{period_start_local.month:02d}"
     else:
         return None, goal.created_at or now_utc, None
@@ -336,15 +352,23 @@ def _period_bounds_for_goal(goal, now_utc: datetime) -> tuple[str | None, dateti
     )
 
 
-def _update_goal_period_metadata(goal, *, period_key, period_start, period_end, timezone_name: str):
+def _update_goal_period_metadata(
+    goal, *, period_key, period_start, period_end, timezone_name: str
+):
     progress_data = dict(goal.progress_data or {})
     progress_data["timezone"] = timezone_name
     progress_data["period_key"] = period_key
-    progress_data["period_start_at"] = period_start.isoformat() if period_start is not None else None
-    progress_data["period_end_at"] = period_end.isoformat() if period_end is not None else None
+    progress_data["period_start_at"] = (
+        period_start.isoformat() if period_start is not None else None
+    )
+    progress_data["period_end_at"] = (
+        period_end.isoformat() if period_end is not None else None
+    )
     progress_data["current_streak"] = int(progress_data.get("current_streak") or 0)
     progress_data["best_streak"] = int(progress_data.get("best_streak") or 0)
-    progress_data["completed_periods"] = int(progress_data.get("completed_periods") or 0)
+    progress_data["completed_periods"] = int(
+        progress_data.get("completed_periods") or 0
+    )
     goal.progress_data = progress_data
 
 
@@ -355,7 +379,9 @@ def _close_goal_period_if_needed(db, goal, user_id: UUID, now_utc: datetime):
 
     progress_data = dict(goal.progress_data or {})
     timezone_name, _ = _resolve_timezone(progress_data)
-    next_period_key, next_period_start, next_period_end = _period_bounds_for_goal(goal, now_utc)
+    next_period_key, next_period_start, next_period_end = _period_bounds_for_goal(
+        goal, now_utc
+    )
     stored_period_key = progress_data.get("period_key")
 
     if not isinstance(stored_period_key, str) or not stored_period_key:
@@ -401,13 +427,17 @@ def _close_goal_period_if_needed(db, goal, user_id: UUID, now_utc: datetime):
         snapshot_data={
             "goal_name": goal.name,
             "goal_type": goal.type,
-            "progress_data": {k: v for k, v in progress_data.items() if k != "_history_rows"},
+            "progress_data": {
+                k: v for k, v in progress_data.items() if k != "_history_rows"
+            },
         },
     )
 
     progress_data["completed_periods"] = completed_periods + (1 if completed else 0)
     progress_data["current_streak"] = current_streak + 1 if completed else 0
-    progress_data["best_streak"] = max(best_streak, int(progress_data["current_streak"]))
+    progress_data["best_streak"] = max(
+        best_streak, int(progress_data["current_streak"])
+    )
     progress_data["last_reset_at"] = now_utc.isoformat()
     progress_data["last_period_key"] = stored_period_key
     progress_data["last_period_result"] = {
@@ -511,7 +541,9 @@ def _window_start(today_date, days: int):
     return today_date - timedelta(days=days - 1)
 
 
-def _is_equal_split_window(household_rows, user_id: UUID, today_date, days: int) -> bool:
+def _is_equal_split_window(
+    household_rows, user_id: UUID, today_date, days: int
+) -> bool:
     start_date = _window_start(today_date, days)
     counts_by_household = defaultdict(lambda: defaultdict(int))
 
@@ -575,7 +607,10 @@ def _is_perfect_completion_window(personal_rows, today_date, days: int) -> bool:
 
     minimum_tasks_required = max(3, days // 4)
     minimum_days_covered = max(3, days // 7)
-    if len(due_tasks) < minimum_tasks_required or len(covered_days) < minimum_days_covered:
+    if (
+        len(due_tasks) < minimum_tasks_required
+        or len(covered_days) < minimum_days_covered
+    ):
         return False
 
     for row in due_tasks:
@@ -678,7 +713,9 @@ def _build_equal_split_achievement(household_rows, user_id: UUID, today_date):
             target=7,
             category="Balance",
             rarity="rare",
-            completion_key="a2:7" if _equal_split_progress_days(household_rows, user_id, today_date) >= 7 else None,
+            completion_key="a2:7"
+            if _equal_split_progress_days(household_rows, user_id, today_date) >= 7
+            else None,
         )
 
     return AchievementResponse(
@@ -689,7 +726,8 @@ def _build_equal_split_achievement(household_rows, user_id: UUID, today_date):
         current=achieved_days,
         target=_next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
         category="Balance",
-        completed=achieved_days >= _next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
+        completed=achieved_days
+        >= _next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
         rarity=_achievement_rarity_for_target(max(1, achieved_days)),
         completion_key=f"a2:{achieved_days}" if achieved_days > 0 else None,
     )
@@ -713,7 +751,9 @@ def _build_perfect_week_achievement(personal_rows, today_date):
             target=7,
             category="Consistency",
             rarity="rare",
-            completion_key="a3:7" if _perfect_week_progress_days(personal_rows, today_date) >= 7 else None,
+            completion_key="a3:7"
+            if _perfect_week_progress_days(personal_rows, today_date) >= 7
+            else None,
         )
 
     return AchievementResponse(
@@ -724,7 +764,8 @@ def _build_perfect_week_achievement(personal_rows, today_date):
         current=achieved_days,
         target=_next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
         category="Consistency",
-        completed=achieved_days >= _next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
+        completed=achieved_days
+        >= _next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
         rarity=_achievement_rarity_for_target(max(1, achieved_days)),
         completion_key=f"a3:{achieved_days}" if achieved_days > 0 else None,
     )
@@ -748,7 +789,9 @@ def _build_early_bird_achievement(personal_rows, today_date):
             target=7,
             category="Consistency",
             rarity="rare",
-            completion_key="a5:7" if _early_bird_progress_days(personal_rows, today_date) >= 7 else None,
+            completion_key="a5:7"
+            if _early_bird_progress_days(personal_rows, today_date) >= 7
+            else None,
         )
 
     return AchievementResponse(
@@ -759,7 +802,8 @@ def _build_early_bird_achievement(personal_rows, today_date):
         current=achieved_days,
         target=_next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
         category="Consistency",
-        completed=achieved_days >= _next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
+        completed=achieved_days
+        >= _next_milestone(achieved_days, PERIOD_MILESTONES_DAYS),
         rarity=_achievement_rarity_for_target(max(1, achieved_days)),
         completion_key=f"a5:{achieved_days}" if achieved_days > 0 else None,
     )
@@ -784,7 +828,8 @@ def _build_goal_completion_achievement(history_rows) -> AchievementResponse:
         current=completed_periods,
         target=_next_milestone(completed_periods, [1, 3, 5, 10, 20, 40]),
         category="Goals",
-        completed=completed_periods >= _next_milestone(completed_periods, [1, 3, 5, 10, 20, 40]),
+        completed=completed_periods
+        >= _next_milestone(completed_periods, [1, 3, 5, 10, 20, 40]),
         rarity=_achievement_rarity_for_target(max(1, completed_periods)),
         completion_key=f"a7:{completed_periods}" if completed_periods > 0 else None,
     )
@@ -816,8 +861,16 @@ def _build_goal_streak_achievement(goals) -> AchievementResponse:
 
 
 def _build_all_goals_current_period_achievement(goals) -> AchievementResponse:
-    recurring_goals = [goal for goal in goals if (goal.tracking_style or "total").strip().lower() != "total"]
-    completed_now = sum(1 for goal in recurring_goals if int(goal.current_value or 0) >= int(goal.target_value or 0))
+    recurring_goals = [
+        goal
+        for goal in goals
+        if (goal.tracking_style or "total").strip().lower() != "total"
+    ]
+    completed_now = sum(
+        1
+        for goal in recurring_goals
+        if int(goal.current_value or 0) >= int(goal.target_value or 0)
+    )
     target = max(1, len(recurring_goals))
     return AchievementResponse(
         id="a9",
@@ -855,7 +908,9 @@ def _build_goal_variety_achievement(history_rows, goals) -> AchievementResponse:
         category="Goals",
         completed=len(completed_types) >= target,
         rarity=_achievement_rarity_for_target(max(1, len(completed_types))),
-        completion_key=f"a10:{len(completed_types)}" if len(completed_types) > 0 else None,
+        completion_key=f"a10:{len(completed_types)}"
+        if len(completed_types) > 0
+        else None,
     )
 
 
@@ -868,7 +923,8 @@ def _build_training_master_achievement(history_rows, goals) -> AchievementRespon
     current_training_completions = sum(
         1
         for goal in goals
-        if goal.type == "training" and int(goal.current_value or 0) >= int(goal.target_value or 0)
+        if goal.type == "training"
+        and int(goal.current_value or 0) >= int(goal.target_value or 0)
     )
     current_value = completed_training_periods + current_training_completions
     target = _next_milestone(current_value, [1, 4, 8, 12, 24])
@@ -895,7 +951,9 @@ def _build_goal_specific_achievement(goal) -> AchievementResponse:
     target_value = max(1, int(goal.target_value or 1))
     completed = current_value >= target_value
     title = str(copy.get("title") or goal.name or "Goal Progress")
-    description_template = str(copy.get("description") or "Make progress on {goal_name}")
+    description_template = str(
+        copy.get("description") or "Make progress on {goal_name}"
+    )
     description = description_template.format(goal_name=goal.name)
 
     if is_recurring:
@@ -934,7 +992,10 @@ def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
             db, current_user.user_id
         )
         goals = list_goals_for_user(db, current_user.user_id)
-        goals = [_sync_derived_goal_progress(db, goal, current_user.user_id) for goal in goals]
+        goals = [
+            _sync_derived_goal_progress(db, goal, current_user.user_id)
+            for goal in goals
+        ]
         history_rows = list_goal_history_rows_for_user(db, current_user.user_id)
         db.commit()
 
@@ -957,7 +1018,9 @@ def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
 
         distinct_completed_categories = set()
         for row in completed_personal_rows:
-            category_name = (row.category_name or "Uncategorized").strip() or "Uncategorized"
+            category_name = (
+                row.category_name or "Uncategorized"
+            ).strip() or "Uncategorized"
             distinct_completed_categories.add(category_name.lower())
 
         available_categories = {
@@ -969,8 +1032,7 @@ def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
 
         completed_tasks_count = len(completed_personal_rows)
         goal_specific_achievements = [
-            _build_goal_specific_achievement(goal)
-            for goal in goals
+            _build_goal_specific_achievement(goal) for goal in goals
         ]
         has_any_goals = len(goals) > 0
         has_training_goal = any(goal.type == "training" for goal in goals)
@@ -984,11 +1046,16 @@ def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
                 current=best_category_count,
                 target=_next_milestone(best_category_count, [5, 15, 30, 60, 120, 250]),
                 category="Tasks",
-                completed=best_category_count >= _next_milestone(best_category_count, [5, 15, 30, 60, 120, 250]),
+                completed=best_category_count
+                >= _next_milestone(best_category_count, [5, 15, 30, 60, 120, 250]),
                 rarity=_achievement_rarity_for_target(max(1, best_category_count)),
-                completion_key=f"a1:{best_category_count}" if best_category_count > 0 else None,
+                completion_key=f"a1:{best_category_count}"
+                if best_category_count > 0
+                else None,
             ),
-            _build_equal_split_achievement(household_rows, current_user.user_id, today_date),
+            _build_equal_split_achievement(
+                household_rows, current_user.user_id, today_date
+            ),
             _build_perfect_week_achievement(personal_rows, today_date),
             AchievementResponse(
                 id="a4",
@@ -996,11 +1063,16 @@ def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
                 description="Complete tasks over your full lifetime",
                 icon="star",
                 current=completed_tasks_count,
-                target=_next_milestone(completed_tasks_count, [100, 250, 500, 1000, 2000]),
+                target=_next_milestone(
+                    completed_tasks_count, [100, 250, 500, 1000, 2000]
+                ),
                 category="Tasks",
-                completed=completed_tasks_count >= _next_milestone(completed_tasks_count, [100, 250, 500, 1000, 2000]),
+                completed=completed_tasks_count
+                >= _next_milestone(completed_tasks_count, [100, 250, 500, 1000, 2000]),
                 rarity=_achievement_rarity_for_target(max(1, completed_tasks_count)),
-                completion_key=f"a4:{completed_tasks_count}" if completed_tasks_count > 0 else None,
+                completion_key=f"a4:{completed_tasks_count}"
+                if completed_tasks_count > 0
+                else None,
             ),
             _build_early_bird_achievement(personal_rows, today_date),
             AchievementResponse(
@@ -1009,11 +1081,18 @@ def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
                 description=f"Completed categories: {len(distinct_completed_categories)}/{total_available_categories}",
                 icon="target",
                 current=len(distinct_completed_categories),
-                target=max(total_available_categories, len(distinct_completed_categories)),
+                target=max(
+                    total_available_categories, len(distinct_completed_categories)
+                ),
                 category="Tasks",
-                completed=len(distinct_completed_categories) >= max(total_available_categories, len(distinct_completed_categories)),
-                rarity=_achievement_rarity_for_target(max(1, len(distinct_completed_categories))),
-                completion_key=f"a6:{len(distinct_completed_categories)}" if len(distinct_completed_categories) > 0 else None,
+                completed=len(distinct_completed_categories)
+                >= max(total_available_categories, len(distinct_completed_categories)),
+                rarity=_achievement_rarity_for_target(
+                    max(1, len(distinct_completed_categories))
+                ),
+                completion_key=f"a6:{len(distinct_completed_categories)}"
+                if len(distinct_completed_categories) > 0
+                else None,
             ),
         ]
 
@@ -1053,7 +1132,10 @@ def list_my_goals(current_user: UserEmail) -> GoalsResponse:
 
     with session_local() as db:
         goals = list_goals_for_user(db, current_user.user_id)
-        goals = [_sync_derived_goal_progress(db, goal, current_user.user_id) for goal in goals]
+        goals = [
+            _sync_derived_goal_progress(db, goal, current_user.user_id)
+            for goal in goals
+        ]
         history_rows = list_goal_history_for_user(db, current_user.user_id)
         _attach_goal_history_rows(goals, history_rows)
         db.commit()
@@ -1104,7 +1186,9 @@ def create_my_goal(payload: CreateGoalRequest, current_user: UserEmail) -> GoalR
             tracking_style=tracking_style,
             progress_data=progress_data,
         )
-        _close_goal_period_if_needed(db, goal, current_user.user_id, datetime.now(timezone.utc))
+        _close_goal_period_if_needed(
+            db, goal, current_user.user_id, datetime.now(timezone.utc)
+        )
 
         try:
             db.commit()
@@ -1146,11 +1230,15 @@ def update_my_goal_progress(
                 detail="Task goals are updated automatically from completed tasks",
             )
 
-        goal = _close_goal_period_if_needed(db, goal, current_user.user_id, datetime.now(timezone.utc))
+        goal = _close_goal_period_if_needed(
+            db, goal, current_user.user_id, datetime.now(timezone.utc)
+        )
 
         current_value, progress_data = _normalize_progress_data(
             goal.type,
-            payload.progress_data if payload.progress_data is not None else goal.progress_data,
+            payload.progress_data
+            if payload.progress_data is not None
+            else goal.progress_data,
             payload.current_value,
         )
         timezone_name, _ = _resolve_timezone(progress_data)
@@ -1158,7 +1246,9 @@ def update_my_goal_progress(
         goal.current_value = current_value
         goal.progress_data = progress_data
         goal.updated_at = datetime.now(timezone.utc)
-        _close_goal_period_if_needed(db, goal, current_user.user_id, datetime.now(timezone.utc))
+        _close_goal_period_if_needed(
+            db, goal, current_user.user_id, datetime.now(timezone.utc)
+        )
 
         try:
             db.commit()
@@ -1170,7 +1260,9 @@ def update_my_goal_progress(
             ) from exc
 
         db.refresh(goal)
-        _attach_goal_history_rows([goal], list_goal_history_for_user(db, current_user.user_id))
+        _attach_goal_history_rows(
+            [goal], list_goal_history_for_user(db, current_user.user_id)
+        )
         return _to_goal_response(goal)
 
 
@@ -1223,14 +1315,20 @@ def _goal_period_context(goal, now_utc: datetime) -> dict[str, Any]:
         period_start = stored_period_start
         period_end = stored_period_end
     elif tracking_style == "daily":
-        period_start = datetime.combine(now_utc.date(), datetime.min.time(), tzinfo=timezone.utc)
+        period_start = datetime.combine(
+            now_utc.date(), datetime.min.time(), tzinfo=timezone.utc
+        )
         period_end = period_start + timedelta(days=1)
     elif tracking_style == "weekly":
-        period_start = datetime.combine(now_utc.date(), datetime.min.time(), tzinfo=timezone.utc)
+        period_start = datetime.combine(
+            now_utc.date(), datetime.min.time(), tzinfo=timezone.utc
+        )
         period_start = period_start - timedelta(days=period_start.weekday())
         period_end = period_start + timedelta(days=7)
     elif tracking_style == "monthly":
-        period_start = datetime.combine(now_utc.date().replace(day=1), datetime.min.time(), tzinfo=timezone.utc)
+        period_start = datetime.combine(
+            now_utc.date().replace(day=1), datetime.min.time(), tzinfo=timezone.utc
+        )
         if period_start.month == 12:
             period_end = period_start.replace(year=period_start.year + 1, month=1)
         else:
@@ -1239,8 +1337,10 @@ def _goal_period_context(goal, now_utc: datetime) -> dict[str, Any]:
         period_start = created_at
         period_end = None
 
-    elapsed_days = max(1, (now_utc - period_start).total_seconds() / 86400) if period_end else max(
-        1, (now_utc - created_at).total_seconds() / 86400
+    elapsed_days = (
+        max(1, (now_utc - period_start).total_seconds() / 86400)
+        if period_end
+        else max(1, (now_utc - created_at).total_seconds() / 86400)
     )
     total_days = (
         max(1, (period_end - period_start).total_seconds() / 86400)
@@ -1269,19 +1369,22 @@ def _goal_checkin_metrics(goal) -> dict[str, Any]:
     remaining = max(0, target_value - current_value)
 
     expected_progress_pct = (
-        round(_safe_ratio(period["elapsed_days"], max(1, period["total_days"])) * 100, 1)
+        round(
+            _safe_ratio(period["elapsed_days"], max(1, period["total_days"])) * 100, 1
+        )
         if period["total_days"] is not None
         else None
     )
     expected_current = (
-        round(target_value * _safe_ratio(period["elapsed_days"], max(1, period["total_days"])))
+        round(
+            target_value
+            * _safe_ratio(period["elapsed_days"], max(1, period["total_days"]))
+        )
         if period["total_days"] is not None
         else None
     )
     gap_to_pace = (
-        current_value - int(expected_current)
-        if expected_current is not None
-        else None
+        current_value - int(expected_current) if expected_current is not None else None
     )
     average_per_day = round(current_value / max(1.0, period["elapsed_days"]), 2)
     days_left = (
@@ -1308,7 +1411,11 @@ def _goal_checkin_metrics(goal) -> dict[str, Any]:
     )
 
     risk_level = "low"
-    if progress_pct < 40 and expected_progress_pct is not None and progress_pct + 15 < expected_progress_pct:
+    if (
+        progress_pct < 40
+        and expected_progress_pct is not None
+        and progress_pct + 15 < expected_progress_pct
+    ):
         risk_level = "high"
     elif gap_to_pace is not None and gap_to_pace < 0:
         risk_level = "medium"
@@ -1331,10 +1438,16 @@ def _goal_checkin_metrics(goal) -> dict[str, Any]:
         "days_left": round(days_left, 1) if days_left is not None else None,
         "risk_level": risk_level,
         "created_at": period["created_at"].isoformat(),
-        "period_start": period["period_start"].isoformat() if period["period_start"] else None,
-        "period_end": period["period_end"].isoformat() if period["period_end"] else None,
+        "period_start": period["period_start"].isoformat()
+        if period["period_start"]
+        else None,
+        "period_end": period["period_end"].isoformat()
+        if period["period_end"]
+        else None,
         "training_days_completed": completed_days,
-        "training_days_pattern": training_days if isinstance(training_days, list) else None,
+        "training_days_pattern": training_days
+        if isinstance(training_days, list)
+        else None,
     }
 
 
@@ -1349,7 +1462,10 @@ def _load_model_candidates() -> list[str]:
         or settings.OPENROUTER_WEEKLY_SUMMARY_MODEL
         or DEFAULT_OPENROUTER_MODEL
     )
-    raw_fallbacks = settings.OPENROUTER_ANALYTICS_INSIGHTS_FALLBACK_MODELS or settings.OPENROUTER_WEEKLY_SUMMARY_FALLBACK_MODELS
+    raw_fallbacks = (
+        settings.OPENROUTER_ANALYTICS_INSIGHTS_FALLBACK_MODELS
+        or settings.OPENROUTER_WEEKLY_SUMMARY_FALLBACK_MODELS
+    )
     candidates = [primary]
     for item in [part.strip() for part in raw_fallbacks.split(",") if part.strip()]:
         if item not in candidates:
@@ -1370,7 +1486,11 @@ def _extract_text_content(chat_response: dict) -> str:
     if isinstance(content, list):
         parts: list[str] = []
         for item in content:
-            if isinstance(item, dict) and item.get("type") == "text" and isinstance(item.get("text"), str):
+            if (
+                isinstance(item, dict)
+                and item.get("type") == "text"
+                and isinstance(item.get("text"), str)
+            ):
                 parts.append(item["text"])
         return "\n".join(parts).strip()
     return ""
@@ -1395,7 +1515,9 @@ def _parse_retry_after_seconds(response: requests.Response) -> float:
         return 1.5
 
 
-def _generate_goal_ai_checkin(payload: dict[str, Any]) -> tuple[_GoalAICheckinModelPayload, str | None]:
+def _generate_goal_ai_checkin(
+    payload: dict[str, Any],
+) -> tuple[_GoalAICheckinModelPayload, str | None]:
     api_key = settings.OPENROUTER_API_KEY
     if not api_key:
         raise HTTPException(
@@ -1455,12 +1577,17 @@ def _generate_goal_ai_checkin(payload: dict[str, Any]) -> tuple[_GoalAICheckinMo
             except requests.RequestException as exc:
                 failures.append(f"{candidate}: network error ({exc})")
                 break
-            if response.status_code == status.HTTP_429_TOO_MANY_REQUESTS and attempt == 0:
+            if (
+                response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+                and attempt == 0
+            ):
                 time_module.sleep(_parse_retry_after_seconds(response))
                 continue
             if response.ok:
                 break
-            failures.append(f"{candidate}: {response.status_code} {response.text[:120]}")
+            failures.append(
+                f"{candidate}: {response.status_code} {response.text[:120]}"
+            )
             break
         if response is not None and response.ok:
             break
@@ -1468,7 +1595,9 @@ def _generate_goal_ai_checkin(payload: dict[str, Any]) -> tuple[_GoalAICheckinMo
     if response is None or not response.ok:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Goal AI check-in request failed" if not failures else " | ".join(failures),
+            detail="Goal AI check-in request failed"
+            if not failures
+            else " | ".join(failures),
         )
 
     raw_text = _extract_text_content(response.json())
@@ -1491,9 +1620,13 @@ def _generate_goal_ai_checkin(payload: dict[str, Any]) -> tuple[_GoalAICheckinMo
     return validated, selected_model[:100] if selected_model else None
 
 
-def _goal_checkin_cache_to_response(cache_item, goal_id: UUID, cached: bool) -> GoalAICheckinResponse:
+def _goal_checkin_cache_to_response(
+    cache_item, goal_id: UUID, cached: bool
+) -> GoalAICheckinResponse:
     content = cache_item.content_json or {}
-    generated_at = cache_item.updated_at or cache_item.created_at or datetime.now(timezone.utc)
+    generated_at = (
+        cache_item.updated_at or cache_item.created_at or datetime.now(timezone.utc)
+    )
     return GoalAICheckinResponse(
         goal_id=str(goal_id),
         status_summary=str(content.get("status_summary") or ""),
@@ -1508,7 +1641,9 @@ def _goal_checkin_cache_to_response(cache_item, goal_id: UUID, cached: bool) -> 
     )
 
 
-def _generate_goals_board_ai_checkin(payload: dict[str, Any]) -> tuple[_GoalsBoardAICheckinPayload, str | None]:
+def _generate_goals_board_ai_checkin(
+    payload: dict[str, Any],
+) -> tuple[_GoalsBoardAICheckinPayload, str | None]:
     api_key = settings.OPENROUTER_API_KEY
     if not api_key:
         raise HTTPException(
@@ -1566,12 +1701,17 @@ def _generate_goals_board_ai_checkin(payload: dict[str, Any]) -> tuple[_GoalsBoa
             except requests.RequestException as exc:
                 failures.append(f"{candidate}: network error ({exc})")
                 break
-            if response.status_code == status.HTTP_429_TOO_MANY_REQUESTS and attempt == 0:
+            if (
+                response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+                and attempt == 0
+            ):
                 time_module.sleep(_parse_retry_after_seconds(response))
                 continue
             if response.ok:
                 break
-            failures.append(f"{candidate}: {response.status_code} {response.text[:120]}")
+            failures.append(
+                f"{candidate}: {response.status_code} {response.text[:120]}"
+            )
             break
         if response is not None and response.ok:
             break
@@ -1579,7 +1719,9 @@ def _generate_goals_board_ai_checkin(payload: dict[str, Any]) -> tuple[_GoalsBoa
     if response is None or not response.ok:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Goals board AI check-in request failed" if not failures else " | ".join(failures),
+            detail="Goals board AI check-in request failed"
+            if not failures
+            else " | ".join(failures),
         )
 
     raw_text = _extract_text_content(response.json())
@@ -1616,13 +1758,20 @@ def get_goals_board_ai_checkin(
 
     with session_local() as db:
         goals = list_goals_for_user(db, current_user.user_id)
-        goals = [_sync_derived_goal_progress(db, goal, current_user.user_id) for goal in goals]
+        goals = [
+            _sync_derived_goal_progress(db, goal, current_user.user_id)
+            for goal in goals
+        ]
 
         metrics = [_goal_checkin_metrics(goal) for goal in goals]
         completed_count = sum(1 for item in metrics if item["remaining"] == 0)
         high_risk_count = sum(1 for item in metrics if item["risk_level"] == "high")
         medium_risk_count = sum(1 for item in metrics if item["risk_level"] == "medium")
-        on_track_count = sum(1 for item in metrics if item["risk_level"] == "low" and item["remaining"] > 0)
+        on_track_count = sum(
+            1
+            for item in metrics
+            if item["risk_level"] == "low" and item["remaining"] > 0
+        )
 
         input_payload = {
             "totals": {

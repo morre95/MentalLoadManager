@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 
-from helpers import get_session_local, password_hasher
-from models import UserEmail
+from app.v1.helpers import get_session_local, password_hasher
+from app.v1.models import UserEmail
 
 from .repository import (
     create_user,

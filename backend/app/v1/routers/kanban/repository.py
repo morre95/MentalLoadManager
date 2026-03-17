@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
 
-from models import Categories, Tasks, UserDB, UsersHouseholds
+from app.v1.models import Categories, Tasks, UserDB, UsersHouseholds
 
 
 def get_user_by_username(db: Session, username: str):
@@ -29,14 +29,18 @@ def get_task_by_id(db: Session, task_id: UUID):
 
 def get_generated_recurring_child(db: Session, recurrence_parent_task_id: UUID):
     return db.scalar(
-        select(Tasks).where(Tasks.recurrence_parent_task_id == recurrence_parent_task_id)
+        select(Tasks).where(
+            Tasks.recurrence_parent_task_id == recurrence_parent_task_id
+        )
     )
 
 
 def list_generated_recurring_children(db: Session, recurrence_parent_task_id: UUID):
     return (
         db.execute(
-            select(Tasks).where(Tasks.recurrence_parent_task_id == recurrence_parent_task_id)
+            select(Tasks).where(
+                Tasks.recurrence_parent_task_id == recurrence_parent_task_id
+            )
         )
         .scalars()
         .all()
@@ -62,7 +66,9 @@ def get_category_by_name(db: Session, household_id: UUID, category_name: str):
     )
 
 
-def get_category_by_household_and_id(db: Session, household_id: UUID, category_id: UUID):
+def get_category_by_household_and_id(
+    db: Session, household_id: UUID, category_id: UUID
+):
     return db.scalar(
         select(Categories).where(
             and_(
@@ -137,7 +143,9 @@ def list_tasks_for_member(
     return db.execute(query).all()
 
 
-def count_tasks_for_member(db: Session, user_id: UUID, household_id: UUID | None) -> int:
+def count_tasks_for_member(
+    db: Session, user_id: UUID, household_id: UUID | None
+) -> int:
     query = (
         select(func.count())
         .select_from(Tasks)
@@ -168,7 +176,9 @@ def list_assignees_for_household(db: Session, household_id: UUID):
     ).all()
 
 
-def list_reorder_tasks(db: Session, user_id: UUID, ordered_ids: list[UUID], target_status: str):
+def list_reorder_tasks(
+    db: Session, user_id: UUID, ordered_ids: list[UUID], target_status: str
+):
     return (
         db.execute(
             select(Tasks)

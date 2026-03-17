@@ -2,8 +2,8 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 
-from helpers import get_session_local
-from models import UserEmail
+from app.v1.helpers import get_session_local
+from app.v1.models import UserEmail
 
 from .repository import (
     count_overdue_tasks_for_user,

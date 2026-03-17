@@ -13,9 +13,9 @@ from fastapi import HTTPException, status
 from pydantic import BaseModel, Field, ValidationError, field_validator
 from sqlalchemy.exc import SQLAlchemyError
 
-from config import settings
-from helpers import get_session_local
-from models import UserEmail
+from app.v1.config import settings
+from app.v1.helpers import get_session_local
+from app.v1.models import UserEmail
 
 from .repository import (
     count_done_in_range,
@@ -193,7 +193,8 @@ def _load_analytics_context(
         weekly_map[week_label][person] = int(row.cnt or 0)
 
     weekly_data = [
-        WeeklyPoint(week=week, values=weekly_map[week]) for week in sorted(weekly_map.keys())
+        WeeklyPoint(week=week, values=weekly_map[week])
+        for week in sorted(weekly_map.keys())
     ]
 
     category_rows = fetch_category_rows(db, hid, start)
@@ -401,7 +402,9 @@ def _workload_by_person(summary: AnalyticsSummaryResponse) -> list[dict[str, Any
     return entries
 
 
-def _completion_trend(summary: AnalyticsSummaryResponse) -> dict[str, float | int | None]:
+def _completion_trend(
+    summary: AnalyticsSummaryResponse,
+) -> dict[str, float | int | None]:
     if not summary.completionData:
         return {
             "recent_avg_rate": None,
@@ -547,7 +550,9 @@ def _build_category_breakdown(
     return breakdown
 
 
-def _build_person_category_completion(category_breakdown: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _build_person_category_completion(
+    category_breakdown: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     per_person: dict[str, dict[str, Any]] = {}
     for category in category_breakdown:
         for row in category.get("completed_by_person", []):
@@ -566,9 +571,12 @@ def _build_person_category_completion(category_breakdown: list[dict[str, Any]]) 
                     "name": category["name"],
                     "completed_current": row["completed"],
                     "share_of_category_completed_pct": round(
-                        (row["completed"] / max(1, category["completed_current"])) * 100,
+                        (row["completed"] / max(1, category["completed_current"]))
+                        * 100,
                         1,
-                    ) if category["completed_current"] > 0 else 0.0,
+                    )
+                    if category["completed_current"] > 0
+                    else 0.0,
                 }
             )
             person_entry["total_completed_current"] += row["completed"]
@@ -590,7 +598,9 @@ def _sanitize_end_user_text(value: str) -> str:
     return text
 
 
-def _sanitize_ask_payload(payload: _AnalyticsAskModelPayload) -> _AnalyticsAskModelPayload:
+def _sanitize_ask_payload(
+    payload: _AnalyticsAskModelPayload,
+) -> _AnalyticsAskModelPayload:
     return _AnalyticsAskModelPayload(
         answer=_sanitize_end_user_text(payload.answer),
         evidence=[_sanitize_end_user_text(item) for item in payload.evidence],
@@ -611,11 +621,12 @@ def _build_ai_input_payload(
     stats = _stats_map(summary)
     top_categories = [
         {"name": row.name, "value": row.value}
-        for row in sorted(summary.categoryData, key=lambda item: item.value, reverse=True)[:5]
+        for row in sorted(
+            summary.categoryData, key=lambda item: item.value, reverse=True
+        )[:5]
     ]
     load_trend = [
-        {"month": row.month, "load": row.load}
-        for row in summary.loadTrendData[-4:]
+        {"month": row.month, "load": row.load} for row in summary.loadTrendData[-4:]
     ]
     evidence_points = [
         {
@@ -690,9 +701,13 @@ def _load_model_candidates() -> list[str]:
         or settings.OPENROUTER_WEEKLY_SUMMARY_MODEL
         or DEFAULT_OPENROUTER_MODEL
     )
-    fallbacks = _parse_model_list(settings.OPENROUTER_ANALYTICS_INSIGHTS_FALLBACK_MODELS)
+    fallbacks = _parse_model_list(
+        settings.OPENROUTER_ANALYTICS_INSIGHTS_FALLBACK_MODELS
+    )
     if not fallbacks:
-        fallbacks = _parse_model_list(settings.OPENROUTER_WEEKLY_SUMMARY_FALLBACK_MODELS)
+        fallbacks = _parse_model_list(
+            settings.OPENROUTER_WEEKLY_SUMMARY_FALLBACK_MODELS
+        )
 
     candidates: list[str] = []
     for model in [primary, *fallbacks, DEFAULT_OPENROUTER_MODEL]:
@@ -905,7 +920,7 @@ def _generate_ai_ask_payload(
         "4. If the question cannot be answered from the data, say so clearly.\n\n"
         "5. Do not mention internal labels such as field names, JSON properties, arrays, objects, or payload structure.\n"
         "6. When data is missing, explain that in plain language, for example: "
-        "\"This view shows current category totals, but it does not include category-by-category completion history.\"\n\n"
+        '"This view shows current category totals, but it does not include category-by-category completion history."\n\n'
         "7. The data includes computed category comparisons for the current period versus the previous period, "
         "including created tasks, completed tasks, open tasks, overdue tasks, and who completed tasks within each category. "
         "Use those comparisons when the user asks what changed, which category moved most, or who completed the most in a category.\n\n"
@@ -1018,7 +1033,9 @@ def _cache_to_response(
     cached: bool,
 ) -> AnalyticsAIInsightsResponse:
     content_json = cache_item.content_json or {}
-    generated_at = cache_item.updated_at or cache_item.created_at or datetime.now(timezone.utc)
+    generated_at = (
+        cache_item.updated_at or cache_item.created_at or datetime.now(timezone.utc)
+    )
     return AnalyticsAIInsightsResponse(
         household_id=str(household_id),
         timeframe=timeframe,
@@ -1125,7 +1142,9 @@ def _question_cache_to_response(
     cached: bool,
 ) -> AnalyticsAskResponse:
     content_json = cache_item.content_json or {}
-    generated_at = cache_item.updated_at or cache_item.created_at or datetime.now(timezone.utc)
+    generated_at = (
+        cache_item.updated_at or cache_item.created_at or datetime.now(timezone.utc)
+    )
     return AnalyticsAskResponse(
         household_id=str(household_id),
         timeframe=timeframe,

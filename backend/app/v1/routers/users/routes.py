@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, Request, status
 
-from helpers import get_current_user
-from limiter import limiter
-from models import UserEmail
+from app.v1.helpers import get_current_user
+from app.v1.limiter import limiter
+from app.v1.models import UserEmail
 
 from .schemas import (
     ChangePasswordRequest,
