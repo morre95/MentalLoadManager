@@ -8,7 +8,6 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import { Toaster } from "@/components/ui/sonner";
 
-
 // Pages
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -20,7 +19,6 @@ import HowItWorks from "./pages/HowItWorks";
 import NotFound from "./pages/NotFound";
 import Test from "./pages/Test";
 import JoinHousehold from "./pages/JoinaHousehold";
-
 
 // Dashboard pages
 import Dashboard from "./pages/Dashboard";
