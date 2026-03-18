@@ -211,7 +211,6 @@ def _ensure_artwork_job(
 ):
     artwork = get_mood_tracker_artwork_for_period(
         db,
-        user_id=user_id,
         period_type=period_type,
         period_key=period_key,
     )
@@ -220,7 +219,6 @@ def _ensure_artwork_job(
     if artwork is None:
         artwork = create_mood_tracker_artwork(
             db,
-            user_id=user_id,
             period_type=period_type,
             period_key=period_key,
             start_date=start_date,
@@ -311,7 +309,6 @@ def process_pending_mood_tracker_artworks_once(*, limit: int = 4) -> None:
             with session_local() as db:
                 fresh = get_mood_tracker_artwork_for_period(
                     db,
-                    user_id=artwork["user_id"],
                     period_type=artwork["period_type"],
                     period_key=artwork["period_key"],
                 )
@@ -337,7 +334,6 @@ def process_pending_mood_tracker_artworks_once(*, limit: int = 4) -> None:
             with session_local() as db:
                 fresh = get_mood_tracker_artwork_for_period(
                     db,
-                    user_id=artwork["user_id"],
                     period_type=artwork["period_type"],
                     period_key=artwork["period_key"],
                 )
@@ -347,6 +343,43 @@ def process_pending_mood_tracker_artworks_once(*, limit: int = 4) -> None:
                 fresh.error = str(exc)[:1000]
                 fresh.updated_at = datetime.now(timezone.utc)
                 db.commit()
+
+
+def _generate_artwork_for_current_period(db, artwork) -> None:
+    if artwork.status == "completed" and artwork.image_id and artwork.svg_markup:
+        return
+
+    artwork.status = "in_progress"
+    artwork.error = None
+    artwork.updated_at = datetime.now(timezone.utc)
+    db.commit()
+
+    try:
+        generated = generate_mood_artwork(
+            period_type=artwork.period_type,
+            period_key=artwork.period_key,
+            start_date=artwork.start_date,
+            end_date=artwork.end_date,
+        )
+    except Exception as exc:
+        artwork.status = "failed"
+        artwork.error = str(exc)[:1000]
+        artwork.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(artwork)
+        return
+
+    artwork.image_id = generated.image_id
+    artwork.source = generated.source
+    artwork.svg_markup = generated.svg_markup
+    artwork.region_ids = generated.region_ids
+    artwork.prompt_version = generated.prompt_version
+    artwork.status = "completed"
+    artwork.error = None
+    artwork.generated_at = datetime.now(timezone.utc)
+    artwork.updated_at = artwork.generated_at
+    db.commit()
+    db.refresh(artwork)
 
 
 def queue_pre_generation_for_active_users() -> None:
@@ -409,6 +442,7 @@ def get_mood_tracker_period(
             start_date=start_date,
             end_date=end_date,
         )
+        _generate_artwork_for_current_period(db, artwork)
         entries = list_mood_entries_for_date_range(
             db,
             user_id=current_user.user_id,

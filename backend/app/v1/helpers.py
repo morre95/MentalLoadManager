@@ -407,14 +407,56 @@ def setup_db_and_tables() -> None:
         )
         connection.execute(
             text(
-                "CREATE UNIQUE INDEX IF NOT EXISTS uq_mood_tracker_artworks_user_period "
-                "ON mood_tracker_artworks(user_id, period_type, period_key)"
+                "DELETE FROM mood_tracker_artworks "
+                "WHERE ctid IN ("
+                "  SELECT ctid FROM ("
+                "    SELECT ctid, "
+                "      ROW_NUMBER() OVER ("
+                "        PARTITION BY period_type, period_key "
+                "        ORDER BY "
+                "          CASE "
+                "            WHEN status = 'completed' THEN 0 "
+                "            WHEN status = 'in_progress' THEN 1 "
+                "            WHEN status = 'pending' THEN 2 "
+                "            ELSE 3 "
+                "          END, "
+                "          generated_at DESC NULLS LAST, "
+                "          created_at ASC, "
+                "          mood_tracker_artwork_id ASC"
+                "      ) AS row_num "
+                "    FROM mood_tracker_artworks"
+                "  ) ranked "
+                "  WHERE row_num > 1"
+                ")"
             )
         )
         connection.execute(
             text(
-                "CREATE INDEX IF NOT EXISTS idx_mood_tracker_artworks_user_created "
-                "ON mood_tracker_artworks(user_id, created_at DESC)"
+                "ALTER TABLE mood_tracker_artworks "
+                "DROP CONSTRAINT IF EXISTS uq_mood_tracker_artworks_user_period"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE mood_tracker_artworks "
+                "DROP COLUMN IF EXISTS user_id"
+            )
+        )
+        connection.execute(
+            text(
+                "DROP INDEX IF EXISTS uq_mood_tracker_artworks_user_period"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_mood_tracker_artworks_period "
+                "ON mood_tracker_artworks(period_type, period_key)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_mood_tracker_artworks_period_created "
+                "ON mood_tracker_artworks(period_type, start_date, created_at DESC)"
             )
         )
 

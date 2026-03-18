@@ -9,11 +9,6 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.v1.helpers import get_session_local
-from app.v1.routers.mood_tracker.service import (
-    process_pending_mood_tracker_artworks_once,
-    queue_pre_generation_for_active_users,
-)
-
 logger = logging.getLogger(__name__)
 
 AI_CACHE_RETENTION_DAYS = 30
@@ -47,11 +42,6 @@ def run_ai_cache_maintenance_once() -> None:
         stats_before,
         stats_after,
     )
-    try:
-        queue_pre_generation_for_active_users()
-        process_pending_mood_tracker_artworks_once(limit=6)
-    except Exception:
-        logger.exception("Mood tracker artwork maintenance failed")
 
 
 def _delete_expired_cache_rows(db, *, cutoff: datetime) -> dict[str, int]:
@@ -91,7 +81,7 @@ def _collect_cache_table_stats(db) -> dict[str, dict[str, int | None]]:
 
 async def run_ai_cache_maintenance_loop() -> None:
     while True:
-        run_ai_cache_maintenance_once()
+        await asyncio.to_thread(run_ai_cache_maintenance_once)
         await asyncio.sleep(AI_CACHE_CLEANUP_INTERVAL_SECONDS)
 
 

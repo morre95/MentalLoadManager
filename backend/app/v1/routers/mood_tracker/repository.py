@@ -1,7 +1,7 @@
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.v1.models import MoodEntries, MoodTrackerArtworks
@@ -60,23 +60,21 @@ def create_mood_entry(
 def get_mood_tracker_artwork_for_period(
     db: Session,
     *,
-    user_id: UUID,
     period_type: str,
     period_key: str,
 ) -> MoodTrackerArtworks | None:
     return db.scalar(
         select(MoodTrackerArtworks).where(
-            MoodTrackerArtworks.user_id == user_id,
             MoodTrackerArtworks.period_type == period_type,
             MoodTrackerArtworks.period_key == period_key,
         )
+        .order_by(MoodTrackerArtworks.generated_at.desc().nullslast(), MoodTrackerArtworks.created_at.asc())
     )
 
 
 def create_mood_tracker_artwork(
     db: Session,
     *,
-    user_id: UUID,
     period_type: str,
     period_key: str,
     start_date: date,
@@ -90,7 +88,6 @@ def create_mood_tracker_artwork(
     prompt_version: str | None,
 ) -> MoodTrackerArtworks:
     artwork = MoodTrackerArtworks(
-        user_id=user_id,
         period_type=period_type,
         period_key=period_key,
         start_date=start_date,
@@ -121,10 +118,8 @@ def list_pending_mood_tracker_artworks(
 
 
 def list_active_mood_tracker_user_ids(db: Session) -> list[UUID]:
-    mood_entry_user_ids = select(MoodEntries.user_id.label("user_id"))
-    artwork_user_ids = select(MoodTrackerArtworks.user_id.label("user_id"))
-    combined = mood_entry_user_ids.union(artwork_user_ids).subquery()
-    return list(db.scalars(select(combined.c.user_id)))
+    mood_entry_user_ids = select(MoodEntries.user_id.label("user_id")).distinct()
+    return list(db.scalars(mood_entry_user_ids))
 
 
 def list_mood_tracker_artworks_for_user(

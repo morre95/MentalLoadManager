@@ -126,6 +126,38 @@ class MoodTrackerArtworkGeneratorTests(unittest.TestCase):
 
 
 class MoodTrackerServiceTests(unittest.TestCase):
+    def test_shared_period_artwork_lookup_ignores_current_user(self) -> None:
+        fake_db = _FakeDB()
+        fake_user = SimpleNamespace(user_id=uuid4())
+        shared_artwork = SimpleNamespace(
+            user_id=uuid4(),
+            image_id="shared-weekly-art",
+            source="procedural",
+            svg_markup="<svg><rect data-region-id='week-region-1' /></svg>",
+            region_ids=["week-region-1"],
+            prompt_version="v-test",
+            status="completed",
+            error=None,
+            generated_at=None,
+            updated_at=None,
+        )
+
+        def _session_local():
+            return _FakeSessionContext(fake_db)
+
+        with patch.object(service, "get_session_local", return_value=_session_local):
+            with patch.object(service, "get_mood_tracker_artwork_for_period", return_value=shared_artwork) as artwork_lookup:
+                with patch.object(service, "list_mood_entries_for_date_range", return_value=[]):
+                    result = service.get_mood_tracker_period(
+                        period_type="weekly",
+                        anchor_date_raw="2026-03-11",
+                        current_user=fake_user,
+                    )
+
+        self.assertEqual(result.image_id, "shared-weekly-art")
+        _, kwargs = artwork_lookup.call_args
+        self.assertNotIn("user_id", kwargs)
+
     def test_get_period_returns_persisted_svg_markup(self) -> None:
         fake_db = _FakeDB()
         fake_user = SimpleNamespace(user_id=uuid4())
@@ -152,6 +184,52 @@ class MoodTrackerServiceTests(unittest.TestCase):
         self.assertEqual(result.artwork_source, "procedural")
         self.assertEqual(result.region_ids, ["week-region-1"])
         self.assertEqual(result.svg_markup, "<svg><rect data-region-id='week-region-1' /></svg>")
+
+    def test_get_period_generates_artwork_on_demand_when_pending(self) -> None:
+        fake_db = _FakeDB()
+        fake_user = SimpleNamespace(user_id=uuid4())
+        pending_artwork = SimpleNamespace(
+            user_id=fake_user.user_id,
+            period_type="weekly",
+            period_key="2026-W11",
+            start_date=date(2026, 3, 9),
+            end_date=date(2026, 3, 15),
+            image_id=None,
+            source=None,
+            svg_markup=None,
+            region_ids=["week-region-1"],
+            prompt_version="v-old",
+            status="pending",
+            error=None,
+            generated_at=None,
+            updated_at=None,
+        )
+        generated = SimpleNamespace(
+            image_id="generated-image",
+            source="procedural",
+            svg_markup="<svg />",
+            region_ids=["week-region-1"],
+            prompt_version="v-test",
+        )
+
+        def _session_local():
+            return _FakeSessionContext(fake_db)
+
+        with patch.object(service, "get_session_local", return_value=_session_local):
+            with patch.object(service, "get_mood_tracker_artwork_for_period", return_value=pending_artwork):
+                with patch.object(service, "generate_mood_artwork", return_value=generated):
+                    with patch.object(service, "list_mood_entries_for_date_range", return_value=[]):
+                        result = service.get_mood_tracker_period(
+                            period_type="weekly",
+                            anchor_date_raw="2026-03-11",
+                            current_user=fake_user,
+                        )
+
+        self.assertEqual(result.image_id, "generated-image")
+        self.assertEqual(result.artwork_source, "procedural")
+        self.assertEqual(result.svg_markup, "<svg />")
+        self.assertEqual(pending_artwork.status, "completed")
+        self.assertGreaterEqual(fake_db.commit_calls, 2)
 
     def test_process_pending_artworks_uses_snapshotted_values_after_session_close(self) -> None:
         fake_db = _FakeDB()

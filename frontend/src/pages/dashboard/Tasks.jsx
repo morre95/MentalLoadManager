@@ -831,15 +831,7 @@ const Tasks = () => {
             <ListTodo className="h-7 w-7 text-primary" /> Tasks
           </h1>
           <p className="text-muted-foreground mt-1">
-            Drag tasks between columns to update status. Search supports terms like
-            {" "}
-            <span className="font-medium text-foreground/80">maria overdue</span>,
-            {" "}
-            <span className="font-medium text-foreground/80">shopping high</span>,
-            {" "}
-            or
-            {" "}
-            <span className="font-medium text-foreground/80">done recurring</span>.
+            Drag tasks between columns to update status. 
           </p>
           {loading ? <p className="text-sm text-muted-foreground mt-2">Loading tasks…</p> : null}
           {error?.status === 401 ? (

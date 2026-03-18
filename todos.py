@@ -1,17 +1,17 @@
-#ANALYTICS
-#TODO: "Add more charts to analytics, e.g. a breakdown of mental load by category (chores, childcare, etc.)"
-# TODO: "Add option to download charts as images or data as CSV in AnalyticsSummary"
+#TODO Reacurring tasks, hur gör vi där med parent osv för att inte skapa buggar
+# TODO: Mail, email notiications och weekly summarys på mail, kan vi completa tasks i mail? 
 
-# CALENDAR
-#TODO: "Show number badge instead of amount of dots"
-#TODO: "Add option to show/hide completed tasks in calendar"
-#TODO: "Add subtle heat intensity to calendar days based on number of tasks due"
+#TODO: Skapa 7 bilder för veckodag och 12 för månader, cykla dessa och ta bort AI från moodtracker. TRANSPARENT BAKGRUND; EJ VIT
 
-# GOALS
-#TODO: "Tune achievement progression thresholds (fairness %, minimum tasks per window, milestone steps) using real household data"
-#TODO: "Add tooltip/help modal on Achievements page explaining exact formulas used for each achievement"
-#TODO: "Recompute achievements after goal/task mutations without full page refresh (trigger background refresh event)"
-#TODO: "Add loading skeletons for achievements cards (currently only goals has loading state messaging)"
-#TODO: "Handle empty achievements state explicitly (new users with no tasks) with guidance CTA"
-#TODO: "Add backend caching for computed achievements if performance degrades on large task histories"
-#TODO: "Add endpoint-level unit tests for smart Category Champion logic (best category tie-break behavior)"
+#TODO: Skapa dashboarden 
+
+#TODO: Summarys, schemalägg en gång i veckan. 
+
+#TODO: GOALS, FIXA UX PÅ HEADERN
+
+#TODO: OM VI HINNER OCH ORKAR, FIXA DARKMODE till att bli iaf ok
+
+
+#TODO TA bort ADD event knapp i kalendern, den är onödig och gör det bara rörigt
+
+#TODO: Ändra M loggan i mentalload till samma som favikonen
