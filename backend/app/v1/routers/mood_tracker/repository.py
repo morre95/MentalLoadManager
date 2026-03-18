@@ -1,7 +1,7 @@
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import case, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.v1.models import MoodEntries, MoodTrackerArtworks
@@ -56,102 +56,21 @@ def create_mood_entry(
     db.add(entry)
     return entry
 
-
-def get_mood_tracker_artwork_for_period(
-    db: Session,
-    *,
-    period_type: str,
-    period_key: str,
-) -> MoodTrackerArtworks | None:
-    return db.scalar(
-        select(MoodTrackerArtworks).where(
-            MoodTrackerArtworks.period_type == period_type,
-            MoodTrackerArtworks.period_key == period_key,
-        )
-        .order_by(MoodTrackerArtworks.generated_at.desc().nullslast(), MoodTrackerArtworks.created_at.asc())
-    )
-
-
 def list_completed_mood_tracker_artworks_by_type(
     db: Session,
     *,
     period_type: str,
+    day_count: int,
 ) -> list[MoodTrackerArtworks]:
     return db.scalars(
         select(MoodTrackerArtworks)
         .where(
             MoodTrackerArtworks.period_type == period_type,
-            MoodTrackerArtworks.status == "completed",
+            MoodTrackerArtworks.day_count == day_count,
             MoodTrackerArtworks.svg_markup.is_not(None),
         )
         .order_by(
-            case((MoodTrackerArtworks.cycle_order.is_(None), 1), else_=0),
             MoodTrackerArtworks.cycle_order.asc(),
-            MoodTrackerArtworks.created_at.asc(),
             MoodTrackerArtworks.mood_tracker_artwork_id.asc(),
         )
     ).all()
-
-
-def create_mood_tracker_artwork(
-    db: Session,
-    *,
-    period_type: str,
-    period_key: str,
-    cycle_order: int | None,
-    start_date: date,
-    end_date: date,
-    image_id: str | None,
-    source: str | None,
-    status: str,
-    error: str | None,
-    svg_markup: str | None,
-    region_ids: list[str],
-    prompt_version: str | None,
-) -> MoodTrackerArtworks:
-    artwork = MoodTrackerArtworks(
-        period_type=period_type,
-        period_key=period_key,
-        cycle_order=cycle_order,
-        start_date=start_date,
-        end_date=end_date,
-        image_id=image_id,
-        source=source,
-        status=status,
-        error=error,
-        svg_markup=svg_markup,
-        region_ids=region_ids,
-        prompt_version=prompt_version,
-    )
-    db.add(artwork)
-    return artwork
-
-
-def list_pending_mood_tracker_artworks(
-    db: Session,
-    *,
-    limit: int = 10,
-) -> list[MoodTrackerArtworks]:
-    return db.scalars(
-        select(MoodTrackerArtworks)
-        .where(MoodTrackerArtworks.status.in_(("pending", "in_progress")))
-        .order_by(MoodTrackerArtworks.created_at.asc())
-        .limit(limit)
-    ).all()
-
-
-def list_active_mood_tracker_user_ids(db: Session) -> list[UUID]:
-    mood_entry_user_ids = select(MoodEntries.user_id.label("user_id")).distinct()
-    return list(db.scalars(mood_entry_user_ids))
-
-
-def list_mood_tracker_artworks_for_user(
-    db: Session,
-    *,
-    user_id: UUID,
-    period_type: str | None = None,
-) -> list[MoodTrackerArtworks]:
-    query = select(MoodTrackerArtworks).where(MoodTrackerArtworks.user_id == user_id)
-    if period_type:
-        query = query.where(MoodTrackerArtworks.period_type == period_type)
-    return db.scalars(query.order_by(MoodTrackerArtworks.start_date.asc())).all()

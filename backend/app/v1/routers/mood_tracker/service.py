@@ -176,9 +176,9 @@ def _build_period_response(
         end_date=end_date,
         image_id=artwork.image_id,
         artwork_source=artwork.source,
-        artwork_status=artwork.status,
-        artwork_error=artwork.error,
-        artwork_generated_at=artwork.generated_at,
+        artwork_status="completed",
+        artwork_error=None,
+        artwork_generated_at=None,
         svg_markup=artwork.svg_markup,
         region_ids=region_ids,
         painted_days=painted_days,
@@ -197,15 +197,21 @@ def _cycle_slot_for_period(period_type: str, start_date: date, cycle_length: int
     return elapsed_periods % cycle_length
 
 
+def _day_count_for_period(start_date: date, end_date: date) -> int:
+    return (end_date - start_date).days + 1
+
+
 def _get_cycled_artwork(db, *, period_type: str, start_date: date, end_date: date):
+    day_count = _day_count_for_period(start_date, end_date)
     artworks = list_completed_mood_tracker_artworks_by_type(
         db,
         period_type=period_type,
+        day_count=day_count,
     )
     if not artworks:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No {period_type} mood tracker artworks are configured",
+            detail=f"No {period_type} mood tracker artworks are configured for {day_count} days",
         )
 
     artwork = artworks[_cycle_slot_for_period(period_type, start_date, len(artworks))]

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import Date, DateTime, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -16,8 +15,9 @@ class MoodTrackerArtworks(Base):
     __table_args__ = (
         UniqueConstraint(
             "period_type",
-            "period_key",
-            name="uq_mood_tracker_artworks_period",
+            "day_count",
+            "cycle_order",
+            name="uq_mood_tracker_artworks_type_day_count_cycle_order",
         ),
     )
 
@@ -27,30 +27,16 @@ class MoodTrackerArtworks(Base):
         server_default=text("gen_random_uuid()"),
     )
     period_type: Mapped[str] = mapped_column(String(20), nullable=False)
-    period_key: Mapped[str] = mapped_column(String(40), nullable=False)
-    cycle_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    start_date: Mapped[date] = mapped_column(Date, nullable=False)
-    end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    day_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    cycle_order: Mapped[int] = mapped_column(Integer, nullable=False)
     image_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
     source: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, server_default=text("'pending'"))
-    error: Mapped[str | None] = mapped_column(Text, nullable=True)
     svg_markup: Mapped[str | None] = mapped_column(Text, nullable=True)
     region_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
-    prompt_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
-    generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        server_default=text("NOW()"),
-    )
-    updated_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        server_default=text("NOW()"),
-    )
 
     def __repr__(self) -> str:
         return (
             "MoodTrackerArtwork("
             f"id={self.mood_tracker_artwork_id!r}, "
-            f"period_key={self.period_key!r}, period_type={self.period_type!r})"
+            f"period_type={self.period_type!r}, day_count={self.day_count!r}, cycle_order={self.cycle_order!r})"
         )

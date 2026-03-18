@@ -57,7 +57,7 @@ class _FakeConnection:
     def __init__(self) -> None:
         self.statements: list[str] = []
 
-    def execute(self, clause) -> None:  # noqa: ANN001
+    def execute(self, clause, *args, **kwargs) -> None:  # noqa: ANN001
         self.statements.append(str(clause))
 
 
@@ -114,9 +114,12 @@ class SetupDbAndTablesTests(unittest.TestCase):
             executed,
         )
         self.assertIn("CREATE TABLE IF NOT EXISTS mood_tracker_artworks", executed)
-        self.assertIn("uq_mood_tracker_artworks_period", executed)
+        self.assertIn("uq_mood_tracker_artworks_type_day_count_cycle_order", executed)
+        self.assertIn("ADD COLUMN IF NOT EXISTS day_count", executed)
         self.assertIn("ADD COLUMN IF NOT EXISTS cycle_order", executed)
-        self.assertIn("DELETE FROM mood_tracker_artworks", executed)
+        self.assertIn("DROP COLUMN IF EXISTS period_key", executed)
+        self.assertIn("DROP COLUMN IF EXISTS status", executed)
+        self.assertIn("INSERT INTO mood_tracker_artworks", executed)
 
 
 

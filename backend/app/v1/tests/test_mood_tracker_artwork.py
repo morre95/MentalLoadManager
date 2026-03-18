@@ -131,6 +131,7 @@ class MoodTrackerServiceTests(unittest.TestCase):
         self.assertEqual(result.image_id, "shared-weekly-art-1")
         _, kwargs = artwork_lookup.call_args
         self.assertEqual(kwargs["period_type"], "weekly")
+        self.assertEqual(kwargs["day_count"], 7)
 
     def test_get_period_returns_persisted_svg_markup(self) -> None:
         fake_db = _FakeDB()
@@ -190,7 +191,7 @@ class MoodTrackerServiceTests(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 404)
         self.assertEqual(
             ctx.exception.detail,
-            "No weekly mood tracker artworks are configured",
+            "No weekly mood tracker artworks are configured for 7 days",
         )
 
 
