@@ -416,7 +416,6 @@ export default function MoodTracker() {
                         MOOD_OPTIONS.find((option) => option.token === hoveredEntry.color_token)?.swatchClass || "bg-primary"
                       )}
                     />
-                    <span className="text-xs text-muted-foreground">{hoveredEntry.region_id}</span>
                   </div>
                 </motion.div>
               ) : (

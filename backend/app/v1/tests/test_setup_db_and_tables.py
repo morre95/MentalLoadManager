@@ -115,6 +115,7 @@ class SetupDbAndTablesTests(unittest.TestCase):
         )
         self.assertIn("CREATE TABLE IF NOT EXISTS mood_tracker_artworks", executed)
         self.assertIn("uq_mood_tracker_artworks_period", executed)
+        self.assertIn("ADD COLUMN IF NOT EXISTS cycle_order", executed)
         self.assertIn("DELETE FROM mood_tracker_artworks", executed)
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import Date, DateTime, String, Text, UniqueConstraint, text
+from sqlalchemy import Date, DateTime, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -28,6 +28,7 @@ class MoodTrackerArtworks(Base):
     )
     period_type: Mapped[str] = mapped_column(String(20), nullable=False)
     period_key: Mapped[str] = mapped_column(String(40), nullable=False)
+    cycle_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
     image_id: Mapped[str | None] = mapped_column(String(80), nullable=True)

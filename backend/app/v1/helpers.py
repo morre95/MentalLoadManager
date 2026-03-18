@@ -360,6 +360,7 @@ def setup_db_and_tables() -> None:
                 "  user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,"
                 "  period_type VARCHAR(20) NOT NULL,"
                 "  period_key VARCHAR(40) NOT NULL,"
+                "  cycle_order INTEGER,"
                 "  start_date DATE NOT NULL,"
                 "  end_date DATE NOT NULL,"
                 "  image_id VARCHAR(80),"
@@ -373,6 +374,11 @@ def setup_db_and_tables() -> None:
                 "  created_at TIMESTAMPTZ DEFAULT NOW(),"
                 "  updated_at TIMESTAMPTZ DEFAULT NOW()"
                 ")"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE mood_tracker_artworks ADD COLUMN IF NOT EXISTS cycle_order INTEGER"
             )
         )
         connection.execute(
@@ -403,6 +409,23 @@ def setup_db_and_tables() -> None:
         connection.execute(
             text(
                 "ALTER TABLE mood_tracker_artworks ADD COLUMN IF NOT EXISTS generated_at TIMESTAMPTZ"
+            )
+        )
+        connection.execute(
+            text(
+                "WITH ranked AS ("
+                "  SELECT mood_tracker_artwork_id, "
+                "    ROW_NUMBER() OVER ("
+                "      PARTITION BY period_type "
+                "      ORDER BY created_at ASC, mood_tracker_artwork_id ASC"
+                "    ) AS row_num "
+                "  FROM mood_tracker_artworks "
+                "  WHERE cycle_order IS NULL"
+                ") "
+                "UPDATE mood_tracker_artworks AS mta "
+                "SET cycle_order = ranked.row_num "
+                "FROM ranked "
+                "WHERE mta.mood_tracker_artwork_id = ranked.mood_tracker_artwork_id"
             )
         )
         connection.execute(
@@ -457,6 +480,12 @@ def setup_db_and_tables() -> None:
             text(
                 "CREATE INDEX IF NOT EXISTS idx_mood_tracker_artworks_period_created "
                 "ON mood_tracker_artworks(period_type, start_date, created_at DESC)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_mood_tracker_artworks_period_cycle_order "
+                "ON mood_tracker_artworks(period_type, cycle_order)"
             )
         )
 

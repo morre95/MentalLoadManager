@@ -1,7 +1,7 @@
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.orm import Session
 
 from app.v1.models import MoodEntries, MoodTrackerArtworks
@@ -72,11 +72,33 @@ def get_mood_tracker_artwork_for_period(
     )
 
 
+def list_completed_mood_tracker_artworks_by_type(
+    db: Session,
+    *,
+    period_type: str,
+) -> list[MoodTrackerArtworks]:
+    return db.scalars(
+        select(MoodTrackerArtworks)
+        .where(
+            MoodTrackerArtworks.period_type == period_type,
+            MoodTrackerArtworks.status == "completed",
+            MoodTrackerArtworks.svg_markup.is_not(None),
+        )
+        .order_by(
+            case((MoodTrackerArtworks.cycle_order.is_(None), 1), else_=0),
+            MoodTrackerArtworks.cycle_order.asc(),
+            MoodTrackerArtworks.created_at.asc(),
+            MoodTrackerArtworks.mood_tracker_artwork_id.asc(),
+        )
+    ).all()
+
+
 def create_mood_tracker_artwork(
     db: Session,
     *,
     period_type: str,
     period_key: str,
+    cycle_order: int | None,
     start_date: date,
     end_date: date,
     image_id: str | None,
@@ -90,6 +112,7 @@ def create_mood_tracker_artwork(
     artwork = MoodTrackerArtworks(
         period_type=period_type,
         period_key=period_key,
+        cycle_order=cycle_order,
         start_date=start_date,
         end_date=end_date,
         image_id=image_id,

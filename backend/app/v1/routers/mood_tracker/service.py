@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
-import logging
-from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
@@ -10,19 +8,11 @@ from sqlalchemy.exc import IntegrityError
 from app.v1.helpers import get_session_local
 from app.v1.models import UserEmail
 
-from .artwork_generator import (
-    PROMPT_VERSION,
-    generate_mood_artwork,
-    validate_generated_svg,
-)
 from .repository import (
     create_mood_entry,
-    create_mood_tracker_artwork,
     get_mood_entry_for_user_and_date,
-    get_mood_tracker_artwork_for_period,
-    list_active_mood_tracker_user_ids,
+    list_completed_mood_tracker_artworks_by_type,
     list_mood_entries_for_date_range,
-    list_pending_mood_tracker_artworks,
 )
 from .schemas import (
     MoodTrackerDateStatusResponse,
@@ -30,8 +20,6 @@ from .schemas import (
     MoodTrackerPeriodResponse,
     UpsertMoodEntryRequest,
 )
-
-logger = logging.getLogger(__name__)
 
 ALLOWED_COLOR_TOKENS = {
     "sage",
@@ -109,10 +97,7 @@ def _region_field_name(period_type: str) -> str:
 
 
 def _pick_region_for_date(
-    *,
-    period_key: str,
-    entry_date: date,
-    available_region_ids: list[str],
+    *, period_start: date, entry_date: date, available_region_ids: list[str]
 ) -> str:
     if not available_region_ids:
         raise HTTPException(
@@ -120,11 +105,8 @@ def _pick_region_for_date(
             detail="No mood tracker regions are available for this period",
         )
 
-    seed = sum(
-        (index + 1) * ord(char)
-        for index, char in enumerate(f"{period_key}:{entry_date.isoformat()}")
-    )
-    return available_region_ids[seed % len(available_region_ids)]
+    offset = max((entry_date - period_start).days, 0)
+    return available_region_ids[offset % len(available_region_ids)]
 
 
 def _validate_entry_date(
@@ -204,242 +186,32 @@ def _build_period_response(
     )
 
 
-def _has_invalid_persisted_svg(artwork, expected_region_ids: list[str], *, period_type: str) -> bool:
-    if artwork.status != "completed" or not artwork.svg_markup:
-        return False
-
-    try:
-        validate_generated_svg(
-            artwork.svg_markup,
-            expected_region_ids,
-            period_type=period_type,
-        )
-    except ValueError:
-        logger.warning(
-            "Stored mood artwork is invalid and will be regenerated for period=%s key=%s",
-            period_type,
-            artwork.period_key,
-        )
-        return True
-
-    return False
+def _cycle_slot_for_period(period_type: str, start_date: date, cycle_length: int) -> int:
+    if cycle_length <= 0:
+        raise ValueError("cycle_length must be positive")
+    if period_type == "weekly":
+        epoch_monday = date(1970, 1, 5)
+        elapsed_periods = (start_date - epoch_monday).days // 7
+        return elapsed_periods % cycle_length
+    elapsed_periods = (start_date.year * 12) + (start_date.month - 1)
+    return elapsed_periods % cycle_length
 
 
-def _ensure_artwork_job(
-    db,
-    *,
-    user_id: UUID,
-    period_type: str,
-    period_key: str,
-    start_date: date,
-    end_date: date,
-):
-    artwork = get_mood_tracker_artwork_for_period(
+def _get_cycled_artwork(db, *, period_type: str, start_date: date, end_date: date):
+    artworks = list_completed_mood_tracker_artworks_by_type(
         db,
         period_type=period_type,
-        period_key=period_key,
     )
-    expected_region_ids = _region_ids(period_type, start_date, end_date)
-
-    if artwork is None:
-        artwork = create_mood_tracker_artwork(
-            db,
-            period_type=period_type,
-            period_key=period_key,
-            start_date=start_date,
-            end_date=end_date,
-            image_id=None,
-            source=None,
-            status="pending",
-            error=None,
-            svg_markup=None,
-            region_ids=expected_region_ids,
-            prompt_version=PROMPT_VERSION,
+    if not artworks:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No {period_type} mood tracker artworks are configured",
         )
-        db.commit()
-        db.refresh(artwork)
-        return artwork
 
-    artwork.start_date = start_date
-    artwork.end_date = end_date
+    artwork = artworks[_cycle_slot_for_period(period_type, start_date, len(artworks))]
     if not artwork.region_ids:
-        artwork.region_ids = expected_region_ids
-
-    is_stale = artwork.prompt_version != PROMPT_VERSION or _has_invalid_persisted_svg(
-        artwork,
-        expected_region_ids,
-        period_type=period_type,
-    )
-    if is_stale:
-        artwork.image_id = None
-        artwork.source = None
-        artwork.svg_markup = None
-        artwork.status = "pending"
-        artwork.error = None
-        artwork.generated_at = None
-        artwork.prompt_version = PROMPT_VERSION
-        artwork.region_ids = expected_region_ids
-        artwork.updated_at = datetime.now(timezone.utc)
-        db.commit()
-        db.refresh(artwork)
-        return artwork
-
+        artwork.region_ids = _region_ids(period_type, start_date, end_date)
     return artwork
-
-
-def queue_mood_tracker_artwork_for_period(
-    *,
-    user_id: UUID,
-    period_type: str,
-    anchor_date: date,
-) -> None:
-    start_date, end_date = _period_bounds(period_type, anchor_date)
-    period_key = _period_key(period_type, start_date)
-    session_local = get_session_local()
-    with session_local() as db:
-        _ensure_artwork_job(
-            db,
-            user_id=user_id,
-            period_type=period_type,
-            period_key=period_key,
-            start_date=start_date,
-            end_date=end_date,
-        )
-
-
-def process_pending_mood_tracker_artworks_once(*, limit: int = 4) -> None:
-    session_local = get_session_local()
-    with session_local() as db:
-        artworks = list_pending_mood_tracker_artworks(db, limit=limit)
-        for artwork in artworks:
-            artwork.status = "in_progress"
-            artwork.error = None
-            artwork.updated_at = datetime.now(timezone.utc)
-        db.commit()
-        artwork_jobs = [
-            {
-                "user_id": artwork.user_id,
-                "period_type": artwork.period_type,
-                "period_key": artwork.period_key,
-                "start_date": artwork.start_date,
-                "end_date": artwork.end_date,
-            }
-            for artwork in artworks
-        ]
-
-    for artwork in artwork_jobs:
-        try:
-            generated = generate_mood_artwork(
-                period_type=artwork["period_type"],
-                period_key=artwork["period_key"],
-                start_date=artwork["start_date"],
-                end_date=artwork["end_date"],
-            )
-            with session_local() as db:
-                fresh = get_mood_tracker_artwork_for_period(
-                    db,
-                    period_type=artwork["period_type"],
-                    period_key=artwork["period_key"],
-                )
-                if fresh is None:
-                    continue
-                fresh.image_id = generated.image_id
-                fresh.source = generated.source
-                fresh.svg_markup = generated.svg_markup
-                fresh.region_ids = generated.region_ids
-                fresh.prompt_version = generated.prompt_version
-                fresh.status = "completed"
-                fresh.error = None
-                fresh.generated_at = datetime.now(timezone.utc)
-                fresh.updated_at = fresh.generated_at
-                db.commit()
-        except Exception as exc:
-            logger.exception(
-                "Mood artwork generation failed for user=%s period=%s key=%s",
-                artwork["user_id"],
-                artwork["period_type"],
-                artwork["period_key"],
-            )
-            with session_local() as db:
-                fresh = get_mood_tracker_artwork_for_period(
-                    db,
-                    period_type=artwork["period_type"],
-                    period_key=artwork["period_key"],
-                )
-                if fresh is None:
-                    continue
-                fresh.status = "failed"
-                fresh.error = str(exc)[:1000]
-                fresh.updated_at = datetime.now(timezone.utc)
-                db.commit()
-
-
-def _generate_artwork_for_current_period(db, artwork) -> None:
-    if artwork.status == "completed" and artwork.image_id and artwork.svg_markup:
-        return
-
-    artwork.status = "in_progress"
-    artwork.error = None
-    artwork.updated_at = datetime.now(timezone.utc)
-    db.commit()
-
-    try:
-        generated = generate_mood_artwork(
-            period_type=artwork.period_type,
-            period_key=artwork.period_key,
-            start_date=artwork.start_date,
-            end_date=artwork.end_date,
-        )
-    except Exception as exc:
-        artwork.status = "failed"
-        artwork.error = str(exc)[:1000]
-        artwork.updated_at = datetime.now(timezone.utc)
-        db.commit()
-        db.refresh(artwork)
-        return
-
-    artwork.image_id = generated.image_id
-    artwork.source = generated.source
-    artwork.svg_markup = generated.svg_markup
-    artwork.region_ids = generated.region_ids
-    artwork.prompt_version = generated.prompt_version
-    artwork.status = "completed"
-    artwork.error = None
-    artwork.generated_at = datetime.now(timezone.utc)
-    artwork.updated_at = artwork.generated_at
-    db.commit()
-    db.refresh(artwork)
-
-
-def queue_pre_generation_for_active_users() -> None:
-    session_local = get_session_local()
-    today = datetime.now(timezone.utc).date()
-    with session_local() as db:
-        user_ids = list_active_mood_tracker_user_ids(db)
-
-    for user_id in user_ids:
-        for period_type in ("weekly", "monthly"):
-            if period_type == "weekly":
-                anchors = [today - timedelta(days=7), today, today + timedelta(days=7)]
-            else:
-                first = today.replace(day=1)
-                prev_anchor = (first - timedelta(days=1)).replace(day=1)
-                next_anchor = (first + timedelta(days=32)).replace(day=1)
-                anchors = [prev_anchor, today, next_anchor]
-            for anchor in anchors:
-                try:
-                    queue_mood_tracker_artwork_for_period(
-                        user_id=user_id,
-                        period_type=period_type,
-                        anchor_date=anchor,
-                    )
-                except Exception:
-                    logger.exception(
-                        "Failed to queue mood artwork pre-generation for user=%s period=%s anchor=%s",
-                        user_id,
-                        period_type,
-                        anchor.isoformat(),
-                    )
 
 
 def get_mood_tracker_period(
@@ -463,15 +235,12 @@ def get_mood_tracker_period(
         ) from exc
 
     with session_local() as db:
-        artwork = _ensure_artwork_job(
+        artwork = _get_cycled_artwork(
             db,
-            user_id=current_user.user_id,
             period_type=normalized_period_type,
-            period_key=period_key,
             start_date=start_date,
             end_date=end_date,
         )
-        _generate_artwork_for_current_period(db, artwork)
         entries = list_mood_entries_for_date_range(
             db,
             user_id=current_user.user_id,
@@ -498,7 +267,7 @@ def get_mood_tracker_period(
                 if region_id not in assigned_region_ids
             ]
             selected_region_id = _pick_region_for_date(
-                period_key=period_key,
+                period_start=start_date,
                 entry_date=entry.entry_date,
                 available_region_ids=available_region_ids,
             )
@@ -547,11 +316,9 @@ def upsert_mood_tracker_entry(
     session_local = get_session_local()
     region_field_name = _region_field_name(period_type)
     with session_local() as db:
-        artwork = _ensure_artwork_job(
+        artwork = _get_cycled_artwork(
             db,
-            user_id=current_user.user_id,
             period_type=period_type,
-            period_key=period_key,
             start_date=start_date,
             end_date=end_date,
         )
