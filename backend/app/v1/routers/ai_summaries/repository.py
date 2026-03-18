@@ -174,10 +174,6 @@ def list_weekly_summary_email_targets(
             func.length(func.trim(UserDB.email)) > 0,
             or_(
                 NotificationSettings.user_id.is_(None),
-                NotificationSettings.email_notifications.is_(True),
-            ),
-            or_(
-                NotificationSettings.user_id.is_(None),
                 NotificationSettings.weekly_analytics_email.is_(True),
             ),
             or_(
