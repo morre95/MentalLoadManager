@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useRef } from "react";
 import { fallbackThemeByPeriod, moodArtworkThemes } from "./themes";
 
 const DEFAULT_COLOR_VALUE_BY_TOKEN = {
@@ -14,21 +14,23 @@ const DEFAULT_COLOR_VALUE_BY_TOKEN = {
   "status-done": "hsl(var(--status-done))",
 };
 
-function buildRenderedSvgMarkup({
-  svgMarkup,
+function applyRenderedSvgState({
+  container,
   paintedByRegion,
   periodType,
   selectedDate,
   colorValueByToken,
 }) {
-  if (typeof window === "undefined" || !svgMarkup) {
-    return svgMarkup;
+  if (!container) {
+    return;
   }
 
-  const parser = new window.DOMParser();
-  const doc = parser.parseFromString(svgMarkup, "image/svg+xml");
-  const svgRoot = doc.documentElement;
-  const regionElements = doc.querySelectorAll("[data-region-id]");
+  const svgRoot = container.querySelector("svg");
+  const regionElements = container.querySelectorAll("[data-region-id]");
+
+  if (!svgRoot || !regionElements.length) {
+    return;
+  }
 
   if (svgRoot?.tagName?.toLowerCase() === "svg") {
     svgRoot.setAttribute("preserveAspectRatio", "xMidYMin meet");
@@ -57,8 +59,27 @@ function buildRenderedSvgMarkup({
     element.setAttribute("data-selected", isSelected ? "true" : "false");
     element.setAttribute("style", "cursor: pointer; transition: fill 160ms ease, stroke 160ms ease, stroke-width 160ms ease;");
   });
+}
 
-  return doc.documentElement.outerHTML;
+function mountSvgMarkup(container, svgMarkup) {
+  if (typeof window === "undefined" || !container) {
+    return;
+  }
+
+  container.replaceChildren();
+  if (!svgMarkup) {
+    return;
+  }
+
+  const parser = new window.DOMParser();
+  const parsed = parser.parseFromString(svgMarkup, "image/svg+xml");
+  const parsedRoot = parsed.documentElement;
+
+  if (!parsedRoot || parsedRoot.tagName.toLowerCase() !== "svg") {
+    return;
+  }
+
+  container.appendChild(document.importNode(parsedRoot, true));
 }
 
 export default function MoodArtwork({
@@ -72,21 +93,26 @@ export default function MoodArtwork({
   svgMarkup,
   colorValueByToken = {},
 }) {
-  const renderedSvgMarkup = useMemo(
-    () =>
-      buildRenderedSvgMarkup({
-        svgMarkup,
-        paintedByRegion,
-        periodType,
-        selectedDate,
-        colorValueByToken,
-      }),
-    [colorValueByToken, paintedByRegion, periodType, selectedDate, svgMarkup]
-  );
+  const containerRef = useRef(null);
 
-  if (renderedSvgMarkup) {
+  useEffect(() => {
+    mountSvgMarkup(containerRef.current, svgMarkup);
+  }, [svgMarkup]);
+
+  useEffect(() => {
+    applyRenderedSvgState({
+      container: containerRef.current,
+      paintedByRegion,
+      periodType,
+      selectedDate,
+      colorValueByToken,
+    });
+  }, [colorValueByToken, paintedByRegion, periodType, selectedDate, svgMarkup]);
+
+  if (svgMarkup) {
     return (
       <div
+        ref={containerRef}
         className="h-full w-full overflow-hidden [&_svg]:block [&_svg]:h-full [&_svg]:w-full [&_svg]:max-h-full [&_svg]:max-w-full"
         style={{ contain: "layout paint size" }}
         onClick={(event) => {
@@ -111,7 +137,6 @@ export default function MoodArtwork({
             onRegionHover(null);
           }
         }}
-        dangerouslySetInnerHTML={{ __html: renderedSvgMarkup }}
       />
     );
   }

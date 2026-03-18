@@ -10,7 +10,11 @@ from sqlalchemy.exc import IntegrityError
 from app.v1.helpers import get_session_local
 from app.v1.models import UserEmail
 
-from .artwork_generator import PROMPT_VERSION, generate_mood_artwork
+from .artwork_generator import (
+    PROMPT_VERSION,
+    generate_mood_artwork,
+    validate_generated_svg,
+)
 from .repository import (
     create_mood_entry,
     create_mood_tracker_artwork,
@@ -200,6 +204,27 @@ def _build_period_response(
     )
 
 
+def _has_invalid_persisted_svg(artwork, expected_region_ids: list[str], *, period_type: str) -> bool:
+    if artwork.status != "completed" or not artwork.svg_markup:
+        return False
+
+    try:
+        validate_generated_svg(
+            artwork.svg_markup,
+            expected_region_ids,
+            period_type=period_type,
+        )
+    except ValueError:
+        logger.warning(
+            "Stored mood artwork is invalid and will be regenerated for period=%s key=%s",
+            period_type,
+            artwork.period_key,
+        )
+        return True
+
+    return False
+
+
 def _ensure_artwork_job(
     db,
     *,
@@ -240,7 +265,11 @@ def _ensure_artwork_job(
     if not artwork.region_ids:
         artwork.region_ids = expected_region_ids
 
-    is_stale = artwork.prompt_version != PROMPT_VERSION
+    is_stale = artwork.prompt_version != PROMPT_VERSION or _has_invalid_persisted_svg(
+        artwork,
+        expected_region_ids,
+        period_type=period_type,
+    )
     if is_stale:
         artwork.image_id = None
         artwork.source = None

@@ -231,6 +231,51 @@ class MoodTrackerServiceTests(unittest.TestCase):
         self.assertEqual(pending_artwork.status, "completed")
         self.assertGreaterEqual(fake_db.commit_calls, 2)
 
+    def test_get_period_regenerates_invalid_persisted_svg(self) -> None:
+        fake_db = _FakeDB()
+        fake_user = SimpleNamespace(user_id=uuid4())
+        persisted_artwork = SimpleNamespace(
+            user_id=fake_user.user_id,
+            period_type="weekly",
+            period_key="2026-W11",
+            start_date=date(2026, 3, 9),
+            end_date=date(2026, 3, 15),
+            image_id="broken-image",
+            source="ai",
+            svg_markup='<svg xmlns="http://www.w3.org/2000/svg"><path data-region-id="week-region-1" d="M0 0" broken="</svg>',
+            region_ids=["week-region-1", "week-region-2", "week-region-3", "week-region-4", "week-region-5", "week-region-6", "week-region-7"],
+            prompt_version=service.PROMPT_VERSION,
+            status="completed",
+            error=None,
+            generated_at=None,
+            updated_at=None,
+        )
+        generated = SimpleNamespace(
+            image_id="regenerated-image",
+            source="procedural",
+            svg_markup="<svg />",
+            region_ids=["week-region-1"],
+            prompt_version="v-test",
+        )
+
+        def _session_local():
+            return _FakeSessionContext(fake_db)
+
+        with patch.object(service, "get_session_local", return_value=_session_local):
+            with patch.object(service, "get_mood_tracker_artwork_for_period", return_value=persisted_artwork):
+                with patch.object(service, "generate_mood_artwork", return_value=generated):
+                    with patch.object(service, "list_mood_entries_for_date_range", return_value=[]):
+                        result = service.get_mood_tracker_period(
+                            period_type="weekly",
+                            anchor_date_raw="2026-03-11",
+                            current_user=fake_user,
+                        )
+
+        self.assertEqual(result.image_id, "regenerated-image")
+        self.assertEqual(result.svg_markup, "<svg />")
+        self.assertEqual(persisted_artwork.status, "completed")
+        self.assertGreaterEqual(fake_db.commit_calls, 2)
+
     def test_process_pending_artworks_uses_snapshotted_values_after_session_close(self) -> None:
         fake_db = _FakeDB()
         user_id = uuid4()
