@@ -1,5 +1,6 @@
-#TODO Reacurring tasks, hur gör vi där med parent osv för att inte skapa buggar - ERIK
-# TODO: Mail, email notiications och weekly summarys på mail, kan vi completa tasks i mail? - ERIK
+
+#TODO: Reacurring tasks, hur gör vi där med parent osv för att inte skapa buggar - ERIK
+
 
 #TODO: Skapa 7 bilder för veckodag och 12 för månader, cykla dessa och ta bort AI från moodtracker. TRANSPARENT BAKGRUND; EJ VIT - REBECKA
 
