@@ -1,16 +1,20 @@
+from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, Query, Request
 
 from app.v1.helpers import get_current_user
+from app.v1.limiter import limiter
 from app.v1.models import UserEmail
 
 from .schemas import (
     GenerateWeeklySummaryRequest,
     SavedSummariesListResponse,
+    WeeklySummaryEmailDispatchResponse,
     WeeklySummaryResponse,
 )
 from .service import (
+    dispatch_weekly_summary_emails,
     get_weekly_summary,
     list_summaries,
     queue_weekly_summary_generation,
@@ -45,3 +49,20 @@ def list_summaries_route(
     current_user: UserEmail = Depends(get_current_user),
 ):
     return list_summaries(current_user, household_id)
+
+
+@router.post(
+    "/weekly-summary/email-dispatch",
+    response_model=WeeklySummaryEmailDispatchResponse,
+)
+@limiter.limit("10/minute")
+def dispatch_weekly_summary_email_route(
+    request: Request,
+    dispatch_date: date | None = Query(default=None),
+    x_cron_secret: str | None = Header(default=None, alias="X-Cron-Secret"),
+):
+    del request
+    return dispatch_weekly_summary_emails(
+        cron_secret=x_cron_secret,
+        dispatch_date=dispatch_date,
+    )

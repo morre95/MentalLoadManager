@@ -14,4 +14,3 @@
 
 #TODO TA bort ADD event knapp i kalendern, den är onödig och gör det bara rörigt - REBECKA
 
-#TODO: Ändra M loggan i mentalload till samma som favikonen - ERIK

@@ -36,3 +36,15 @@ class SavedSummaryItemResponse(BaseModel):
 
 class SavedSummariesListResponse(BaseModel):
     summaries: list[SavedSummaryItemResponse]
+
+
+class WeeklySummaryEmailDispatchResponse(BaseModel):
+    dispatch_date: date
+    first_day_of_week: str
+    week_start: date
+    week_end: date
+    users_targeted: int
+    households_targeted: int
+    emails_sent: int
+    emails_failed: int
+    summary_generation_failures: int

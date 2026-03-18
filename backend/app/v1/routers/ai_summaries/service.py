@@ -1,8 +1,10 @@
 import hashlib
 import json
 import logging
+import secrets
 import time as time_module
 from datetime import UTC, date, datetime, time, timedelta
+from html import escape
 from uuid import UUID
 
 import requests
@@ -21,17 +23,29 @@ from .repository import (
     get_user_by_username,
     has_household_membership,
     list_ai_summaries_for_user,
+    list_weekly_summary_email_targets,
 )
 from .schemas import (
     GenerateWeeklySummaryRequest,
     SavedSummariesListResponse,
     SavedSummaryItemResponse,
+    WeeklySummaryEmailDispatchResponse,
     WeeklySummaryResponse,
 )
 
 DEFAULT_OPENROUTER_MODEL = "openrouter/free"
 OPENROUTER_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_FALLBACK_MODELS = ["openrouter/free"]
+FRONTEND_SUMMARIES_URL = f"{settings.FRONTEND_URL.rstrip('/')}/dashboard/summarys"
+WEEKDAY_NAMES = [
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +59,10 @@ def _normalize_week_start(value: date | None) -> date:
 
 def _week_end_exclusive(week_start: date) -> date:
     return week_start + timedelta(days=7)
+
+
+def _display_week_end(week_end_exclusive: date) -> date:
+    return week_end_exclusive - timedelta(days=1)
 
 
 def _to_iso(value: datetime | None) -> str | None:
@@ -167,6 +185,89 @@ def _to_saved_summary_item(ai_summary) -> SavedSummaryItemResponse:
         content=ai_summary.content or None,
         error=ai_summary.error,
     )
+
+
+def _validate_cron_secret(provided_secret: str | None) -> None:
+    configured_secret = settings.WEEKLY_SUMMARY_CRON_SECRET.strip()
+
+    if not configured_secret:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Weekly summary cron secret is not configured",
+        )
+
+    if not provided_secret or not secrets.compare_digest(
+        configured_secret, provided_secret
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+        )
+
+
+def _build_weekly_summary_email_html(
+    *,
+    recipient_name: str,
+    household_name: str,
+    week_start: date,
+    week_end: date,
+    summary_text: str,
+) -> str:
+    escaped_recipient_name = escape(recipient_name)
+    escaped_household_name = escape(household_name)
+    escaped_summary_text = escape(summary_text).replace("\n", "<br />")
+    escaped_summary_url = escape(FRONTEND_SUMMARIES_URL)
+
+    return (
+        f"<h2>Your weekly AI summary for {escaped_household_name}</h2>"
+        f"<p>Hi {escaped_recipient_name},</p>"
+        "<p>Here is your household summary for the previous week.</p>"
+        f"<p><strong>Period:</strong> {week_start.isoformat()} to {week_end.isoformat()}</p>"
+        f"<p>{escaped_summary_text}</p>"
+        f'<p><a href="{escaped_summary_url}">Open Mental Load summaries</a></p>'
+    )
+
+
+def _send_weekly_summary_email(
+    *,
+    recipient_email: str,
+    recipient_name: str,
+    household_name: str,
+    week_start: date,
+    week_end_exclusive: date,
+    summary_text: str,
+) -> None:
+    import resend
+
+    api_key = settings.RESEND_API_KEY.strip()
+    mail_from = settings.MAIL_FROM.strip()
+
+    if not api_key or not mail_from:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Weekly summary email is not configured",
+        )
+
+    resend.api_key = api_key
+
+    display_week_end = _display_week_end(week_end_exclusive)
+    params: resend.Emails.SendParams = {
+        "from": f"{settings.MAIL_FROM_NAME} <{mail_from}>",
+        "to": [recipient_email],
+        "subject": (
+            f"Weekly AI Summary: {household_name} "
+            f"({week_start.isoformat()} to {display_week_end.isoformat()})"
+        ),
+        "html": _build_weekly_summary_email_html(
+            recipient_name=recipient_name,
+            household_name=household_name,
+            week_start=week_start,
+            week_end=display_week_end,
+            summary_text=summary_text,
+        ),
+    }
+
+    resend.Emails.send(params)
 
 
 def _generate_summary_payload(
@@ -515,6 +616,100 @@ def queue_weekly_summary_generation(
     )
 
     return _to_weekly_summary_response(ai_summary)
+
+
+def dispatch_weekly_summary_emails(
+    *,
+    cron_secret: str | None,
+    dispatch_date: date | None = None,
+) -> WeeklySummaryEmailDispatchResponse:
+    _validate_cron_secret(cron_secret)
+
+    current_date = dispatch_date or datetime.now(UTC).date()
+    first_day_of_week = WEEKDAY_NAMES[current_date.weekday()]
+    week_start = current_date - timedelta(days=7)
+    week_end = _week_end_exclusive(week_start)
+
+    session_local = _get_session_factory()
+    with session_local() as db:
+        targets = list_weekly_summary_email_targets(
+            db,
+            first_day_of_week=first_day_of_week,
+        )
+
+    users_targeted = len({row.user_id for row in targets})
+    households_targeted = len({row.household_id for row in targets})
+    emails_sent = 0
+    emails_failed = 0
+    summary_generation_failures = 0
+    household_summaries: dict[UUID, dict[str, object] | None] = {}
+
+    for row in targets:
+        household_summary = household_summaries.get(row.household_id)
+
+        if household_summary is None and row.household_id not in household_summaries:
+            try:
+                household_summary = _generate_summary_payload(
+                    GenerateWeeklySummaryRequest(
+                        household_id=row.household_id,
+                        week_start=week_start,
+                    ),
+                    username=row.username,
+                )
+            except Exception as exc:
+                logger.exception(
+                    "Weekly summary generation failed for household %s",
+                    row.household_id,
+                )
+                household_summaries[row.household_id] = {
+                    "error": str(exc),
+                }
+                summary_generation_failures += 1
+                emails_failed += 1
+                continue
+
+            household_summaries[row.household_id] = household_summary
+
+        summary_payload = household_summaries.get(row.household_id)
+        if not summary_payload or "summary_text" not in summary_payload:
+            emails_failed += 1
+            continue
+
+        recipient_name = (
+            row.display_name.strip()
+            if isinstance(row.display_name, str) and row.display_name.strip()
+            else row.username
+        )
+
+        try:
+            _send_weekly_summary_email(
+                recipient_email=row.email.strip(),
+                recipient_name=recipient_name,
+                household_name=row.household_name,
+                week_start=week_start,
+                week_end_exclusive=week_end,
+                summary_text=str(summary_payload["summary_text"]),
+            )
+            emails_sent += 1
+        except Exception:
+            logger.exception(
+                "Weekly summary email send failed for user %s in household %s",
+                row.user_id,
+                row.household_id,
+            )
+            emails_failed += 1
+
+    return WeeklySummaryEmailDispatchResponse(
+        dispatch_date=current_date,
+        first_day_of_week=first_day_of_week,
+        week_start=week_start,
+        week_end=week_end,
+        users_targeted=users_targeted,
+        households_targeted=households_targeted,
+        emails_sent=emails_sent,
+        emails_failed=emails_failed,
+        summary_generation_failures=summary_generation_failures,
+    )
 
 
 def get_weekly_summary(

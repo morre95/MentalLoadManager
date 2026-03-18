@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     MAIL_FROM: str = "mentalloadmanager@morencv.se"
     MAIL_FROM_NAME: str = "Mental Load Manager"
     CONTACT_RECIPIENT_EMAIL: str
+    WEEKLY_SUMMARY_CRON_SECRET: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

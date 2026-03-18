@@ -3,10 +3,18 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import and_, desc, or_, select
+from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
-from app.v1.models import AISummaries, Tasks, UserDB, UsersHouseholds
+from app.v1.models import (
+    AISummaries,
+    Households,
+    NotificationSettings,
+    Preferences,
+    Tasks,
+    UserDB,
+    UsersHouseholds,
+)
 
 
 def get_user_by_username(db: Session, username: str) -> UserDB | None:
@@ -136,3 +144,46 @@ def list_ai_summaries_for_user(
     if household_id is not None:
         query = query.where(AISummaries.household_id == household_id)
     return list(db.scalars(query).all())
+
+
+def list_weekly_summary_email_targets(
+    db: Session,
+    *,
+    first_day_of_week: str,
+):
+    normalized_first_day = first_day_of_week.strip().lower()
+
+    return db.execute(
+        select(
+            UserDB.user_id,
+            UserDB.username,
+            UserDB.email,
+            UserDB.display_name,
+            UsersHouseholds.household_id,
+            Households.name.label("household_name"),
+        )
+        .join(UsersHouseholds, UsersHouseholds.user_id == UserDB.user_id)
+        .join(Households, Households.household_id == UsersHouseholds.household_id)
+        .outerjoin(
+            NotificationSettings,
+            NotificationSettings.user_id == UserDB.user_id,
+        )
+        .outerjoin(Preferences, Preferences.user_id == UserDB.user_id)
+        .where(
+            UserDB.email.is_not(None),
+            func.length(func.trim(UserDB.email)) > 0,
+            or_(
+                NotificationSettings.user_id.is_(None),
+                NotificationSettings.email_notifications.is_(True),
+            ),
+            or_(
+                NotificationSettings.user_id.is_(None),
+                NotificationSettings.weekly_analytics_email.is_(True),
+            ),
+            or_(
+                Preferences.user_id.is_(None),
+                func.lower(Preferences.first_day_of_week) == normalized_first_day,
+            ),
+        )
+        .order_by(UserDB.user_id.asc(), UsersHouseholds.household_id.asc())
+    ).all()
