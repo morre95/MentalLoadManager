@@ -15,6 +15,7 @@ import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import mentalloadLogo from "@/assets/mentalload.png";
 
 import {
   apiFetch,
@@ -92,8 +93,12 @@ export function AppSidebar() {
         to="/"
         className="flex items-center gap-3 p-4 border-b border-border no-underline"
       >
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-          <span className="text-sm font-bold text-primary-foreground">M</span>
+        <div className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0">
+          <img
+            src={mentalloadLogo}
+            alt="Mental Load"
+            className="h-full w-full rounded-lg object-cover"
+          />
         </div>
 
         {!collapsed && (
