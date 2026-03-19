@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useHousehold } from "@/hooks/useHouseHold";
 import AddTaskDialog from "@/components/tasks/AddTaskDialog";
 import { fetchAchievements, fetchGoals, fetchInviteEmailNotifications, fetchNotificationSettings, fetchTaskReminderSummary } from "@/lib/utils";
+import { isUserLoggedIn } from "@/lib/auth";
 
 const TASK_CREATED_EVENT = "kanban-task-created";
 const GOAL_MILESTONES_UPDATED_EVENT = "goals:changed";
@@ -181,6 +182,14 @@ const DashboardHeader = ({ onAddTask }) => {
   };
 
   const loadNotifications = useCallback(async () => {
+    if (!isUserLoggedIn()) {
+      setGoalMilestonesEnabled(true);
+      setTaskRemindersEnabled(true);
+      setNotifications([]);
+      setIsLoadingNotifications(false);
+      return;
+    }
+
     setIsLoadingNotifications(true);
 
     try {
@@ -305,6 +314,14 @@ const DashboardHeader = ({ onAddTask }) => {
 
   useEffect(() => {
     const handleGoalUpdates = () => {
+      if (!isUserLoggedIn()) {
+        setGoalMilestonesEnabled(true);
+        setTaskRemindersEnabled(true);
+        setNotifications([]);
+        setIsLoadingNotifications(false);
+        return;
+      }
+
       void loadNotifications();
     };
 

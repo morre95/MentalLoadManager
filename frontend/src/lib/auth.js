@@ -45,6 +45,19 @@ export function setAuthTokens(tokens) {
 export function clearAuth() {
   if (typeof window === "undefined") return;
 
+  const hadAuthState =
+    localStorage.getItem(ACCESS_TOKEN_KEY) != null ||
+    localStorage.getItem(REFRESH_TOKEN_KEY) != null ||
+    localStorage.getItem("token") != null ||
+    localStorage.getItem("auth_token") != null ||
+    localStorage.getItem("username") != null ||
+    localStorage.getItem("email") != null ||
+    localStorage.getItem("household_members") != null ||
+    localStorage.getItem("households") != null ||
+    localStorage.getItem("household") != null ||
+    localStorage.getItem("display_name") != null ||
+    localStorage.getItem(AUTH_STATE_KEY) != null;
+
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem("token");
@@ -57,7 +70,9 @@ export function clearAuth() {
   localStorage.removeItem("display_name");
   localStorage.removeItem(AUTH_STATE_KEY);
 
-  dispatchAuthChanged();
+  if (hadAuthState) {
+    dispatchAuthChanged();
+  }
 }
 
 export function isUserLoggedIn() {
