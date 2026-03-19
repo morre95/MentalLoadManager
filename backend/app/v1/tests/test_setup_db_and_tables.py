@@ -119,7 +119,6 @@ class SetupDbAndTablesTests(unittest.TestCase):
         self.assertIn("ADD COLUMN IF NOT EXISTS cycle_order", executed)
         self.assertIn("DROP COLUMN IF EXISTS period_key", executed)
         self.assertIn("DROP COLUMN IF EXISTS status", executed)
-        self.assertIn("INSERT INTO mood_tracker_artworks", executed)
 
 
 

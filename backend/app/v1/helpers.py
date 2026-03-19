@@ -1,6 +1,3 @@
-import json
-from pathlib import Path
-import re
 from uuid import UUID
 from fastapi import Depends, HTTPException, Request, status
 import jwt
@@ -25,7 +22,6 @@ SECRET_KEY = settings.JWT_SECRET
 ALGORITHM = "HS256"
 
 SessionLocal: sessionmaker | None = None
-MOOD_TRACKER_SEED_FILE = Path(__file__).resolve().parents[2] / "svg.html"
 
 
 def normalize_database_url(database_url: str) -> str:
@@ -38,94 +34,6 @@ def normalize_database_url(database_url: str) -> str:
             "postgresql+psycopg2://", "postgresql+psycopg://", 1
         )
     return database_url
-
-
-def _slugify_seed_title(title: str) -> str:
-    normalized = re.sub(r"[^a-z0-9]+", "-", title.strip().lower())
-    normalized = normalized.strip("-")
-    return normalized or "seed-artwork"
-
-
-def _parse_seeded_mood_tracker_artworks() -> list[dict[str, object]]:
-    if not MOOD_TRACKER_SEED_FILE.exists():
-        return []
-
-    raw_text = MOOD_TRACKER_SEED_FILE.read_text(encoding="utf-8").strip()
-    if not raw_text:
-        return []
-
-    pattern = re.compile(
-        r"(?ms)^\s*(?P<title>[^\n<][^\n]*)\s*\n(?P<svg><svg\b.*?</svg>)"
-    )
-    artworks: list[dict[str, object]] = []
-
-    for match in pattern.finditer(raw_text):
-        title = match.group("title").strip()
-        svg_markup = match.group("svg").strip()
-        lowered_title = title.lower()
-        if "weekly" in lowered_title:
-            period_type = "weekly"
-        elif "monthly" in lowered_title:
-            period_type = "monthly"
-        else:
-            continue
-
-        region_ids = re.findall(r'data-region-id="([^"]+)"', svg_markup)
-        if not region_ids:
-            continue
-
-        artworks.append(
-            {
-                "image_id": f"seed-{_slugify_seed_title(title)}",
-                "period_type": period_type,
-                "day_count": len(region_ids),
-                "source": "seed",
-                "svg_markup": svg_markup,
-                "region_ids": region_ids,
-            }
-        )
-
-    return artworks
-
-
-def _seed_mood_tracker_artworks(connection) -> None:  # noqa: ANN001
-    for artwork in _parse_seeded_mood_tracker_artworks():
-        connection.execute(
-            text(
-                "INSERT INTO mood_tracker_artworks ("
-                "  period_type, day_count, cycle_order, image_id, source, svg_markup, region_ids"
-                ") "
-                "SELECT "
-                "  CAST(:insert_period_type AS VARCHAR(20)), "
-                "  CAST(:insert_day_count AS INTEGER), "
-                "  COALESCE(("
-                "    SELECT MAX(existing.cycle_order) "
-                "    FROM mood_tracker_artworks AS existing "
-                "    WHERE existing.period_type = CAST(:lookup_period_type AS VARCHAR(20)) "
-                "      AND existing.day_count = CAST(:lookup_day_count AS INTEGER)"
-                "  ), 0) + 1, "
-                "  CAST(:insert_image_id AS VARCHAR(80)), "
-                "  CAST(:insert_source AS VARCHAR(20)), "
-                "  CAST(:insert_svg_markup AS TEXT), "
-                "  CAST(:region_ids AS jsonb) "
-                "WHERE NOT EXISTS ("
-                "  SELECT 1 "
-                "  FROM mood_tracker_artworks "
-                "  WHERE image_id = CAST(:lookup_image_id AS VARCHAR(80))"
-                ")"
-            ),
-            {
-                "insert_period_type": artwork["period_type"],
-                "lookup_period_type": artwork["period_type"],
-                "insert_day_count": artwork["day_count"],
-                "lookup_day_count": artwork["day_count"],
-                "insert_image_id": artwork["image_id"],
-                "lookup_image_id": artwork["image_id"],
-                "insert_source": artwork["source"],
-                "insert_svg_markup": artwork["svg_markup"],
-                "region_ids": json.dumps(artwork["region_ids"]),
-            },
-        )
 
 
 database_url = normalize_database_url(settings.DATABASE_URL)
@@ -619,8 +527,6 @@ def setup_db_and_tables() -> None:
                 "ON mood_tracker_artworks(period_type, day_count, cycle_order)"
             )
         )
-        _seed_mood_tracker_artworks(connection)
-
 
 def get_session_local() -> sessionmaker:
     global SessionLocal
