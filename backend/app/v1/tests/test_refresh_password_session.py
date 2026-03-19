@@ -31,7 +31,7 @@ os.environ.setdefault("OPENROUTER_API_KEY", "test-openrouter-key")
 os.environ.setdefault("OPENROUTER_WEEKLY_SUMMARY_MODEL", "test-model")
 os.environ.setdefault("OPENROUTER_WEEKLY_SUMMARY_FALLBACK_MODELS", "test-fallback")
 
-from models import PasswordRefreshToken, UserDB  # noqa: E402
+from app.v1.models import PasswordRefreshToken, UserDB  # noqa: E402
 from routers.login.schemas import RefreshTokenRequest  # noqa: E402
 from routers.login import service  # noqa: E402
 

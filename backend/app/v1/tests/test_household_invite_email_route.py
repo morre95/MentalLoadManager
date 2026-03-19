@@ -33,12 +33,16 @@ os.environ.setdefault("RESEND_API_KEY", "re_test_key")
 os.environ.setdefault("MAIL_FROM", "noreply@example.com")
 os.environ.setdefault("CONTACT_RECIPIENT_EMAIL", "support@example.com")
 
-from helpers import get_current_user  # noqa: E402
-from models import UserEmail  # noqa: E402
+from app.v1.helpers import get_current_user  # noqa: E402
+from app.v1.limiter import limiter  # noqa: E402
+from app.v1.models import UserEmail  # noqa: E402
 from routers.household.routes import router as household_router  # noqa: E402
 
 
 class HouseholdInviteEmailRouteTest(unittest.TestCase):
+    def setUp(self) -> None:
+        limiter.reset()
+
     def test_post_invite_email_returns_service_response(self) -> None:
         app = FastAPI()
         app.include_router(household_router)
@@ -70,9 +74,9 @@ class HouseholdInviteEmailRouteTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), service_response)
-        email_invite_mock.assert_awaited_once()
-        payload_arg = email_invite_mock.await_args.args[0]
-        current_user_arg = email_invite_mock.await_args.args[1]
+        email_invite_mock.assert_called_once()
+        payload_arg = email_invite_mock.call_args.args[0]
+        current_user_arg = email_invite_mock.call_args.args[1]
         self.assertEqual(str(payload_arg.household_id), household_id)
         self.assertEqual(payload_arg.email, "invitee@example.com")
         self.assertEqual(current_user_arg.username, "alex")

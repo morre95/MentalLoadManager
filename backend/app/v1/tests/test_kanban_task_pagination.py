@@ -30,7 +30,7 @@ os.environ.setdefault("OPENROUTER_WEEKLY_SUMMARY_FALLBACK_MODELS", "test-fallbac
 os.environ.setdefault("RESEND_API_KEY", "test-resend-key")
 os.environ.setdefault("CONTACT_RECIPIENT_EMAIL", "contact@example.com")
 
-from models import UserEmail  # noqa: E402
+from app.v1.models import UserEmail  # noqa: E402
 from routers.kanban import service  # noqa: E402
 
 

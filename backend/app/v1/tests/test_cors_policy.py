@@ -1,4 +1,6 @@
+import importlib
 import os
+import sys
 import unittest
 
 os.environ.setdefault("JWT_SECRET", "test-secret")
@@ -21,12 +23,15 @@ os.environ["CORS_ALLOW_ORIGINS"] = "https://allowed.example"
 
 from fastapi.testclient import TestClient
 
-from main import app
-
 
 class CorsPolicyTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.client = TestClient(app)
+    @classmethod
+    def setUpClass(cls) -> None:
+        sys.modules.pop("main", None)
+        sys.modules.pop("app.v1.config", None)
+        sys.modules.pop("app.v1.helpers", None)
+        main_module = importlib.import_module("main")
+        cls.client = TestClient(main_module.app)
 
     def test_preflight_allows_configured_origin_with_explicit_methods_and_headers(self) -> None:
         response = self.client.options(

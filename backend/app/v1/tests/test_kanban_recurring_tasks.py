@@ -37,6 +37,9 @@ class _FakeDB:
     def __init__(self) -> None:
         self.added: list[object] = []
 
+    def scalar(self, _query):  # noqa: ANN001
+        return None
+
     def add(self, obj) -> None:  # noqa: ANN001
         self.added.append(obj)
 

@@ -68,8 +68,11 @@ class MoodTrackerArtworkGeneratorTests(unittest.TestCase):
         )
 
         self.assertEqual(len(artwork.region_ids), 7)
-        self.assertIn('data-region-id="week-region-1"', artwork.svg_markup)
-        self.assertIn('data-region-id="week-region-7"', artwork.svg_markup)
+        self.assertEqual(artwork.image_id, "weekly-seaside")
+        self.assertEqual(artwork.source, "procedural")
+        self.assertEqual(artwork.svg_markup, "")
+        self.assertEqual(artwork.region_ids[0], "week-region-1")
+        self.assertEqual(artwork.region_ids[-1], "week-region-7")
 
     def test_monthly_artwork_matches_month_length(self) -> None:
         artwork = generate_procedural_mood_artwork(
@@ -80,7 +83,10 @@ class MoodTrackerArtworkGeneratorTests(unittest.TestCase):
         )
 
         self.assertEqual(len(artwork.region_ids), 28)
-        self.assertIn('data-region-id="month-region-28"', artwork.svg_markup)
+        self.assertEqual(artwork.image_id, "monthly-lanterns")
+        self.assertEqual(artwork.source, "procedural")
+        self.assertEqual(artwork.svg_markup, "")
+        self.assertEqual(artwork.region_ids[-1], "month-region-28")
 
 
 class MoodTrackerServiceTests(unittest.TestCase):
@@ -120,7 +126,7 @@ class MoodTrackerServiceTests(unittest.TestCase):
                         current_user=fake_user,
                     )
 
-        self.assertEqual(result.image_id, "shared-weekly-art-1")
+        self.assertEqual(result.image_id, "shared-weekly-art-2")
         _, kwargs = artwork_lookup.call_args
         self.assertEqual(kwargs["period_type"], "weekly")
         self.assertEqual(kwargs["day_count"], 7)

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, Repeat } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -859,11 +859,6 @@ const Calendar = () => {
           ) : null}
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button className="gap-2" disabled>
-            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add Event</span>
-          </Button>
-        </div>
       </motion.div>
 
       {householdLegend.length > 0 ? (

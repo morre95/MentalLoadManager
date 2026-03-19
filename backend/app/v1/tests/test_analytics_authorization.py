@@ -34,7 +34,7 @@ os.environ.setdefault("CONTACT_RECIPIENT_EMAIL", "contact@example.com")
 
 from routers.analytics import service  # noqa: E402
 from routers.analytics.schemas import AnalyticsAIInsightsRequest, AnalyticsAskRequest  # noqa: E402
-from models import UserEmail  # noqa: E402
+from app.v1.models import UserEmail  # noqa: E402
 
 
 class _FakeSessionContext:

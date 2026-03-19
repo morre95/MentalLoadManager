@@ -36,9 +36,9 @@ os.environ.setdefault("RESEND_API_KEY", "re_test_key")
 os.environ.setdefault("MAIL_FROM", "noreply@example.com")
 os.environ.setdefault("CONTACT_RECIPIENT_EMAIL", "support@example.com")
 
-from helpers import get_current_user  # noqa: E402
-from limiter import limiter  # noqa: E402
-from models import UserEmail  # noqa: E402
+from app.v1.helpers import get_current_user  # noqa: E402
+from app.v1.limiter import limiter  # noqa: E402
+from app.v1.models import UserEmail  # noqa: E402
 from routers.household.routes import router as household_router  # noqa: E402
 
 
@@ -57,6 +57,9 @@ def _build_test_app() -> FastAPI:
 
 
 class HouseholdRateLimitTest(unittest.TestCase):
+    def setUp(self) -> None:
+        limiter.reset()
+
     def test_create_invite_rate_limit_returns_429(self) -> None:
         app = _build_test_app()
         client = TestClient(app)

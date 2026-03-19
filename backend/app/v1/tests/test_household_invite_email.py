@@ -31,7 +31,7 @@ os.environ.setdefault("RESEND_API_KEY", "re_test_key")
 os.environ.setdefault("MAIL_FROM", "noreply@example.com")
 os.environ.setdefault("CONTACT_RECIPIENT_EMAIL", "support@example.com")
 
-from models import UserEmail  # noqa: E402
+from app.v1.models import UserEmail  # noqa: E402
 from routers.household import service  # noqa: E402
 from routers.household.schemas import InviteEmailRequest  # noqa: E402
 

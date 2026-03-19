@@ -6,12 +6,7 @@
 
 #TODO: Skapa dashboarden - REBECKA
 
-#TODO: Summarys, schemalägg en gång i veckan. - NÅN
-
 #TODO: GOALS, FIXA UX PÅ HEADERN - REBECKA
 
 #TODO: OM VI HINNER OCH ORKAR, FIXA DARKMODE till att bli iaf ok - REBECKA
-
-
-#TODO TA bort ADD event knapp i kalendern, den är onödig och gör det bara rörigt - REBECKA
 
