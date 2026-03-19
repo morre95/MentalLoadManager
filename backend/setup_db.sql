@@ -217,18 +217,6 @@ CREATE TABLE IF NOT EXISTS mood_entries (
   CONSTRAINT uq_mood_entries_user_date UNIQUE (user_id, entry_date)
 );
 
-CREATE TABLE IF NOT EXISTS mood_tracker_artworks (
-  mood_tracker_artwork_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  period_type             VARCHAR(20) NOT NULL,
-  day_count               INTEGER NOT NULL,
-  cycle_order             INTEGER NOT NULL,
-  image_id                VARCHAR(80),
-  source                  VARCHAR(20),
-  svg_markup              TEXT,
-  region_ids              JSONB NOT NULL DEFAULT '[]'::jsonb,
-  CONSTRAINT uq_mood_tracker_artworks_type_day_count_cycle_order UNIQUE (period_type, day_count, cycle_order)
-);
-
 -- =========================
 -- Reports + AI summaries
 -- =========================
@@ -351,7 +339,6 @@ CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assigns_to);
 CREATE INDEX IF NOT EXISTS idx_tasks_recurrence_parent ON tasks(recurrence_parent_task_id);
 CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
 CREATE INDEX IF NOT EXISTS idx_mood_entries_user_date ON mood_entries(user_id, entry_date);
-CREATE INDEX IF NOT EXISTS idx_mood_tracker_artworks_type_day_count_cycle_order ON mood_tracker_artworks(period_type, day_count, cycle_order);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_lower ON users (LOWER(username));
 CREATE INDEX IF NOT EXISTS idx_links_connection ON task_calendar_links(connection_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_category ON tasks(category_id);

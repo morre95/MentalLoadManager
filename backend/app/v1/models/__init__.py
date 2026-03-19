@@ -15,7 +15,6 @@ from .invitations import Invitations
 from .login_attempt import LoginAttempt
 from .monthly_reports import MonthlyReports
 from .mood_entries import MoodEntries
-from .mood_tracker_artworks import MoodTrackerArtworks
 from .notification_settings import NotificationSettings
 from .oauth_accounts import OAuthAccounts
 from .password_refresh_token import PasswordRefreshToken
@@ -57,7 +56,6 @@ __all__ = [
     "WeeklyReports",
     "MonthlyReports",
     "MoodEntries",
-    "MoodTrackerArtworks",
     "DailyReports",
     "AISummaries",
     "ContactMessages",

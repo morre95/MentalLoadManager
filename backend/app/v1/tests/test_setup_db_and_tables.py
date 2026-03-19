@@ -113,12 +113,7 @@ class SetupDbAndTablesTests(unittest.TestCase):
             "ALTER TABLE goal_ai_checkins_cache ADD COLUMN IF NOT EXISTS created_at",
             executed,
         )
-        self.assertIn("CREATE TABLE IF NOT EXISTS mood_tracker_artworks", executed)
-        self.assertIn("uq_mood_tracker_artworks_type_day_count_cycle_order", executed)
-        self.assertIn("ADD COLUMN IF NOT EXISTS day_count", executed)
-        self.assertIn("ADD COLUMN IF NOT EXISTS cycle_order", executed)
-        self.assertIn("DROP COLUMN IF EXISTS period_key", executed)
-        self.assertIn("DROP COLUMN IF EXISTS status", executed)
+        self.assertIn("DROP TABLE IF EXISTS mood_tracker_artworks", executed)
 
 
 
