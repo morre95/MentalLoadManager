@@ -5,6 +5,8 @@ import secrets
 import time as time_module
 from datetime import UTC, date, datetime, time, timedelta
 from html import escape
+from importlib import import_module
+from typing import Any, Literal, cast
 from uuid import UUID
 
 import requests
@@ -48,6 +50,7 @@ WEEKDAY_NAMES = [
 ]
 
 logger = logging.getLogger(__name__)
+SummaryStatus = Literal["pending", "completed", "failed"]
 
 
 def _normalize_week_start(value: date | None) -> date:
@@ -141,9 +144,9 @@ def _validate_membership(db, *, username: str, household_id: UUID):
     return user
 
 
-def _coerce_status(status_value: str | None) -> str:
+def _coerce_status(status_value: str | None) -> SummaryStatus:
     if status_value in {"pending", "completed", "failed"}:
-        return status_value
+        return cast(SummaryStatus, status_value)
     return "pending"
 
 
@@ -237,7 +240,7 @@ def _send_weekly_summary_email(
     week_end_exclusive: date,
     summary_text: str,
 ) -> None:
-    import resend
+    resend = cast(Any, import_module("resend"))
 
     api_key = settings.RESEND_API_KEY.strip()
     mail_from = settings.MAIL_FROM.strip()
@@ -251,7 +254,7 @@ def _send_weekly_summary_email(
     resend.api_key = api_key
 
     display_week_end = _display_week_end(week_end_exclusive)
-    params: resend.Emails.SendParams = {
+    params: dict[str, Any] = {
         "from": f"{settings.MAIL_FROM_NAME} <{mail_from}>",
         "to": [recipient_email],
         "subject": (
