@@ -131,6 +131,50 @@ class MoodTrackerServiceTests(unittest.TestCase):
         self.assertEqual(kwargs["period_type"], "weekly")
         self.assertEqual(kwargs["day_count"], 7)
 
+    def test_monthly_period_cycles_within_same_day_count_group(self) -> None:
+        fake_db = _FakeDB()
+        fake_user = SimpleNamespace(user_id=uuid4())
+        monthly_31_artworks = [
+            SimpleNamespace(
+                image_id="monthly-31-art-1",
+                source="file",
+                svg_markup="<svg><rect data-region-id='month-region-1' /></svg>",
+                region_ids=["month-region-1"],
+            ),
+            SimpleNamespace(
+                image_id="monthly-31-art-2",
+                source="file",
+                svg_markup="<svg><rect data-region-id='month-region-1' /></svg>",
+                region_ids=["month-region-1"],
+            ),
+        ]
+
+        def _session_local():
+            return _FakeSessionContext(fake_db)
+
+        with patch.object(service, "get_session_local", return_value=_session_local):
+            with patch.object(
+                service,
+                "list_file_mood_tracker_artworks_by_type",
+                return_value=monthly_31_artworks,
+            ) as artwork_lookup:
+                with patch.object(service, "list_mood_entries_for_date_range", return_value=[]):
+                    january_result = service.get_mood_tracker_period(
+                        period_type="monthly",
+                        anchor_date_raw="2026-01-15",
+                        current_user=fake_user,
+                    )
+                    march_result = service.get_mood_tracker_period(
+                        period_type="monthly",
+                        anchor_date_raw="2026-03-15",
+                        current_user=fake_user,
+                    )
+
+        self.assertEqual(january_result.image_id, "monthly-31-art-1")
+        self.assertEqual(march_result.image_id, "monthly-31-art-2")
+        self.assertEqual(artwork_lookup.call_args_list[0].kwargs["day_count"], 31)
+        self.assertEqual(artwork_lookup.call_args_list[1].kwargs["day_count"], 31)
+
     def test_get_period_returns_file_svg_markup(self) -> None:
         fake_db = _FakeDB()
         fake_user = SimpleNamespace(user_id=uuid4())

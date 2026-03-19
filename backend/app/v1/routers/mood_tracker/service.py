@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from calendar import monthrange
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
@@ -193,7 +194,20 @@ def _cycle_slot_for_period(period_type: str, start_date: date, cycle_length: int
         epoch_monday = date(1970, 1, 5)
         elapsed_periods = (start_date - epoch_monday).days // 7
         return elapsed_periods % cycle_length
-    elapsed_periods = (start_date.year * 12) + (start_date.month - 1)
+
+    day_count = monthrange(start_date.year, start_date.month)[1]
+    elapsed_periods = 0
+    year = 1970
+    month = 1
+
+    while (year, month) < (start_date.year, start_date.month):
+        if monthrange(year, month)[1] == day_count:
+            elapsed_periods += 1
+        month += 1
+        if month == 13:
+            month = 1
+            year += 1
+
     return elapsed_periods % cycle_length
 
 
