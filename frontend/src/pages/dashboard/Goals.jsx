@@ -115,12 +115,16 @@ const writeTrainingSelections = (selections) => {
     window.localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(selections));
 };
 
-const emitGoalMilestonesUpdated = () => {
+const emitGoalMilestonesUpdated = (source = "unknown") => {
     if (typeof window === "undefined") {
         return;
     }
 
-    window.dispatchEvent(new Event(GOAL_MILESTONES_UPDATED_EVENT));
+    window.dispatchEvent(
+        new CustomEvent(GOAL_MILESTONES_UPDATED_EVENT, {
+            detail: { source },
+        })
+    );
 };
 
 const countCompletedDays = (days) => days.filter(Boolean).length;
@@ -253,7 +257,10 @@ const Goals = () => {
             return undefined;
         }
 
-        const handleGoalUpdates = () => {
+        const handleGoalUpdates = (event) => {
+            if (event?.detail?.source === "goals-page") {
+                return;
+            }
             loadGoals();
         };
 
@@ -323,7 +330,7 @@ const Goals = () => {
             .then((createdGoal) => {
                 const normalizedGoal = normalizeTrainingGoal(createdGoal, readTrainingSelections());
                 setGoals((prev) => [normalizedGoal, ...prev]);
-                emitGoalMilestonesUpdated();
+                emitGoalMilestonesUpdated("goals-page");
             })
             .catch((error) => {
                 if (error?.status === 401) {
@@ -353,7 +360,7 @@ const Goals = () => {
             setGoals((prev) =>
                 prev.map((goal) => (goal.id === id ? normalizedGoal : goal))
             );
-            emitGoalMilestonesUpdated();
+            emitGoalMilestonesUpdated("goals-page");
         } catch (error) {
             if (error?.status === 401) {
                 navigate("/login", { replace: true });
@@ -414,7 +421,7 @@ const Goals = () => {
             });
             const normalizedGoal = normalizeTrainingGoal(updatedGoal, nextSelections);
             setGoals((prev) => prev.map((goal) => (goal.id === id ? normalizedGoal : goal)));
-            emitGoalMilestonesUpdated();
+            emitGoalMilestonesUpdated("goals-page");
         } catch (error) {
             writeTrainingSelections(trainingSelections);
             setGoals((prev) =>
@@ -446,7 +453,7 @@ const Goals = () => {
                 writeTrainingSelections(nextSelections);
             }
             setGoals((prev) => prev.filter((goal) => goal.id !== id));
-            emitGoalMilestonesUpdated();
+            emitGoalMilestonesUpdated("goals-page");
         } catch (error) {
             if (error?.status === 401) {
                 navigate("/login", { replace: true });
