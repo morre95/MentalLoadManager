@@ -1,5 +1,5 @@
 
-#TODO: Skapa 7 bilder för veckodag och 12 för månader, cykla dessa och ta bort AI från moodtracker. TRANSPARENT BAKGRUND; EJ VIT - REBECKA
+#TODO: Städa upp dashboarden och gör den bättre.  - REBECKA 
 
-#TODO: Skapa dashboarden - REBECKA
-
+#TODO: Add AI feature: maybe plan upcoming week with AI? 
+#TODO: Completa tasks direkt i mail? 
