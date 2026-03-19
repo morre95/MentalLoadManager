@@ -512,32 +512,39 @@ const Goals = () => {
                 transition={{ delay: 0.05 }}
                 className="min-w-0 space-y-4"
             >
-                <Card className="border-border bg-[linear-gradient(135deg,hsl(var(--primary)/0.08),hsl(var(--background)))]">
+                <Card className="border-border bg-card">
                     <CardContent className="p-4 md:p-5">
-                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                            <div>
-                                <p className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Overview</p>
-                                <p className="mt-2 text-sm text-foreground">
-                                    Focus on the goals still moving, then use achievements as a separate reward layer.
-                                </p>
+                        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.85fr)] lg:items-center">
+                            <div className="space-y-3">
+                                <div className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-primary">
+                                    Overview
+                                </div>
+                                <div className="space-y-1.5">
+                                    <h2 className="font-display text-xl font-semibold text-foreground">
+                                        Keep current goals in motion
+                                    </h2>
+                                    <p className="max-w-xl text-sm leading-6 text-muted-foreground">
+                                        Focus on the goals still moving, then use achievements as a separate reward layer.
+                                    </p>
+                                </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                                <div className="rounded-2xl bg-background/80 px-4 py-3">
-                                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Active goals</p>
-                                    <p className="mt-1 text-xl font-display font-bold text-foreground">{activeGoalsCount}</p>
+                            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                                <div className="rounded-xl border border-border bg-muted/35 px-4 py-3">
+                                    <p className="text-sm text-muted-foreground">Active goals</p>
+                                    <p className="mt-2 font-display text-2xl font-bold text-foreground">{activeGoalsCount}</p>
                                 </div>
-                                <div className="rounded-2xl bg-background/80 px-4 py-3">
-                                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Recurring done</p>
-                                    <p className="mt-1 text-xl font-display font-bold text-foreground">{recurringCompletedCount}</p>
+                                <div className="rounded-xl border border-border bg-muted/35 px-4 py-3">
+                                    <p className="text-sm text-muted-foreground">Recurring done</p>
+                                    <p className="mt-2 font-display text-2xl font-bold text-foreground">{recurringCompletedCount}</p>
                                 </div>
-                                <div className="rounded-2xl bg-background/80 px-4 py-3">
-                                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Unlocked</p>
-                                    <p className="mt-1 text-xl font-display font-bold text-foreground">{unlockedAchievementsCount}</p>
+                                <div className="rounded-xl border border-border bg-muted/35 px-4 py-3">
+                                    <p className="text-sm text-muted-foreground">Unlocked</p>
+                                    <p className="mt-2 font-display text-2xl font-bold text-foreground">{unlockedAchievementsCount}</p>
                                 </div>
-                                <div className="rounded-2xl bg-background/80 px-4 py-3">
-                                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Ready now</p>
-                                    <p className="mt-1 text-xl font-display font-bold text-foreground">{readyAchievementsCount}</p>
+                                <div className="rounded-xl border border-border bg-muted/35 px-4 py-3">
+                                    <p className="text-sm text-muted-foreground">Ready now</p>
+                                    <p className="mt-2 font-display text-2xl font-bold text-foreground">{readyAchievementsCount}</p>
                                 </div>
                             </div>
                         </div>

@@ -179,7 +179,7 @@ export function AppSidebar() {
 
                 {!collapsed && (
                   <div className="flex-1 text-left truncate">
-                    <p className="text-sm font-medium truncate">
+                    <p className="text-sm font-medium text-foreground truncate">
                       {fullName}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">

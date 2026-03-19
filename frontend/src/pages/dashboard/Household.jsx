@@ -355,7 +355,7 @@ export default function Household() {
 
             <Button variant="outline" className="
                             gap-2
-                            bg-white
+                            bg-white dark:bg-background
                             border-terracotta text-terracotta
                             hover:bg-terracotta hover:text-white
                             hover:border-terracotta

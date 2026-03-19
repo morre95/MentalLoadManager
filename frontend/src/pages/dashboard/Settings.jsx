@@ -762,7 +762,7 @@ const Settings = () => {
           <div className="space-y-3">
             <Button
               variant="outline"
-              className="w-full justify-start gap-2"
+              className="w-full justify-start gap-2 text-muted-foreground"
               onClick={() => toast.success("Export started — check your email shortly")}
             >
               <Download className="h-4 w-4" /> Export all my data

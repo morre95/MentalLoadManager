@@ -316,7 +316,14 @@ export default function MoodTracker() {
                         )}
                       >
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-sm font-medium">{formatReadableDate(dateItem.date)}</span>
+                          <span
+                            className={cn(
+                              "text-sm font-medium",
+                              isSelected ? "text-foreground" : "text-muted-foreground"
+                            )}
+                          >
+                            {formatReadableDate(dateItem.date)}
+                          </span>
                           <span
                             className={cn(
                               "h-3 w-3 rounded-full border border-card",
@@ -368,7 +375,7 @@ export default function MoodTracker() {
                     >
                       <div className="flex items-center gap-3">
                         <span className={cn("h-5 w-5 rounded-full", option.swatchClass)} />
-                        <span className="text-sm font-medium">{option.label}</span>
+                        <span className="text-sm font-medium text-foreground">{option.label}</span>
                       </div>
                     </button>
                   );

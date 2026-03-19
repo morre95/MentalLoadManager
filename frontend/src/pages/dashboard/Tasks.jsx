@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import AddTaskDialog from "@/components/tasks/AddTaskDialog";
 import TaskDetailDialog from "@/components/tasks/TaskDetailDialog";
@@ -848,19 +849,28 @@ const Tasks = () => {
           <label htmlFor="tasks-household-filter" className="text-xs text-muted-foreground">
             Household view
           </label>
-          <select
-            id="tasks-household-filter"
-            className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
-            value={selectedHouseholdId}
-            onChange={(event) => setSelectedHouseholdId(event.target.value)}
-          >
-            <option value={ALL_HOUSEHOLDS_VALUE}>All households</option>
-            {(households || []).map((household) => (
-              <option key={household.household_id} value={String(household.household_id)}>
-                {household.name}
-              </option>
-            ))}
-          </select>
+          <Select value={selectedHouseholdId} onValueChange={setSelectedHouseholdId}>
+            <SelectTrigger
+              id="tasks-household-filter"
+              className="mt-1 text-muted-foreground"
+            >
+              <SelectValue placeholder="Select household" />
+            </SelectTrigger>
+            <SelectContent className="text-muted-foreground">
+              <SelectItem value={ALL_HOUSEHOLDS_VALUE} className="text-muted-foreground">
+                All households
+              </SelectItem>
+              {(households || []).map((household) => (
+                <SelectItem
+                  key={household.household_id}
+                  value={String(household.household_id)}
+                  className="text-muted-foreground"
+                >
+                  {household.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </Motion.div>
 

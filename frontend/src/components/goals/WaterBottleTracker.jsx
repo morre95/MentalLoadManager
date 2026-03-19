@@ -25,7 +25,7 @@ const WaterBottleTracker = ({ current, target, name }) => {
 
     return (
         <div className="flex flex-col items-center">
-            <h4 className="font-medium text-foreground mb-4 text-center">{name}</h4>
+            <h4 className="mb-4 text-center text-base font-semibold tracking-tight text-foreground">{name}</h4>
 
             <div className="relative w-20 h-44">
                 <svg viewBox="0 0 60 130" className="w-full h-full">

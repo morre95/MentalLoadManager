@@ -21,7 +21,7 @@ const RocketTracker = ({ current, target, name }) => {
 
     return (
         <div className="flex flex-col items-center">
-            <h4 className="font-medium text-foreground mb-4 text-center">{name}</h4>
+            <h4 className="mb-4 text-center text-base font-semibold tracking-tight text-foreground">{name}</h4>
 
             <div className="relative w-32 h-48">
                 <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-[hsl(240,30%,15%)] via-[hsl(260,40%,25%)] to-terracotta/30" />

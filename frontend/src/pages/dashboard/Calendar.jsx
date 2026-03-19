@@ -623,7 +623,15 @@ const Calendar = () => {
           +
         </span>
         {!isDayView ? (
-          <span className={`text-sm font-medium ${!isInRange ? "text-muted-foreground/50" : ""}`}>
+          <span
+            className={`text-sm font-medium ${
+              showSelectedStyle
+                ? "text-primary-foreground"
+                : !isInRange
+                  ? "text-muted-foreground/50"
+                  : "text-muted-foreground"
+            }`}
+          >
             {format(day, "d")}
           </span>
         ) : null}

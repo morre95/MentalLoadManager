@@ -222,7 +222,7 @@ const PlantGrowthTracker = ({ current, target, name }) => {
 
     return (
         <div className="flex flex-col items-center">
-            <h4 className="font-medium text-foreground mb-4 text-center">{name}</h4>
+            <h4 className="mb-4 text-center text-base font-semibold tracking-tight text-foreground">{name}</h4>
 
             <div className={`relative ${isSingleFlowerMode ? "w-32 h-40" : isWideField ? "w-full max-w-2xl h-32" : "w-full max-w-md h-32"}`}>
                 {isSingleFlowerMode ? renderSingleFlower() : renderFlowerField()}
