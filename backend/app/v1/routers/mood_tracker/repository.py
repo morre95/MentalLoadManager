@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.v1.models import MoodEntries, MoodTrackerArtworks
+from app.v1.models import MoodEntries
 
 
 def list_mood_entries_for_date_range(
@@ -55,22 +55,3 @@ def create_mood_entry(
     )
     db.add(entry)
     return entry
-
-def list_completed_mood_tracker_artworks_by_type(
-    db: Session,
-    *,
-    period_type: str,
-    day_count: int,
-) -> list[MoodTrackerArtworks]:
-    return db.scalars(
-        select(MoodTrackerArtworks)
-        .where(
-            MoodTrackerArtworks.period_type == period_type,
-            MoodTrackerArtworks.day_count == day_count,
-            MoodTrackerArtworks.svg_markup.is_not(None),
-        )
-        .order_by(
-            MoodTrackerArtworks.cycle_order.asc(),
-            MoodTrackerArtworks.mood_tracker_artwork_id.asc(),
-        )
-    ).all()

@@ -115,26 +115,6 @@ export default function MoodTracker() {
   }, [anchorDate, periodType]);
 
   useEffect(() => {
-    if (!trackerData) {
-      return undefined;
-    }
-    if (!["pending", "in_progress"].includes(String(trackerData.artwork_status || ""))) {
-      return undefined;
-    }
-
-    const intervalId = window.setInterval(async () => {
-      try {
-        const response = await fetchMoodTrackerPeriod(periodType, anchorDate);
-        setTrackerData(response);
-      } catch {
-        // Keep polling silent; the main load path already handles user-facing errors.
-      }
-    }, 2500);
-
-    return () => window.clearInterval(intervalId);
-  }, [anchorDate, periodType, trackerData]);
-
-  useEffect(() => {
     if (!trackerData?.dates?.length) {
       setSelectedDate(null);
       return;
@@ -273,11 +253,11 @@ export default function MoodTracker() {
               <div className="flex h-[520px] items-center justify-center rounded-3xl border border-dashed border-destructive/30 bg-destructive/5 px-6 text-center text-sm text-destructive">
                 {trackerData?.artwork_error || "Artwork generation failed. Retrying soon."}
               </div>
-            ) : trackerData?.artwork_status !== "completed" || !trackerData?.svg_markup ? (
+            ) : trackerData?.artwork_status !== "completed" || !trackerData?.image_id ? (
               <div className="flex h-[520px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-muted/20 px-6 text-center">
-                <p className="text-base font-medium text-foreground">Generating artwork...</p>
+                <p className="text-base font-medium text-foreground">Artwork unavailable</p>
                 <p className="mt-2 max-w-md text-sm text-muted-foreground">
-                  Your mood illustration is being prepared in the background. This view refreshes automatically when it is ready.
+                  The tracker could not find a static artwork for this period.
                 </p>
               </div>
             ) : (

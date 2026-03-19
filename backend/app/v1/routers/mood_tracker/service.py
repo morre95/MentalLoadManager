@@ -8,10 +8,10 @@ from sqlalchemy.exc import IntegrityError
 from app.v1.helpers import get_session_local
 from app.v1.models import UserEmail
 
+from .artwork_catalog import get_mood_tracker_artwork, list_mood_tracker_artworks
 from .repository import (
     create_mood_entry,
     get_mood_entry_for_user_and_date,
-    list_completed_mood_tracker_artworks_by_type,
     list_mood_entries_for_date_range,
 )
 from .schemas import (
@@ -201,22 +201,20 @@ def _day_count_for_period(start_date: date, end_date: date) -> int:
     return (end_date - start_date).days + 1
 
 
-def _get_cycled_artwork(db, *, period_type: str, start_date: date, end_date: date):
+def _get_cycled_artwork(*, period_type: str, start_date: date, end_date: date):
     day_count = _day_count_for_period(start_date, end_date)
-    artworks = list_completed_mood_tracker_artworks_by_type(
-        db,
-        period_type=period_type,
-        day_count=day_count,
-    )
+    artworks = list_mood_tracker_artworks(period_type, day_count)
     if not artworks:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No {period_type} mood tracker artworks are configured for {day_count} days",
         )
 
-    artwork = artworks[_cycle_slot_for_period(period_type, start_date, len(artworks))]
-    if not artwork.region_ids:
-        artwork.region_ids = _region_ids(period_type, start_date, end_date)
+    artwork = get_mood_tracker_artwork(
+        period_type=period_type,
+        day_count=day_count,
+        cycle_slot=_cycle_slot_for_period(period_type, start_date, len(artworks)),
+    )
     return artwork
 
 
@@ -242,7 +240,6 @@ def get_mood_tracker_period(
 
     with session_local() as db:
         artwork = _get_cycled_artwork(
-            db,
             period_type=normalized_period_type,
             start_date=start_date,
             end_date=end_date,
@@ -323,7 +320,6 @@ def upsert_mood_tracker_entry(
     region_field_name = _region_field_name(period_type)
     with session_local() as db:
         artwork = _get_cycled_artwork(
-            db,
             period_type=period_type,
             start_date=start_date,
             end_date=end_date,

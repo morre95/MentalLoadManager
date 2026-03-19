@@ -9,8 +9,6 @@ from types import SimpleNamespace
 from uuid import uuid4
 from unittest.mock import patch
 
-from fastapi import HTTPException
-
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
@@ -33,6 +31,7 @@ os.environ.setdefault("RESEND_API_KEY", "test-resend-key")
 os.environ.setdefault("CONTACT_RECIPIENT_EMAIL", "contact@example.com")
 
 from routers.mood_tracker.artwork_generator import generate_procedural_mood_artwork  # noqa: E402
+from routers.mood_tracker.artwork_catalog import list_mood_tracker_artworks  # noqa: E402
 from routers.mood_tracker import service  # noqa: E402
 
 
@@ -84,91 +83,23 @@ class MoodTrackerArtworkGeneratorTests(unittest.TestCase):
 
 
 class MoodTrackerServiceTests(unittest.TestCase):
-    def test_weekly_period_uses_cycled_database_artwork(self) -> None:
-        fake_db = _FakeDB()
-        fake_user = SimpleNamespace(user_id=uuid4())
-        weekly_artworks = [
-            SimpleNamespace(
-                image_id="shared-weekly-art-1",
-                source="database",
-                svg_markup="<svg><rect data-region-id='week-region-1' /></svg>",
-                region_ids=["week-region-1"],
-                status="completed",
-                error=None,
-                generated_at=None,
-                updated_at=None,
-                cycle_order=1,
-            ),
-            SimpleNamespace(
-                image_id="shared-weekly-art-2",
-                source="database",
-                svg_markup="<svg><rect data-region-id='week-region-1' /></svg>",
-                region_ids=["week-region-1"],
-                status="completed",
-                error=None,
-                generated_at=None,
-                updated_at=None,
-                cycle_order=2,
-            ),
-        ]
+    def test_static_catalog_contains_weekly_and_monthly_artworks(self) -> None:
+        weekly = list_mood_tracker_artworks("weekly", 7)
+        monthly = list_mood_tracker_artworks("monthly", 31)
 
-        def _session_local():
-            return _FakeSessionContext(fake_db)
+        self.assertEqual([art.image_id for art in weekly], [
+            "weekly-bloom",
+            "weekly-butterfly",
+            "weekly-cactus",
+            "weekly-seaside",
+        ])
+        self.assertEqual([art.image_id for art in monthly], [
+            "monthly-mosaic",
+            "monthly-garden",
+            "monthly-lanterns",
+        ])
 
-        with patch.object(service, "get_session_local", return_value=_session_local):
-            with patch.object(
-                service,
-                "list_completed_mood_tracker_artworks_by_type",
-                return_value=weekly_artworks,
-            ) as artwork_lookup:
-                with patch.object(service, "list_mood_entries_for_date_range", return_value=[]):
-                    result = service.get_mood_tracker_period(
-                        period_type="weekly",
-                        anchor_date_raw="2026-03-11",
-                        current_user=fake_user,
-                    )
-
-        self.assertEqual(result.image_id, "shared-weekly-art-1")
-        _, kwargs = artwork_lookup.call_args
-        self.assertEqual(kwargs["period_type"], "weekly")
-        self.assertEqual(kwargs["day_count"], 7)
-
-    def test_get_period_returns_persisted_svg_markup(self) -> None:
-        fake_db = _FakeDB()
-        fake_user = SimpleNamespace(user_id=uuid4())
-        fake_artwork = SimpleNamespace(
-            image_id="weekly-orbit",
-            source="procedural",
-            svg_markup="<svg><rect data-region-id='week-region-1' /></svg>",
-            region_ids=["week-region-1"],
-            status="completed",
-            error=None,
-            generated_at=None,
-            updated_at=None,
-        )
-
-        def _session_local():
-            return _FakeSessionContext(fake_db)
-
-        with patch.object(service, "get_session_local", return_value=_session_local):
-            with patch.object(
-                service,
-                "list_completed_mood_tracker_artworks_by_type",
-                return_value=[fake_artwork],
-            ):
-                with patch.object(service, "list_mood_entries_for_date_range", return_value=[]):
-                    result = service.get_mood_tracker_period(
-                        period_type="weekly",
-                        anchor_date_raw="2026-03-11",
-                        current_user=fake_user,
-                    )
-
-        self.assertEqual(result.image_id, "weekly-orbit")
-        self.assertEqual(result.artwork_source, "procedural")
-        self.assertEqual(result.region_ids, ["week-region-1"])
-        self.assertEqual(result.svg_markup, "<svg><rect data-region-id='week-region-1' /></svg>")
-
-    def test_get_period_raises_when_no_database_artworks_exist_for_period_type(self) -> None:
+    def test_weekly_period_uses_cycled_static_artwork(self) -> None:
         fake_db = _FakeDB()
         fake_user = SimpleNamespace(user_id=uuid4())
 
@@ -176,23 +107,43 @@ class MoodTrackerServiceTests(unittest.TestCase):
             return _FakeSessionContext(fake_db)
 
         with patch.object(service, "get_session_local", return_value=_session_local):
-            with patch.object(
-                service,
-                "list_completed_mood_tracker_artworks_by_type",
-                return_value=[],
-            ):
-                with self.assertRaises(HTTPException) as ctx:
-                    service.get_mood_tracker_period(
-                        period_type="weekly",
-                        anchor_date_raw="2026-03-11",
-                        current_user=fake_user,
-                    )
+            with patch.object(service, "list_mood_entries_for_date_range", return_value=[]):
+                result = service.get_mood_tracker_period(
+                    period_type="weekly",
+                    anchor_date_raw="2026-03-11",
+                    current_user=fake_user,
+                )
 
-        self.assertEqual(ctx.exception.status_code, 404)
-        self.assertEqual(
-            ctx.exception.detail,
-            "No weekly mood tracker artworks are configured for 7 days",
-        )
+        self.assertEqual(result.image_id, "weekly-cactus")
+        self.assertEqual(result.artwork_source, "static")
+
+    def test_get_period_returns_static_artwork_metadata(self) -> None:
+        fake_db = _FakeDB()
+        fake_user = SimpleNamespace(user_id=uuid4())
+
+        def _session_local():
+            return _FakeSessionContext(fake_db)
+
+        with patch.object(service, "get_session_local", return_value=_session_local):
+            with patch.object(service, "list_mood_entries_for_date_range", return_value=[]):
+                result = service.get_mood_tracker_period(
+                    period_type="weekly",
+                    anchor_date_raw="2026-03-11",
+                    current_user=fake_user,
+                )
+
+        self.assertEqual(result.image_id, "weekly-cactus")
+        self.assertEqual(result.artwork_source, "static")
+        self.assertEqual(result.region_ids, [
+            "week-region-1",
+            "week-region-2",
+            "week-region-3",
+            "week-region-4",
+            "week-region-5",
+            "week-region-6",
+            "week-region-7",
+        ])
+        self.assertIsNone(result.svg_markup)
 
 
 if __name__ == "__main__":
