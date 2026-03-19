@@ -327,6 +327,8 @@ def _get_or_create_login_attempt(
         attempt = LoginAttempt(
             username_key=username_key,
             ip_address=ip_address,
+            failed_attempts=0,
+            captcha_required=False,
         )
         db.add(attempt)
     return attempt
@@ -371,6 +373,10 @@ def _record_failed_login_attempt(
         attempt.failed_attempts = 0
         attempt.locked_until = None
         attempt.first_failed_at = None
+    if attempt.failed_attempts is None:
+        attempt.failed_attempts = 0
+    if attempt.captcha_required is None:
+        attempt.captcha_required = False
     if attempt.first_failed_at is None:
         attempt.first_failed_at = now_utc
     attempt.failed_attempts += 1
