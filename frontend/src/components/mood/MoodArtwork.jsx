@@ -47,17 +47,14 @@ function applyRenderedSvgState({
     if (!regionId) return;
 
     const entry = paintedByRegion[regionId] || null;
-    const isSelected = entry?.date === selectedDate;
     const fillValue = entry
       ? colorValueByToken[entry.color_token] || DEFAULT_COLOR_VALUE_BY_TOKEN[entry.color_token] || "hsl(var(--primary))"
-      : "rgba(148, 163, 184, 0.20)";
+      : "transparent";
 
     element.setAttribute("fill", fillValue);
-    element.setAttribute("stroke", isSelected ? "hsl(var(--foreground))" : "rgba(100, 116, 139, 0.62)");
-    element.setAttribute("stroke-width", isSelected ? "4" : "2.5");
     element.setAttribute("data-painted", entry ? "true" : "false");
-    element.setAttribute("data-selected", isSelected ? "true" : "false");
-    element.setAttribute("style", "cursor: pointer; transition: fill 160ms ease, stroke 160ms ease, stroke-width 160ms ease;");
+    element.setAttribute("data-selected", entry?.date === selectedDate ? "true" : "false");
+    element.setAttribute("style", "cursor: pointer; transition: fill 160ms ease;");
   });
 }
 
