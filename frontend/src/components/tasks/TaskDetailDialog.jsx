@@ -288,177 +288,147 @@ const TaskDetailDialog = ({
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      const finalTitle = titleDraft.trim() || task.title || "";
+      if (finalTitle !== (task.title || "")) {
+        if (onUpdateTaskTitle) await onUpdateTaskTitle(task.id, finalTitle);
+        else onUpdateTask?.(task.id, { title: finalTitle });
+      }
+
+      const finalDescription = descriptionDraft.trim();
+      if (finalDescription !== (task.description || "")) {
+        if (onUpdateTaskDescription) await onUpdateTaskDescription(task.id, finalDescription || null);
+        else onUpdateTask?.(task.id, { description: finalDescription });
+      }
+
+      const initialStatus = task.status === "on-hold" ? "archive" : (task.status || "todo");
+      if (statusDraft !== initialStatus) {
+        await onUpdateTaskStatus?.(task.id, statusDraft);
+      }
+
+      if (priorityDraft !== normalizedPriority) {
+        await onUpdateTaskPriority?.(task.id, priorityDraft);
+      }
+
+      const savedAssigneeId = task.assigneeId || null;
+      const draftAssigneeId = assigneeIdDraft === UNASSIGNED_ASSIGNEE_VALUE ? null : assigneeIdDraft;
+      if (draftAssigneeId !== savedAssigneeId) {
+        const nextAssignee = assignees.find((m) => m.user_id === draftAssigneeId) || null;
+        const nextAssigneeLabel = nextAssignee?.display_name || nextAssignee?.username || "Unassigned";
+        await onUpdateTaskAssignee?.(task.id, draftAssigneeId, nextAssigneeLabel, nextAssignee);
+      }
+
+      const finalCategory = categoryDraft === CUSTOM_CATEGORY_VALUE
+        ? (customCategoryDraft.trim() || "Other")
+        : categoryDraft;
+      if (finalCategory !== (task.category || "Other")) {
+        if (onUpdateTaskCategory) await onUpdateTaskCategory(task.id, finalCategory);
+        else onUpdateTask?.(task.id, { category: finalCategory });
+      }
+
+      const savedDueDate = toDateInputValue(task.dueDate);
+      if (dueDateDraft !== savedDueDate) {
+        if (onUpdateTaskDueDate) await onUpdateTaskDueDate(task.id, dueDateDraft || null);
+        else onUpdateTask?.(task.id, { dueDate: dueDateDraft });
+      }
+
+      const savedFrequency = task.recurrenceFrequency || null;
+      const draftFrequency = recurrenceDraft === "none" ? null : recurrenceDraft;
+      const savedInterval = task.recurrenceInterval || 1;
+      if (draftFrequency !== savedFrequency || (draftFrequency && recurrenceIntervalDraft !== savedInterval)) {
+        await onUpdateTaskRecurrence?.(task.id, draftFrequency, draftFrequency ? recurrenceIntervalDraft : null);
+      }
+
+      onOpenChange(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
     if (isSaving) return;
     onOpenChange(false);
   };
 
-  const handleTitleBlur = async (value) => {
-    const nextTitle = value.trim() || task.title || "";
-    setTitleDraft(nextTitle);
+  const handleTitleBlur = (value) => {
+    setTitleDraft(value.trim() || task.title || "");
     setEditingField(null);
-
-    if (nextTitle === (task.title || "")) return;
-
-    await runTaskUpdate(async () => {
-      if (onUpdateTaskTitle) await onUpdateTaskTitle(task.id, nextTitle);
-      else onUpdateTask?.(task.id, { title: nextTitle });
-    });
   };
 
-  const handleDescriptionBlur = async (value) => {
-    const nextDescription = value.trim();
-    setDescriptionDraft(nextDescription);
+  const handleDescriptionBlur = (value) => {
+    setDescriptionDraft(value.trim());
     setEditingField(null);
-
-    if (nextDescription === (task.description || "")) return;
-
-    await runTaskUpdate(async () => {
-      if (onUpdateTaskDescription) {
-        await onUpdateTaskDescription(task.id, nextDescription || null);
-      } else {
-        onUpdateTask?.(task.id, { description: nextDescription });
-      }
-    });
   };
 
-  const handleStatusChange = async (value) => {
+  const handleStatusChange = (value) => {
     if (isProjectedOccurrence) return;
     setStatusDraft(value);
     setIsStatusOpen(false);
     setEditingField(null);
-
-    if (value === (task.status || "todo")) return;
-    await runTaskUpdate(async () => onUpdateTaskStatus?.(task.id, value));
   };
 
-  const handlePriorityChange = async (value) => {
+  const handlePriorityChange = (value) => {
     setPriorityDraft(value);
     setIsPriorityOpen(false);
     setEditingField(null);
-
-    if (value === normalizedPriority) return;
-    await runTaskUpdate(async () => onUpdateTaskPriority?.(task.id, value));
   };
 
-  const handleAssigneeChange = async (value) => {
+  const handleAssigneeChange = (value) => {
     setAssigneeIdDraft(value);
     setIsAssigneeOpen(false);
     setEditingField(null);
-
-    const nextAssigneeId = value === UNASSIGNED_ASSIGNEE_VALUE ? null : value;
-    const nextSelectedAssignee = assignees.find((member) => member.user_id === nextAssigneeId);
-    const nextAssigneeLabel =
-      nextSelectedAssignee?.display_name || nextSelectedAssignee?.username || "Unassigned";
-
-    if ((nextAssigneeId || undefined) === task.assigneeId) return;
-
-    await runTaskUpdate(async () => {
-      await onUpdateTaskAssignee?.(
-        task.id,
-        nextAssigneeId,
-        nextAssigneeLabel,
-        nextSelectedAssignee || null
-      );
-    });
   };
 
-  const handleCategoryChange = async (value) => {
+  const handleCategoryChange = (value) => {
     setCategoryDraft(value);
     if (value === CUSTOM_CATEGORY_VALUE) {
       setIsCategoryOpen(false);
       requestAnimationFrame(() => setCustomCategoryFocus());
       return;
     }
-
     setIsCategoryOpen(false);
     setEditingField(null);
-
-    if (value === (task.category || "Other")) return;
-
-    await runTaskUpdate(async () => {
-      if (onUpdateTaskCategory) await onUpdateTaskCategory(task.id, value);
-      else onUpdateTask?.(task.id, { category: value });
-    });
   };
 
-  const handleCustomCategoryBlur = async () => {
-    const nextCategory = customCategoryDraft.trim() || "Other";
-    setCustomCategoryDraft(nextCategory);
+  const handleCustomCategoryBlur = () => {
+    setCustomCategoryDraft(customCategoryDraft.trim() || "Other");
     setEditingField(null);
-
-    if (nextCategory === (task.category || "Other")) return;
-
-    await runTaskUpdate(async () => {
-      if (onUpdateTaskCategory) await onUpdateTaskCategory(task.id, nextCategory);
-      else onUpdateTask?.(task.id, { category: nextCategory });
-    });
   };
 
-  const handleDueDateChange = async (value) => {
+  const handleDueDateChange = (value) => {
     if (isProjectedOccurrence) return;
     setDueDateDraft(value);
     setEditingField(null);
-
-    if (value === toDateInputValue(task.dueDate)) return;
-
-    await runTaskUpdate(async () => {
-      if (onUpdateTaskDueDate) await onUpdateTaskDueDate(task.id, value || null);
-      else {
-        const dueDate = value
-          ? new Date(`${value}T00:00:00`).toLocaleDateString()
-          : undefined;
-        onUpdateTask?.(task.id, { dueDate });
-      }
-    });
   };
 
   const handleRecurrenceChange = (value) => {
     setIsRecurrenceOpen(false);
     setEditingField(null);
 
-    const nextRecurrence = value === "none" ? null : value;
-
-    if (!nextRecurrence) {
-      // Turning off recurrence — save immediately
+    if (value === "none") {
       setRecurrenceDraft("none");
       setRecurrenceIntervalDraft(1);
       setRecurrenceWeekdaysDraft([]);
-      runTaskUpdate(async () => {
-        await onUpdateTaskRecurrence?.(task.id, null, null);
-      });
       return;
     }
 
-    if (!dueDateDraft) {
-      // Can't enable recurrence without a due date
-      return;
-    }
+    if (!dueDateDraft) return;
 
-    // Opening config dialog — pre-set frequency and reset interval if switching type
     setRecurrenceDraft(value);
-    if (value !== task.recurrenceFrequency) {
+    if (value !== recurrenceDraft) {
       setRecurrenceIntervalDraft(1);
       setRecurrenceWeekdaysDraft([]);
     }
     setRecurrenceConfigOpen(true);
   };
 
-  const handleRecurrenceApply = async ({ interval, weekdays, suggestedDueDate }) => {
+  const handleRecurrenceApply = ({ interval, weekdays, suggestedDueDate }) => {
     setRecurrenceIntervalDraft(interval);
     setRecurrenceWeekdaysDraft(weekdays);
-
-    if (suggestedDueDate && suggestedDueDate !== dueDateDraft) {
-      setDueDateDraft(suggestedDueDate);
-      await runTaskUpdate(async () => {
-        await onUpdateTaskDueDate?.(task.id, suggestedDueDate);
-      });
-    }
-
-    const nextFrequency = recurrenceDraft === "none" ? null : recurrenceDraft;
-    await runTaskUpdate(async () => {
-      await onUpdateTaskRecurrence?.(task.id, nextFrequency, nextFrequency ? interval : null);
-    });
+    if (suggestedDueDate) setDueDateDraft(suggestedDueDate);
   };
 
   const handleArchive = async () => {
@@ -511,12 +481,12 @@ const TaskDetailDialog = ({
               <DialogTitle className="font-semibold tracking-tight font-display text-xl">
                 {editingField === "title" ? (
                   <Input
-                  ref={titleRef}
-                  value={titleDraft}
-                  onChange={(e) => setTitleDraft(e.target.value)}
-                  onBlur={(e) => handleTitleBlur(e.target.value)}
-                  className="h-10 font-semibold tracking-tight font-display text-xl"
-                />
+                    ref={titleRef}
+                    value={titleDraft}
+                    onChange={(e) => setTitleDraft(e.target.value)}
+                    onBlur={(e) => handleTitleBlur(e.target.value)}
+                    className="h-10 font-semibold tracking-tight font-display text-xl"
+                  />
                 ) : (
                   <div
                     className="group flex cursor-pointer items-center gap-2 text-left"
@@ -978,10 +948,19 @@ const TaskDetailDialog = ({
             </div>
 
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
-              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+              <Button
+                variant="outline"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={handleCancel}
+                disabled={isSaving}
+              >
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={isSaving}>
+              <Button
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={handleSave}
+                disabled={!task.title && !titleDraft.trim() || isSaving}
+              >
                 {isSaving ? "Saving..." : "Save"}
               </Button>
             </div>
