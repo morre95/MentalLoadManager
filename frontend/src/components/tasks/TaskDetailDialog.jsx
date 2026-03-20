@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion as Motion } from "framer-motion";
 import {
   Clock,
@@ -113,6 +113,34 @@ function formatDisplayDate(value) {
   }).format(parsed);
 }
 
+function getDraftStateFromTask(task, availableCategories) {
+  if (!task) return null;
+
+  const nextPriority = (() => {
+    const value = String(task.priority || "medium").toLowerCase();
+    if (value === "low" || value === "high") return value;
+    return "medium";
+  })();
+
+  const currentCategory = task.category || FALLBACK_CATEGORY;
+  const categoryState = availableCategories.includes(currentCategory)
+    ? { categoryDraft: currentCategory, customCategoryDraft: "" }
+    : { categoryDraft: CUSTOM_CATEGORY_VALUE, customCategoryDraft: currentCategory };
+
+  return {
+    titleDraft: task.title || "",
+    descriptionDraft: task.description || "",
+    statusDraft: task.status === "on-hold" ? "archive" : (task.status || "todo"),
+    priorityDraft: nextPriority,
+    assigneeIdDraft: task.assigneeId || UNASSIGNED_ASSIGNEE_VALUE,
+    dueDateDraft: toDateInputValue(task.dueDate),
+    recurrenceDraft: task.recurrenceFrequency || "none",
+    recurrenceIntervalDraft: task.recurrenceInterval || 1,
+    recurrenceWeekdaysDraft: [],
+    ...categoryState,
+  };
+}
+
 const TaskDetailDialog = ({
   task,
   open,
@@ -170,6 +198,8 @@ const TaskDetailDialog = ({
   const [isAssigneeOpen, setIsAssigneeOpen] = useState(false);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [isRecurrenceOpen, setIsRecurrenceOpen] = useState(false);
+  const lastInitializedTaskIdRef = useRef(null);
+  const shouldResetDraftsRef = useRef(true);
 
   const normalizedPriority = useMemo(() => {
     const value = String(task?.priority || "medium").toLowerCase();
@@ -177,30 +207,45 @@ const TaskDetailDialog = ({
     return "medium";
   }, [task?.priority]);
 
+  const resetDraftsFromTask = (taskToReset = task) => {
+    const nextDraftState = getDraftStateFromTask(taskToReset, availableCategories);
+    if (!nextDraftState) return;
+
+    setTitleDraft(nextDraftState.titleDraft);
+    setDescriptionDraft(nextDraftState.descriptionDraft);
+    setStatusDraft(nextDraftState.statusDraft);
+    setPriorityDraft(nextDraftState.priorityDraft);
+    setAssigneeIdDraft(nextDraftState.assigneeIdDraft);
+    setCategoryDraft(nextDraftState.categoryDraft);
+    setCustomCategoryDraft(nextDraftState.customCategoryDraft);
+    setDueDateDraft(nextDraftState.dueDateDraft);
+    setRecurrenceDraft(nextDraftState.recurrenceDraft);
+    setRecurrenceIntervalDraft(nextDraftState.recurrenceIntervalDraft);
+    setRecurrenceWeekdaysDraft(nextDraftState.recurrenceWeekdaysDraft);
+  };
+
   useEffect(() => {
     if (!open || !task) return;
 
-    setTitleDraft(task.title || "");
-    setDescriptionDraft(task.description || "");
-    setStatusDraft(task.status === "on-hold" ? "archive" : (task.status || "todo"));
-    setPriorityDraft(normalizedPriority);
-    setAssigneeIdDraft(task.assigneeId || UNASSIGNED_ASSIGNEE_VALUE);
-    setDueDateDraft(toDateInputValue(task.dueDate));
-    setRecurrenceDraft(task.recurrenceFrequency || "none");
-    setRecurrenceIntervalDraft(task.recurrenceInterval || 1);
-    setRecurrenceWeekdaysDraft([]);
-  }, [open, task, normalizedPriority]);
+    const taskChanged = lastInitializedTaskIdRef.current !== task.id;
+    if (!taskChanged && !shouldResetDraftsRef.current) return;
 
-  useEffect(() => {
-    if (!open || !task) return;
-    const currentCategory = task.category || FALLBACK_CATEGORY;
-    if (availableCategories.includes(currentCategory)) {
-      setCategoryDraft(currentCategory);
-      setCustomCategoryDraft("");
-    } else {
-      setCategoryDraft(CUSTOM_CATEGORY_VALUE);
-      setCustomCategoryDraft(currentCategory);
-    }
+    const nextDraftState = getDraftStateFromTask(task, availableCategories);
+    if (!nextDraftState) return;
+
+    setTitleDraft(nextDraftState.titleDraft);
+    setDescriptionDraft(nextDraftState.descriptionDraft);
+    setStatusDraft(nextDraftState.statusDraft);
+    setPriorityDraft(nextDraftState.priorityDraft);
+    setAssigneeIdDraft(nextDraftState.assigneeIdDraft);
+    setCategoryDraft(nextDraftState.categoryDraft);
+    setCustomCategoryDraft(nextDraftState.customCategoryDraft);
+    setDueDateDraft(nextDraftState.dueDateDraft);
+    setRecurrenceDraft(nextDraftState.recurrenceDraft);
+    setRecurrenceIntervalDraft(nextDraftState.recurrenceIntervalDraft);
+    setRecurrenceWeekdaysDraft(nextDraftState.recurrenceWeekdaysDraft);
+    lastInitializedTaskIdRef.current = task.id;
+    shouldResetDraftsRef.current = false;
   }, [open, task, availableCategories]);
 
   useEffect(() => {
@@ -334,6 +379,7 @@ const TaskDetailDialog = ({
         await onUpdateTaskRecurrence?.(task.id, draftFrequency, draftFrequency ? recurrenceIntervalDraft : null);
       }
 
+      shouldResetDraftsRef.current = true;
       onOpenChange(false);
     } finally {
       setIsSaving(false);
@@ -342,7 +388,25 @@ const TaskDetailDialog = ({
 
   const handleCancel = () => {
     if (isSaving) return;
+    shouldResetDraftsRef.current = true;
+    resetDraftsFromTask(task);
     onOpenChange(false);
+  };
+
+  const handleDialogOpenChange = (nextOpen) => {
+    if (isSaving) return;
+
+    if (!nextOpen) {
+      setEditingField(null);
+      setIsStatusOpen(false);
+      setIsPriorityOpen(false);
+      setIsAssigneeOpen(false);
+      setIsCategoryOpen(false);
+      setIsRecurrenceOpen(false);
+      setRecurrenceConfigOpen(false);
+    }
+
+    onOpenChange(nextOpen);
   };
 
   const handleTitleBlur = (value) => {
@@ -448,8 +512,20 @@ const TaskDetailDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl" key={task.id}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
+      <DialogContent
+        className="max-h-[85vh] overflow-y-auto sm:max-w-2xl"
+        key={task.id}
+        onCloseButtonClick={handleCancel}
+        onEscapeKeyDown={(event) => {
+          event.preventDefault();
+          handleCancel();
+        }}
+        onPointerDownOutside={(event) => {
+          event.preventDefault();
+          void handleSave();
+        }}
+      >
         <DialogHeader className="space-y-4 border-b pb-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-3">
