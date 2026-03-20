@@ -279,14 +279,6 @@ const TaskDetailDialog = ({
   const isProjectedOccurrence = Boolean(task?.isProjectedOccurrence);
   const displayDueDate = formatDisplayDate(isProjectedOccurrence ? activeOccurrenceDate : dueDateDraft);
 
-  const runTaskUpdate = async (updater) => {
-    setIsSaving(true);
-    try {
-      await updater();
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const handleSave = async () => {
     if (isSaving) return;
