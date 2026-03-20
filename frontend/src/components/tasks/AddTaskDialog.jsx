@@ -39,6 +39,7 @@ import {
   resolveCurrentHouseholdId,
   toUtcDateOnlyIso,
 } from "@/lib/utils";
+import RecurrenceOptionsDialog from "@/components/tasks/RecurrenceOptionsDialog";
 
 const CUSTOM_CATEGORY_VALUE = "__custom__";
 const UNASSIGNED_ASSIGNEE_VALUE = "__unassigned__";
@@ -97,6 +98,9 @@ const AddTaskDialog = ({
   const [assigneesError, setAssigneesError] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [recurrenceFrequency, setRecurrenceFrequency] = useState("");
+  const [recurrenceInterval, setRecurrenceInterval] = useState(1);
+  const [recurrenceWeekdays, setRecurrenceWeekdays] = useState([]);
+  const [recurrenceConfigOpen, setRecurrenceConfigOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [selectedHouseholdId, setSelectedHouseholdId] = useState("");
@@ -137,7 +141,7 @@ const AddTaskDialog = ({
     category === CUSTOM_CATEGORY_VALUE ? (customCategory.trim() || FALLBACK_CATEGORY) : category;
   const displayDueDate = formatDisplayDate(dueDate);
   const recurrenceLabel = recurrenceFrequency
-    ? formatTaskRecurrence(recurrenceFrequency, 1)
+    ? formatTaskRecurrence(recurrenceFrequency, recurrenceInterval)
     : "Does not repeat";
   const activeStatus = statusConfig.todo;
   const ActiveStatusIcon = activeStatus.icon;
@@ -300,7 +304,7 @@ const AddTaskDialog = ({
         priority,
         due_date: dueDateIso,
         recurrence_frequency: recurrenceFrequency || null,
-        recurrence_interval: recurrenceFrequency ? 1 : null,
+        recurrence_interval: recurrenceFrequency ? recurrenceInterval : null,
         category_name: finalCategory,
         assigns_to: assigneeId || null,
       });
@@ -327,9 +331,9 @@ const AddTaskDialog = ({
         dueDate: dueDate ? new Date(dueDateIso).toLocaleDateString() : "",
         recurrenceEnabled: Boolean(recurrenceFrequency),
         recurrenceFrequency: recurrenceFrequency || null,
-        recurrenceInterval: recurrenceFrequency ? 1 : null,
+        recurrenceInterval: recurrenceFrequency ? recurrenceInterval : null,
         recurrenceLabel: recurrenceFrequency
-          ? formatTaskRecurrence(recurrenceFrequency, 1)
+          ? formatTaskRecurrence(recurrenceFrequency, recurrenceInterval)
           : "",
       };
 
@@ -354,6 +358,9 @@ const AddTaskDialog = ({
     setSelectedHouseholdId("");
     setDueDate("");
     setRecurrenceFrequency("");
+    setRecurrenceInterval(1);
+    setRecurrenceWeekdays([]);
+    setRecurrenceConfigOpen(false);
     setSubmitError("");
     onOpenChange(false);
   };
@@ -548,7 +555,18 @@ const AddTaskDialog = ({
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Repeats
                   </p>
-                  <Select value={recurrenceFrequency || "none"} onValueChange={(value) => setRecurrenceFrequency(value === "none" ? "" : value)}>
+                  <Select
+                    value={recurrenceFrequency || "none"}
+                    onValueChange={(value) => {
+                      const next = value === "none" ? "" : value;
+                      setRecurrenceFrequency(next);
+                      if (next) {
+                        setRecurrenceInterval(1);
+                        setRecurrenceWeekdays([]);
+                        setRecurrenceConfigOpen(true);
+                      }
+                    }}
+                  >
                     <SelectTrigger className="mt-2 h-9 w-full">
                       <SelectValue />
                     </SelectTrigger>
@@ -562,6 +580,15 @@ const AddTaskDialog = ({
                   <p className={recurrenceFrequency ? fieldValueClassName : emptyValueClassName}>
                     {recurrenceLabel}
                   </p>
+                  {recurrenceFrequency && (
+                    <button
+                      type="button"
+                      onClick={() => setRecurrenceConfigOpen(true)}
+                      className="mt-1 text-xs text-primary hover:underline"
+                    >
+                      Edit schedule…
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -616,6 +643,20 @@ const AddTaskDialog = ({
           </section>
         </Motion.div>
       </DialogContent>
+
+      <RecurrenceOptionsDialog
+        open={recurrenceConfigOpen}
+        onOpenChange={setRecurrenceConfigOpen}
+        frequency={recurrenceFrequency}
+        interval={recurrenceInterval}
+        weekdays={recurrenceWeekdays}
+        dueDate={dueDate}
+        onApply={({ interval, weekdays, suggestedDueDate }) => {
+          setRecurrenceInterval(interval);
+          setRecurrenceWeekdays(weekdays);
+          if (suggestedDueDate) setDueDate(suggestedDueDate);
+        }}
+      />
     </Dialog>
   );
 };

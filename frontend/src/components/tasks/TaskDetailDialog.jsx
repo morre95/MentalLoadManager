@@ -54,6 +54,7 @@ import {
 } from "@/lib/utils";
 
 import useFokus from '@/hooks/useFocus';
+import RecurrenceOptionsDialog from "@/components/tasks/RecurrenceOptionsDialog";
 
 const priorityColors = {
   low: "bg-sage-light text-sage border-sage/30",
@@ -154,7 +155,9 @@ const TaskDetailDialog = ({
   const [customCategoryDraft, setCustomCategoryDraft] = useState("");
   const [dueDateDraft, setDueDateDraft] = useState("");
   const [recurrenceDraft, setRecurrenceDraft] = useState("none");
-
+  const [recurrenceIntervalDraft, setRecurrenceIntervalDraft] = useState(1);
+  const [recurrenceWeekdaysDraft, setRecurrenceWeekdaysDraft] = useState([]);
+  const [recurrenceConfigOpen, setRecurrenceConfigOpen] = useState(false);
 
   const [editingField, setEditingField] = useState(null);
   const [titleRef, setTitleFocus] = useFokus();
@@ -184,6 +187,8 @@ const TaskDetailDialog = ({
     setAssigneeIdDraft(task.assigneeId || UNASSIGNED_ASSIGNEE_VALUE);
     setDueDateDraft(toDateInputValue(task.dueDate));
     setRecurrenceDraft(task.recurrenceFrequency || "none");
+    setRecurrenceIntervalDraft(task.recurrenceInterval || 1);
+    setRecurrenceWeekdaysDraft([]);
   }, [open, task, normalizedPriority]);
 
   useEffect(() => {
@@ -268,7 +273,7 @@ const TaskDetailDialog = ({
   const hasDescription = Boolean(descriptionDraft.trim());
   const recurrenceLabel =
     recurrenceDraft !== "none"
-      ? formatTaskRecurrence(recurrenceDraft, task.recurrenceInterval || 1)
+      ? formatTaskRecurrence(recurrenceDraft, recurrenceIntervalDraft)
       : "Does not repeat";
   const activeOccurrenceDate = task?.occurrenceDate || task?.dueDateValue || null;
   const isProjectedOccurrence = Boolean(task?.isProjectedOccurrence);
@@ -408,21 +413,51 @@ const TaskDetailDialog = ({
     });
   };
 
-  const handleRecurrenceChange = async (value) => {
-    setRecurrenceDraft(value);
+  const handleRecurrenceChange = (value) => {
     setIsRecurrenceOpen(false);
     setEditingField(null);
 
     const nextRecurrence = value === "none" ? null : value;
-    if (nextRecurrence && !dueDateDraft) {
-      setRecurrenceDraft(task.recurrenceFrequency || "none");
+
+    if (!nextRecurrence) {
+      // Turning off recurrence — save immediately
+      setRecurrenceDraft("none");
+      setRecurrenceIntervalDraft(1);
+      setRecurrenceWeekdaysDraft([]);
+      runTaskUpdate(async () => {
+        await onUpdateTaskRecurrence?.(task.id, null, null);
+      });
       return;
     }
 
-    if ((task.recurrenceFrequency || null) === nextRecurrence) return;
+    if (!dueDateDraft) {
+      // Can't enable recurrence without a due date
+      return;
+    }
 
+    // Opening config dialog — pre-set frequency and reset interval if switching type
+    setRecurrenceDraft(value);
+    if (value !== task.recurrenceFrequency) {
+      setRecurrenceIntervalDraft(1);
+      setRecurrenceWeekdaysDraft([]);
+    }
+    setRecurrenceConfigOpen(true);
+  };
+
+  const handleRecurrenceApply = async ({ interval, weekdays, suggestedDueDate }) => {
+    setRecurrenceIntervalDraft(interval);
+    setRecurrenceWeekdaysDraft(weekdays);
+
+    if (suggestedDueDate && suggestedDueDate !== dueDateDraft) {
+      setDueDateDraft(suggestedDueDate);
+      await runTaskUpdate(async () => {
+        await onUpdateTaskDueDate?.(task.id, suggestedDueDate);
+      });
+    }
+
+    const nextFrequency = recurrenceDraft === "none" ? null : recurrenceDraft;
     await runTaskUpdate(async () => {
-      await onUpdateTaskRecurrence?.(task.id, nextRecurrence, nextRecurrence ? 1 : null);
+      await onUpdateTaskRecurrence?.(task.id, nextFrequency, nextFrequency ? interval : null);
     });
   };
 
@@ -846,6 +881,15 @@ const TaskDetailDialog = ({
                         Add a due date before turning on repeats.
                       </p>
                     ) : null}
+                    {recurrenceDraft !== "none" && dueDateDraft && (
+                      <button
+                        type="button"
+                        onClick={() => setRecurrenceConfigOpen(true)}
+                        className="mt-1 text-xs text-primary hover:underline"
+                      >
+                        Edit schedule…
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -944,6 +988,16 @@ const TaskDetailDialog = ({
           </section>
         </Motion.div>
       </DialogContent>
+
+      <RecurrenceOptionsDialog
+        open={recurrenceConfigOpen}
+        onOpenChange={setRecurrenceConfigOpen}
+        frequency={recurrenceDraft === "none" ? null : recurrenceDraft}
+        interval={recurrenceIntervalDraft}
+        weekdays={recurrenceWeekdaysDraft}
+        dueDate={dueDateDraft}
+        onApply={handleRecurrenceApply}
+      />
     </Dialog>
   );
 };
