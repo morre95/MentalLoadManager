@@ -50,7 +50,6 @@ def fetch_calendar_event_rows_range(
         .join(UsersHouseholds, UsersHouseholds.household_id == Tasks.household_id)
         .join(UserDB, user_match)  # bind "me" from email/username
         .where(UsersHouseholds.user_id == UserDB.user_id)  # my households
-        .where(Tasks.assigns_to == UserDB.user_id)  # only my tasks
         .where(Tasks.due_date.is_not(None))
         .where(
             or_(
