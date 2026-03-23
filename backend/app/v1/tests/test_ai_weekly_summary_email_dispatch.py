@@ -112,7 +112,7 @@ class AIWeeklySummaryEmailDispatchServiceTest(unittest.TestCase):
         self.assertEqual(response.emails_sent, 2)
         self.assertEqual(response.emails_failed, 0)
         self.assertEqual(response.summary_generation_failures, 0)
-        targets_mock.assert_called_once_with(self.db, first_day_of_week="monday")
+        targets_mock.assert_called_once_with(self.db)
         summary_mock.assert_called_once()
         send_mock.assert_called()
         self.assertEqual(send_mock.call_count, 2)

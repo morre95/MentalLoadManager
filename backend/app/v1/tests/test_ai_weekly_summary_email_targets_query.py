@@ -49,12 +49,12 @@ class _CaptureSession:
 
 
 class AIWeeklySummaryEmailTargetsQueryTest(unittest.TestCase):
-    def test_query_filters_on_weekly_analytics_email_not_generic_email_notifications(
+    def test_query_filters_on_weekly_analytics_email_without_calendar_preference_gate(
         self,
     ) -> None:
         db = _CaptureSession()
 
-        list_weekly_summary_email_targets(db, first_day_of_week="monday")
+        list_weekly_summary_email_targets(db)
 
         compiled = str(
             db.statement.compile(
@@ -65,6 +65,7 @@ class AIWeeklySummaryEmailTargetsQueryTest(unittest.TestCase):
 
         self.assertIn("notification_settings.weekly_analytics_email IS true", compiled)
         self.assertNotIn("notification_settings.email_notifications", compiled)
+        self.assertNotIn("preferences.first_day_of_week", compiled)
 
 
 if __name__ == "__main__":

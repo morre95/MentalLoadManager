@@ -635,10 +635,7 @@ def dispatch_weekly_summary_emails(
 
     session_local = _get_session_factory()
     with session_local() as db:
-        targets = list_weekly_summary_email_targets(
-            db,
-            first_day_of_week=first_day_of_week,
-        )
+        targets = list_weekly_summary_email_targets(db)
 
     users_targeted = len({row.user_id for row in targets})
     households_targeted = len({row.household_id for row in targets})

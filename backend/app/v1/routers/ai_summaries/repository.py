@@ -10,7 +10,6 @@ from app.v1.models import (
     AISummaries,
     Households,
     NotificationSettings,
-    Preferences,
     Tasks,
     UserDB,
     UsersHouseholds,
@@ -146,13 +145,7 @@ def list_ai_summaries_for_user(
     return list(db.scalars(query).all())
 
 
-def list_weekly_summary_email_targets(
-    db: Session,
-    *,
-    first_day_of_week: str,
-):
-    normalized_first_day = first_day_of_week.strip().lower()
-
+def list_weekly_summary_email_targets(db: Session):
     return db.execute(
         select(
             UserDB.user_id,
@@ -168,17 +161,12 @@ def list_weekly_summary_email_targets(
             NotificationSettings,
             NotificationSettings.user_id == UserDB.user_id,
         )
-        .outerjoin(Preferences, Preferences.user_id == UserDB.user_id)
         .where(
             UserDB.email.is_not(None),
             func.length(func.trim(UserDB.email)) > 0,
             or_(
                 NotificationSettings.user_id.is_(None),
                 NotificationSettings.weekly_analytics_email.is_(True),
-            ),
-            or_(
-                Preferences.user_id.is_(None),
-                func.lower(Preferences.first_day_of_week) == normalized_first_day,
             ),
         )
         .order_by(UserDB.user_id.asc(), UsersHouseholds.household_id.asc())
