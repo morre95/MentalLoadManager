@@ -20,7 +20,7 @@ import {
   resolveCurrentHouseholdId,
 } from "@/lib/utils";
 import { apiClient } from "@/lib/utils";
-import { fetchAnalyticsSummary, fetchCalendarRange } from "../../../../shared/index.js";
+import { fetchAnalyticsSummary, fetchCalendarRange } from "../../../../../shared/index.js";
 
 export function useDashboardHomeWidgets() {
   const { households } = useHousehold();
