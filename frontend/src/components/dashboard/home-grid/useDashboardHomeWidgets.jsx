@@ -243,7 +243,14 @@ export function useDashboardHomeWidgets() {
       description: "Small weekly calendar",
       size: "medium",
       defaultVisible: true,
-      render: () => <MiniCalendarWidget state={calendarState} />,
+      render: () => (
+        <MiniCalendarWidget
+          state={calendarState}
+          tasks={tasks}
+          tasksLoading={tasksLoading}
+          tasksError={tasksError}
+        />
+      ),
     },
     {
       id: "mini-mood",

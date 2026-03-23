@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { BarChart3, GripVertical, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
+import { BarChart3, ChevronLeft, ChevronRight, GripVertical, Loader2 } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -19,6 +20,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+import MoodArtwork from "@/components/mood/MoodArtwork";
 import GoalTrackerRenderer from "@/components/goals/GoalTrackerRenderer";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -32,6 +34,19 @@ import { EmptyState, WidgetShell } from "@/components/dashboard/home-grid/Widget
 import { updateKanbanTaskOrder, updateKanbanTaskStatus } from "@/lib/utils";
 
 const DEFAULT_VISIBLE_TASKS_PER_COLUMN = 5;
+const EMPTY_ARRAY = [];
+const MOOD_TOKEN_COLOR_CLASS = {
+  accent: "bg-accent",
+  sky: "bg-sky",
+  sage: "bg-sage",
+  lavender: "bg-lavender",
+  terracotta: "bg-terracotta",
+  primary: "bg-primary",
+  sand: "bg-sand",
+  "status-todo": "bg-status-todo",
+  "status-doing": "bg-status-doing",
+  "status-done": "bg-status-done",
+};
 
 function toApiStatus(status) {
   return status === "in-progress" ? "in_progress" : status;
@@ -39,6 +54,26 @@ function toApiStatus(status) {
 
 function normalizeColumnStatus(status) {
   return status === "on-hold" ? "archive" : String(status || "todo");
+}
+
+function toLocalIsoDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addDaysToIso(isoDate, daysToAdd) {
+  const date = new Date(`${isoDate}T00:00:00`);
+  date.setDate(date.getDate() + daysToAdd);
+  return toLocalIsoDate(date);
+}
+
+function formatWeekdayOnly(value) {
+  if (!value) return "";
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toLocaleDateString(undefined, { weekday: "short" });
 }
 
 function MiniTaskCard({ task }) {
@@ -369,65 +404,174 @@ export function UpcomingTasksWidget({ tasks, loading, error }) {
   );
 }
 
-export function MiniCalendarWidget({ state }) {
-  const groupedDays = useMemo(() => {
-    const map = new Map();
-    (state.events || []).forEach((event) => {
-      const key = String(event.date || "");
-      if (!key) return;
-      const current = map.get(key) || [];
-      current.push(event);
-      map.set(key, current);
-    });
-    return [...map.entries()].slice(0, 7);
-  }, [state.events]);
+export function MiniCalendarWidget({ state, tasks = [], tasksLoading = false, tasksError = null }) {
+  const todayIso = useMemo(() => toLocalIsoDate(new Date()), []);
+  const [selectedDate, setSelectedDate] = useState(todayIso);
+  const [weekAnchorDate, setWeekAnchorDate] = useState(todayIso);
+
+  const weekDates = useMemo(() => {
+    const anchorDate = new Date(`${weekAnchorDate}T00:00:00`);
+    const mondayOffset = (anchorDate.getDay() + 6) % 7;
+    const weekStart = new Date(anchorDate);
+    weekStart.setDate(anchorDate.getDate() - mondayOffset);
+    const weekStartIso = toLocalIsoDate(weekStart);
+
+    return Array.from({ length: 7 }, (_, index) => addDaysToIso(weekStartIso, index));
+  }, [weekAnchorDate]);
+
+  const dueTasksByDate = useMemo(() => {
+    return (tasks || []).reduce((acc, task) => {
+      const dueDate = String(task?.dueDateValue || "");
+      if (!dueDate) return acc;
+      if (["done", "archive", "on-hold"].includes(String(task?.status || ""))) return acc;
+
+      acc[dueDate] = [...(acc[dueDate] || []), task];
+      return acc;
+    }, {});
+  }, [tasks]);
+
+  const selectedDateTasks = dueTasksByDate[selectedDate] || [];
+  const isLoading = state.loading || tasksLoading;
+  const hasError = state.error || tasksError;
+  const selectedDateLabel = formatWeekdayDate(selectedDate);
+  const monthLabel = useMemo(() => {
+    const activeDate = new Date(`${weekDates[3] || selectedDate}T00:00:00`);
+    return activeDate.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  }, [selectedDate, weekDates]);
+
+  const handleSelectDate = (date) => {
+    setSelectedDate(date);
+    setWeekAnchorDate(date);
+  };
 
   return (
     <WidgetShell
       title="Mini Calendar"
-      description="This week at a glance."
+      description="Select a day to see tasks due this week."
       accent="h-9 w-9 rounded-2xl bg-sky-light"
     >
-      {state.loading ? (
+      {isLoading ? (
         <EmptyState message="Loading calendar..." />
-      ) : state.error ? (
+      ) : hasError ? (
         <EmptyState message="Could not load calendar." />
       ) : (
         <div className="flex h-full flex-col gap-3">
-          <div className="grid grid-cols-7 gap-2">
-            {Array.from({ length: 7 }).map((_, index) => {
-              const day = groupedDays[index];
-              if (!day) {
-                return (
-                  <div key={index} className="rounded-xl border border-dashed border-border bg-muted/20 p-2 text-center">
-                    <p className="text-[10px] text-muted-foreground">Free</p>
-                  </div>
-                );
-              }
+          <div className="mb-1 flex items-center justify-between">
+            <button
+              type="button"
+              className="rounded p-1 transition-colors hover:bg-muted"
+              onClick={() => setWeekAnchorDate((current) => addDaysToIso(current, -7))}
+              aria-label="Previous week"
+            >
+              <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+            </button>
+            <span className="px-2 text-xs text-muted-foreground">{monthLabel}</span>
+            <button
+              type="button"
+              className="rounded p-1 transition-colors hover:bg-muted"
+              onClick={() => setWeekAnchorDate((current) => addDaysToIso(current, 7))}
+              aria-label="Next week"
+            >
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
 
-              const [date, events] = day;
+          <div className="grid grid-cols-7 gap-1">
+            {weekDates.map((date) => (
+              <div key={`${date}-label`} className="py-1 text-center text-xs text-muted-foreground">
+                {formatWeekdayOnly(date)}
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7 gap-1">
+            {weekDates.map((date) => {
+              const dayTasks = dueTasksByDate[date] || [];
+              const isSelected = selectedDate === date;
+              const isCurrentDay = todayIso === date;
+
               return (
-                <div key={date} className="rounded-xl border border-border bg-muted/25 p-2 text-center">
-                  <p className="text-[10px] text-muted-foreground">{formatWeekdayDate(date).split(",")[0]}</p>
-                  <p className="mt-1 text-base font-semibold text-foreground">{events.length}</p>
-                </div>
+                <motion.button
+                  key={date}
+                  type="button"
+                  onClick={() => handleSelectDate(date)}
+                  whileTap={{ scale: 0.98 }}
+                  className={`relative rounded-lg py-2 text-center text-sm transition-colors ${
+                    isSelected
+                      ? "bg-primary font-medium text-primary-foreground"
+                      : "text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <span className={isCurrentDay && !isSelected ? "font-medium text-primary" : undefined}>
+                    {new Date(`${date}T00:00:00`).getDate()}
+                  </span>
+                  {dayTasks.length > 0 ? (
+                    <div className={`absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${
+                      isSelected ? "bg-primary-foreground" : "bg-terracotta"
+                    }`} />
+                  ) : null}
+                </motion.button>
               );
             })}
           </div>
 
-          <div className="space-y-2 overflow-y-auto">
-            {(state.events || []).slice(0, 4).map((event) => (
-              <div key={`${event.id}-${event.date}`} className="rounded-2xl border border-border bg-background p-3">
-                <p className="truncate text-sm font-medium text-foreground">{event.title}</p>
+          <div className="rounded-2xl border border-border bg-background/80 p-3">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">{selectedDateLabel || "Selected day"}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {formatWeekdayDate(event.date)}
-                  {event.household_name ? ` · ${event.household_name}` : ""}
+                  {selectedDateTasks.length > 0
+                    ? `${selectedDateTasks.length} task${selectedDateTasks.length === 1 ? "" : "s"} due`
+                    : "Nothing due on this day"}
                 </p>
               </div>
-            ))}
-            {state.events.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-3 text-sm text-muted-foreground">
-                No scheduled items this week.
+              <Badge variant="outline" className="shrink-0">
+                This week
+              </Badge>
+            </div>
+
+            <div className="space-y-2 overflow-y-auto">
+              {selectedDateTasks.map((task, index) => {
+                const priority = String(task.priority || "").toLowerCase();
+                const priorityClass =
+                  priority === "high"
+                    ? "bg-terracotta-light text-terracotta border-terracotta/30"
+                    : priority === "low"
+                      ? "bg-sage-light text-sage border-sage/30"
+                      : "bg-sky-light text-sky border-sky/30";
+
+                return (
+                  <motion.div
+                    key={task.id}
+                    initial={{ opacity: 0, x: 8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.04 }}
+                    className="rounded-xl border border-border bg-muted/20 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="min-w-0 truncate text-sm font-medium text-foreground">{task.title}</p>
+                      {task.priority ? (
+                        <Badge variant="outline" className={`shrink-0 ${priorityClass}`}>
+                          {String(task.priority)}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      {task.category ? (
+                        <span className="rounded-full bg-background px-2 py-0.5">
+                          {task.category}
+                        </span>
+                      ) : null}
+                      {task.assigneeLabel ? <span>{task.assigneeLabel}</span> : null}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {selectedDateTasks.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
+                No tasks due on this day.
               </div>
             ) : null}
           </div>
@@ -438,8 +582,16 @@ export function MiniCalendarWidget({ state }) {
 }
 
 export function MiniMoodWidget({ state }) {
-  const dates = Array.isArray(state?.tracker?.dates) ? state.tracker.dates : [];
-  const paintedCount = dates.filter((item) => item?.is_painted).length;
+  const dates = Array.isArray(state?.tracker?.dates) ? state.tracker.dates : EMPTY_ARRAY;
+  const [selectedDate, setSelectedDate] = useState(() => dates.find((item) => item?.date)?.date || "");
+
+  const effectiveSelectedDate = useMemo(() => {
+    if (dates.some((item) => item?.date === selectedDate)) return selectedDate;
+    return dates.find((item) => item?.date)?.date || "";
+  }, [dates, selectedDate]);
+
+  const paintedDays = Array.isArray(state?.tracker?.painted_days) ? state.tracker.painted_days : EMPTY_ARRAY;
+  const paintedByRegion = Object.fromEntries(paintedDays.map((entry) => [entry.region_id, entry]));
 
   return (
     <WidgetShell
@@ -452,35 +604,62 @@ export function MiniMoodWidget({ state }) {
       ) : state.error ? (
         <EmptyState message="Could not load mood tracker." />
       ) : (
-        <div className="flex h-full flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-border bg-muted/25 p-3">
-              <p className="text-xs text-muted-foreground">Painted</p>
-              <p className="mt-1 text-2xl font-semibold text-foreground">{paintedCount}</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-muted/25 p-3">
-              <p className="text-xs text-muted-foreground">Open days</p>
-              <p className="mt-1 text-2xl font-semibold text-foreground">
-                {dates.filter((item) => !item?.is_future && !item?.is_painted).length}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-7 gap-2">
+        <div className="flex h-full flex-col gap-3">
+          <div className="grid grid-cols-7 gap-1">
             {dates.slice(0, 7).map((item) => (
-              <div key={item.date} className="rounded-xl border border-border bg-background p-2 text-center">
-                <p className="text-[10px] text-muted-foreground">{formatWeekdayDate(item.date).split(",")[0]}</p>
-                <div className="mt-2 flex justify-center">
-                  <span
-                    className={`h-5 w-5 rounded-full border border-card ${
-                      item.is_future
-                        ? "bg-muted"
-                        : moodTokenStyles[item.color_token] || (item.is_painted ? "bg-primary" : "bg-border")
-                    }`}
-                  />
-                </div>
+              <div key={`${item.date}-label`} className="py-1 text-center text-xs text-muted-foreground">
+                {formatWeekdayOnly(item.date)}
               </div>
             ))}
+          </div>
+
+          <div className="grid grid-cols-7 gap-1">
+            {dates.slice(0, 7).map((item) => {
+              const isSelected = item.date === effectiveSelectedDate;
+              const moodDotClass = item.is_future
+                ? "bg-muted"
+                : item.color_token
+                  ? MOOD_TOKEN_COLOR_CLASS[item.color_token] || moodTokenStyles[item.color_token] || "bg-primary"
+                  : item.is_painted
+                    ? "bg-primary"
+                    : "bg-border";
+
+              return (
+                <motion.button
+                  key={item.date}
+                  type="button"
+                  onClick={() => setSelectedDate(item.date)}
+                  whileTap={{ scale: 0.98 }}
+                  className={`relative rounded-lg py-2 text-center text-sm transition-colors ${
+                    isSelected ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <span>{new Date(`${item.date}T00:00:00`).getDate()}</span>
+                  <div className="mt-2 flex justify-center">
+                    <span
+                      className={`h-4 w-4 rounded-full border border-card ${moodDotClass}`}
+                    />
+                  </div>
+                </motion.button>
+              );
+            })}
+          </div>
+
+          <div className="rounded-2xl border border-border bg-background/80 p-3">
+            <div className="rounded-xl border border-border bg-muted/20 p-3">
+              <div className="aspect-[1.15/1] overflow-hidden rounded-xl bg-background/80 p-2">
+                <MoodArtwork
+                  periodType={state?.tracker?.period_type || "weekly"}
+                  imageId={state?.tracker?.image_id}
+                  regionIds={state?.tracker?.region_ids || []}
+                  paintedByRegion={paintedByRegion}
+                  selectedDate={effectiveSelectedDate || null}
+                  onRegionClick={() => {}}
+                  onRegionHover={() => {}}
+                  svgMarkup={state?.tracker?.svg_markup}
+                />
+              </div>
+            </div>
           </div>
         </div>
       )}
