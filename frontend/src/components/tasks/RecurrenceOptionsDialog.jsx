@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Repeat, Calendar } from "lucide-react";
 import {
   Dialog,
@@ -68,6 +68,14 @@ function nearestWeekday(fromDateStr, targetDayIndex) {
   return d.toISOString().slice(0, 10);
 }
 
+function getInitialWeekdays(frequency, weekdays, dueDate) {
+  if (frequency === "weekly" && weekdays.length === 0 && dueDate) {
+    return [new Date(`${dueDate}T00:00:00`).getDay()];
+  }
+
+  return weekdays;
+}
+
 /**
  * RecurrenceOptionsDialog
  *
@@ -89,20 +97,10 @@ const RecurrenceOptionsDialog = ({
   dueDate = "",
   onApply,
 }) => {
-  const [localInterval, setLocalInterval] = useState(interval);
-  const [localWeekdays, setLocalWeekdays] = useState(weekdays);
-
-  useEffect(() => {
-    if (!open) return;
-    setLocalInterval(interval);
-
-    if (frequency === "weekly" && weekdays.length === 0 && dueDate) {
-      const day = new Date(`${dueDate}T00:00:00`).getDay();
-      setLocalWeekdays([day]);
-    } else {
-      setLocalWeekdays(weekdays);
-    }
-  }, [open, interval, weekdays, frequency, dueDate]);
+  const [localInterval, setLocalInterval] = useState(() => interval);
+  const [localWeekdays, setLocalWeekdays] = useState(() =>
+    getInitialWeekdays(frequency, weekdays, dueDate)
+  );
 
   const frequencyLabel =
     frequency === "daily" ? "Daily" : frequency === "weekly" ? "Weekly" : "Monthly";

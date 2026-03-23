@@ -122,6 +122,22 @@ class AnalyticsAuthorizationTests(unittest.TestCase):
         self.assertEqual(exc.exception.status_code, 403)
         membership_mock.assert_called_once_with(self.db, self.user_id, self.household_id)
 
+    def test_ai_model_payload_coerces_string_evidence_to_list(self) -> None:
+        payload = service._AnalyticsAIModelPayload.model_validate(
+            {
+                "summary": "Load is concentrated.",
+                "risks": [],
+                "recommendations": [],
+                "evidence": "Data shows 57 load balance score and 6 overdue tasks.",
+                "confidence": "medium",
+            }
+        )
+
+        self.assertEqual(
+            payload.evidence,
+            ["Data shows 57 load balance score and 6 overdue tasks."],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

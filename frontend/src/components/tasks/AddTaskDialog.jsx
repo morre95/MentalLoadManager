@@ -645,6 +645,13 @@ const AddTaskDialog = ({
       </DialogContent>
 
       <RecurrenceOptionsDialog
+        key={[
+          recurrenceConfigOpen ? "open" : "closed",
+          recurrenceFrequency ?? "none",
+          recurrenceInterval,
+          recurrenceWeekdays.join(","),
+          dueDate || "no-due-date",
+        ].join(":")}
         open={recurrenceConfigOpen}
         onOpenChange={setRecurrenceConfigOpen}
         frequency={recurrenceFrequency}

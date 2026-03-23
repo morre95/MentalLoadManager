@@ -67,12 +67,32 @@ ANALYTICS_AI_PROMPT_VERSION = "analytics-ai-insights-v1"
 logger = logging.getLogger(__name__)
 
 
+def _coerce_string_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        parts = [
+            part.strip(" -\t")
+            for part in value.replace("\r", "\n").split("\n")
+            if part.strip(" -\t")
+        ]
+        return parts if parts else [value.strip()]
+    return [str(value).strip()]
+
+
 class _AnalyticsAIModelPayload(BaseModel):
     summary: str
     risks: list[AnalyticsRiskItem] = Field(default_factory=list)
     recommendations: list[AnalyticsRecommendationItem] = Field(default_factory=list)
     evidence: list[str] = Field(default_factory=list)
     confidence: Literal["low", "medium", "high"]
+
+    @field_validator("evidence", mode="before")
+    @classmethod
+    def _coerce_evidence(cls, value: Any) -> list[str]:
+        return _coerce_string_list(value)
 
 
 class _AnalyticsAskModelPayload(BaseModel):
@@ -83,18 +103,7 @@ class _AnalyticsAskModelPayload(BaseModel):
     @field_validator("evidence", "suggested_followups", mode="before")
     @classmethod
     def _coerce_string_list(cls, value: Any) -> list[str]:
-        if value is None:
-            return []
-        if isinstance(value, list):
-            return [str(item).strip() for item in value if str(item).strip()]
-        if isinstance(value, str):
-            parts = [
-                part.strip(" -\t")
-                for part in value.replace("\r", "\n").split("\n")
-                if part.strip(" -\t")
-            ]
-            return parts if parts else [value.strip()]
-        return [str(value).strip()]
+        return _coerce_string_list(value)
 
 
 _INTERNAL_ANALYTICS_TERMS = {

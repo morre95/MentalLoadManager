@@ -15,6 +15,12 @@ export function normalizeAnalyticsSummary(data) {
         return d.toLocaleString(CHART_LOCALE, { weekday: "short" });
     };
 
+    const formatShortDate = (yyyyMmDd) => {
+        if (!yyyyMmDd) return "";
+        const d = new Date(`${yyyyMmDd}T00:00:00`);
+        return d.toLocaleString(CHART_LOCALE, { month: "short", day: "numeric" });
+    };
+
     const safeArray = (x) => (Array.isArray(x) ? x : []);
 
     return {
@@ -36,8 +42,10 @@ export function normalizeAnalyticsSummary(data) {
         })),
 
         completionData: safeArray(data?.completionData).map((row) => ({
-            day: formatWeekday(row?.day),
+            day: row?.day ?? "",
             _dayKey: row?.day ?? "",
+            _dayLabel: formatWeekday(row?.day),
+            _shortDateLabel: formatShortDate(row?.day),
             completed: row?.completed ?? 0,
             pending: row?.pending ?? 0,
         })),

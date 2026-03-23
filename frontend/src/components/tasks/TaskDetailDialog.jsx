@@ -1037,6 +1037,13 @@ const TaskDetailDialog = ({
       </DialogContent>
 
       <RecurrenceOptionsDialog
+        key={[
+          recurrenceConfigOpen ? "open" : "closed",
+          recurrenceDraft ?? "none",
+          recurrenceIntervalDraft,
+          recurrenceWeekdaysDraft.join(","),
+          dueDateDraft || "no-due-date",
+        ].join(":")}
         open={recurrenceConfigOpen}
         onOpenChange={setRecurrenceConfigOpen}
         frequency={recurrenceDraft === "none" ? null : recurrenceDraft}

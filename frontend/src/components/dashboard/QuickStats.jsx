@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle2, Clock, TrendingUp, Users } from "lucide-react";
 
-const API_BASE_URL =
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+import { apiClient, resolveCurrentHouseholdId } from "@/lib/utils";
+import { fetchAnalyticsSummary } from "@shared";
 
 // Mock fallback (logged out / API fails)
 const mockResponse = {
@@ -44,28 +44,52 @@ const QuickStats = () => {
 
         async function load() {
             try {
-                const res = await fetch(`${API_BASE_URL}/dashboard/quick-stats?range=week`, {
-                    credentials: "include",
-                });
-
-                if (!res.ok) return;
-
-                const json = await res.json();
-                if (!json || typeof json !== "object") return;
+                const householdId = await resolveCurrentHouseholdId();
+                if (!householdId) return;
+                const summary = await fetchAnalyticsSummary(apiClient, householdId, "7d");
+                const stats = Array.isArray(summary?.stats) ? summary.stats : [];
+                const getStat = (title) =>
+                    stats.find((item) => String(item?.title || "").toLowerCase() === title.toLowerCase());
+                const completedStat = getStat("Done This Week");
+                const openStat = getStat("Open Tasks Remaining");
+                const balanceStat = getStat("Load Balance Score");
 
                 if (!cancelled) {
-                    // Merge safely so missing fields don’t crash UI
                     setData((prev) => ({
                         ...prev,
-                        ...json,
-                        completedThisWeek: { ...prev.completedThisWeek, ...(json.completedThisWeek || {}) },
-                        inProgress: { ...prev.inProgress, ...(json.inProgress || {}) },
-                        familyBalance: { ...prev.familyBalance, ...(json.familyBalance || {}) },
-                        mentalLoadScore: { ...prev.mentalLoadScore, ...(json.mentalLoadScore || {}) },
+                        rangeLabel: "Last 7 days",
+                        completedThisWeek: {
+                            ...prev.completedThisWeek,
+                            value: Number(completedStat?.value ?? prev.completedThisWeek.value),
+                            changeText: completedStat?.description || prev.completedThisWeek.changeText,
+                            trend: completedStat?.trend === "up" ? "up" : "neutral",
+                        },
+                        inProgress: {
+                            ...prev.inProgress,
+                            value: Number(openStat?.value ?? prev.inProgress.value),
+                            dueToday: prev.inProgress.dueToday,
+                        },
+                        familyBalance: {
+                            ...prev.familyBalance,
+                            valuePercent: Number(balanceStat?.value ?? prev.familyBalance.valuePercent),
+                            changeText: balanceStat?.description || prev.familyBalance.changeText,
+                            trend: balanceStat?.trend === "down" ? "down" : "up",
+                        },
+                        mentalLoadScore: {
+                            ...prev.mentalLoadScore,
+                            value:
+                                Number(balanceStat?.value) >= 80
+                                    ? "Low"
+                                    : Number(balanceStat?.value) >= 60
+                                        ? "Medium"
+                                        : "High",
+                            changeText: "Based on household load balance",
+                            trend: Number(balanceStat?.value) >= 60 ? "up" : "neutral",
+                        },
                     }));
                 }
             } catch (err) {
-                console.error("Failed to fetch quick stats:", err);
+                console.error("Failed to load quick stats from analytics summary:", err);
             }
         }
 

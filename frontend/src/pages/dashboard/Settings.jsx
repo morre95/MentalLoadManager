@@ -691,7 +691,7 @@ const Settings = () => {
           <Separator />
           <SettingRow label="Household" description="Choose which household categories to manage">
             <Select
-              value={currentHouseholdId ?? undefined}
+              value={currentHouseholdId ?? ""}
               onValueChange={setCurrentHouseholdId}
               disabled={isLoadingHouseholds || households.length === 0}
             >

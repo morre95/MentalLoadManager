@@ -15,13 +15,15 @@ function toNumber(value) {
 
 function toMomentumData(data) {
     const points = Array.isArray(data) ? data.slice(-7) : [];
-    return points.map((point) => {
+    return points.map((point, index) => {
         const completed = toNumber(point?.completed);
         const pending = toNumber(point?.pending);
         const total = completed + pending;
         const rate = total > 0 ? (completed / total) * 100 : 0;
         return {
-            day: point?.day || "Day",
+            day: point?.day || `day-${index}`,
+            label: point?._dayLabel || point?._shortDateLabel || point?.day || "Day",
+            shortDateLabel: point?._shortDateLabel || point?.day || "Day",
             completionRate: Number(rate.toFixed(1)),
             total,
         };
@@ -56,7 +58,11 @@ export default function MomentumChart({
                 }}
             >
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                <XAxis
+                    dataKey="day"
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                    tickFormatter={(_, index) => momentumData[index]?.label || ""}
+                />
                 <YAxis
                     domain={[0, 100]}
                     tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
@@ -64,12 +70,13 @@ export default function MomentumChart({
                 />
                 <Tooltip
                     contentStyle={tooltipStyle}
+                    labelFormatter={(_, payload) => payload?.[0]?.payload?.shortDateLabel || payload?.[0]?.payload?.day || ""}
                     formatter={(value) => [`${value}%`, "Completion rate"]}
                 />
                 <Bar dataKey="completionRate" radius={[6, 6, 0, 0]}>
-                    {momentumData.map((item) => (
+                    {momentumData.map((item, index) => (
                         <Cell
-                            key={item.day}
+                            key={item.day || index}
                             fill={
                                 item.completionRate >= 70
                                     ? "hsl(var(--sage))"

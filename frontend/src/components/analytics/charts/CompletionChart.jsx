@@ -47,9 +47,16 @@ export default function CompletionChart({
                     }}
                 >
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                    <XAxis
+                        dataKey="day"
+                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                        tickFormatter={(_, index) => data?.[index]?._dayLabel || data?.[index]?._shortDateLabel || ""}
+                    />
                     <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                    <Tooltip contentStyle={tooltipStyle} />
+                    <Tooltip
+                        contentStyle={tooltipStyle}
+                        labelFormatter={(_, payload) => payload?.[0]?.payload?._shortDateLabel || payload?.[0]?.payload?.day || ""}
+                    />
 
                     <Line dataKey="completed" stroke="hsl(var(--sage))" type="monotone" strokeWidth={2} />
                     <Line dataKey="pending" stroke="hsl(var(--terracotta))" type="monotone" strokeWidth={2} />
