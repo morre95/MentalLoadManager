@@ -7,6 +7,7 @@ from .calendar_connections import CalendarConnections
 from .categories import Categories
 from .contact_messages import ContactMessages
 from .daily_reports import DailyReports
+from .email_jobs import EmailJobs
 from .goals import Goals
 from .goal_ai_checkins_cache import GoalAICheckinsCache
 from .goal_history import GoalHistory
@@ -57,6 +58,7 @@ __all__ = [
     "MonthlyReports",
     "MoodEntries",
     "DailyReports",
+    "EmailJobs",
     "AISummaries",
     "ContactMessages",
     "Goals",

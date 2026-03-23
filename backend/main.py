@@ -11,6 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from app.v1.cache_maintenance import run_ai_cache_maintenance_loop, stop_background_task
+from app.v1.email_worker import run_email_queue_loop
 from app.v1.routers import all_routers
 from app.v1.config import settings
 from app.v1.helpers import setup_db_and_tables
@@ -21,10 +22,12 @@ from app.v1.limiter import limiter
 async def lifespan(_: FastAPI):
     setup_db_and_tables()
     cache_cleanup_task = asyncio.create_task(run_ai_cache_maintenance_loop())
+    email_queue_task = asyncio.create_task(run_email_queue_loop())
     try:
         yield
     finally:
         await stop_background_task(cache_cleanup_task)
+        await stop_background_task(email_queue_task)
 
 
 app = FastAPI(lifespan=lifespan, debug=True)

@@ -45,6 +45,5 @@ class WeeklySummaryEmailDispatchResponse(BaseModel):
     week_end: date
     users_targeted: int
     households_targeted: int
-    emails_sent: int
-    emails_failed: int
-    summary_generation_failures: int
+    jobs_enqueued: int
+    jobs_skipped: int
