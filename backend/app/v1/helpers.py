@@ -173,6 +173,13 @@ def setup_db_and_tables() -> None:
                     "ADD COLUMN IF NOT EXISTS achievement_notifications BOOLEAN NOT NULL DEFAULT TRUE"
                 )
             )
+        if "weekly_analytics_email" not in notification_setting_columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE notification_settings "
+                    "ADD COLUMN IF NOT EXISTS weekly_analytics_email BOOLEAN NOT NULL DEFAULT TRUE"
+                )
+            )
         if "week_end" not in ai_summary_columns:
             connection.execute(
                 text("ALTER TABLE ai_summaries ADD COLUMN IF NOT EXISTS week_end DATE")
