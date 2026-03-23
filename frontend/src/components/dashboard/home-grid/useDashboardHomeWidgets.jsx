@@ -24,7 +24,7 @@ import { fetchAnalyticsSummary, fetchCalendarRange } from "../../../../../shared
 
 export function useDashboardHomeWidgets() {
   const { households } = useHousehold();
-  const { tasks, loading: tasksLoading, error: tasksError } = useTaskboardTasks(null, { pageSize: 80 });
+  const { tasks, setTasks, loading: tasksLoading, error: tasksError } = useTaskboardTasks(null, { pageSize: 80 });
 
   const [goalsState, setGoalsState] = useState({ loading: true, goals: [], error: null });
   const [calendarState, setCalendarState] = useState({ loading: true, events: [], error: null });
@@ -220,7 +220,14 @@ export function useDashboardHomeWidgets() {
       description: "Compact task columns",
       size: "large",
       defaultVisible: true,
-      render: () => <MiniTaskboardWidget tasks={tasks} loading={tasksLoading} error={tasksError} />,
+      render: () => (
+        <MiniTaskboardWidget
+          tasks={tasks}
+          setTasks={setTasks}
+          loading={tasksLoading}
+          error={tasksError}
+        />
+      ),
     },
     {
       id: "upcoming-tasks",
@@ -246,7 +253,7 @@ export function useDashboardHomeWidgets() {
       defaultVisible: true,
       render: () => <MiniMoodWidget state={moodState} />,
     },
-  ]), [calendarState, moodState, tasks, tasksError, tasksLoading]);
+  ]), [calendarState, moodState, setTasks, tasks, tasksError, tasksLoading]);
 
   const analyticsWidgets = useMemo(() => {
     if (analyticsState.loading) {
