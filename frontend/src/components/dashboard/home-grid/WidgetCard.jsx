@@ -3,6 +3,7 @@ import { EyeOff, GripVertical } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+import { Badge } from "@/components/ui/badge";
 import { sizeClasses } from "@/components/dashboard/home-grid/helpers";
 
 export function WidgetShell({ title, description, accent, children }) {
@@ -30,7 +31,7 @@ export function EmptyState({ message }) {
   );
 }
 
-export function SortableWidget({ widget, onRemove }) {
+export function SortableWidget({ widget, onRemove, isEditing = false }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: widget.id });
 
@@ -48,26 +49,35 @@ export function SortableWidget({ widget, onRemove }) {
       exit={{ opacity: 0, scale: 0.94 }}
       className={`widget-card relative group ${sizeClasses[widget.size]} ${
         isDragging ? "widget-card-dragging opacity-50" : ""
-      }`}
+      } ${isEditing ? "before:pointer-events-none before:absolute before:inset-0 before:rounded-[1.45rem] before:border before:border-dashed before:border-primary/20 before:content-['']" : ""}`}
     >
-      <div className="absolute right-3 top-3 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <button
-          type="button"
-          onClick={() => onRemove(widget.id)}
-          className="rounded-lg bg-muted/90 p-1.5 text-muted-foreground transition-colors hover:text-destructive"
-        >
-          <EyeOff className="h-3.5 w-3.5" />
-        </button>
-        <div
-          {...attributes}
-          {...listeners}
-          className="cursor-grab rounded-lg bg-muted/90 p-1.5 active:cursor-grabbing"
-          role="button"
-          tabIndex={0}
-        >
-          <GripVertical className="h-4 w-4 text-muted-foreground" />
+      {isEditing ? (
+        <div className="absolute inset-x-3 top-3 z-10 flex items-center justify-between gap-2">
+          <Badge variant="outline" className="border-border/60 bg-background/90 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Editable
+          </Badge>
+          <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-background/90 p-1">
+            <button
+              type="button"
+              onClick={() => onRemove(widget.id)}
+              className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+              aria-label={`Hide ${widget.title}`}
+            >
+              <EyeOff className="h-3.5 w-3.5" />
+            </button>
+            <div
+              {...attributes}
+              {...listeners}
+              className="cursor-grab rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted active:cursor-grabbing"
+              role="button"
+              tabIndex={0}
+              aria-label={`Move ${widget.title}`}
+            >
+              <GripVertical className="h-4 w-4" />
+            </div>
+          </div>
         </div>
-      </div>
+      ) : null}
       {widget.render()}
     </motion.div>
   );

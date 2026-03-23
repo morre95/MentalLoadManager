@@ -1,6 +1,6 @@
 import { getUserFromLocalStorage } from "@/lib/auth";
 
-export const DASHBOARD_WIDGETS_STORAGE_KEY_PREFIX = "dashboard-home-widgets-v3";
+export const DASHBOARD_WIDGETS_STORAGE_KEY_PREFIX = "dashboard-home-widgets-v4";
 
 export const sizeClasses = {
   small: "col-span-1",
@@ -61,6 +61,27 @@ export const ANALYTICS_CHART_META = {
   },
 };
 
+export const DASHBOARD_LAYOUT_PRESETS = [
+  {
+    id: "focus",
+    label: "Focused",
+    description: "A practical workspace for today’s priorities.",
+    widgetIds: ["quick-stats", "mini-taskboard", "upcoming-tasks", "mini-calendar", "mini-mood"],
+  },
+  {
+    id: "planner",
+    label: "Planner",
+    description: "Calendar and task-heavy layout for weekly planning.",
+    widgetIds: ["mini-calendar", "upcoming-tasks", "mini-taskboard", "quick-stats", "goal-"],
+  },
+  {
+    id: "insights",
+    label: "Insights",
+    description: "Analytics-first dashboard with high-level signals.",
+    widgetIds: ["quick-stats", "analytics-chart-distribution", "analytics-chart-completion", "analytics-chart-load-trend", "analytics-"],
+  },
+];
+
 export function getDashboardStorageKey() {
   const user = getUserFromLocalStorage();
   const userKey = user?.username || user?.email || "anonymous";
@@ -83,6 +104,45 @@ export function readStoredWidgetIds() {
 export function writeWidgetIds(ids) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(getDashboardStorageKey(), JSON.stringify(ids));
+}
+
+export function inferWidgetCategory(widget) {
+  const id = String(widget?.id || "");
+  const title = String(widget?.title || "").toLowerCase();
+
+  if (id.startsWith("analytics-") || title.includes("analytics")) return "Analytics";
+  if (id.includes("calendar") || title.includes("calendar")) return "Planning";
+  if (id.includes("task") || title.includes("task")) return "Tasks";
+  if (id.includes("goal") || title.includes("goal")) return "Goals";
+  if (id.includes("mood") || title.includes("mood")) return "Wellbeing";
+  return "Overview";
+}
+
+export function getWidgetSizeLabel(size) {
+  if (size === "large") return "Large";
+  if (size === "medium") return "Medium";
+  return "Small";
+}
+
+export function resolvePresetWidgetIds(preset, allWidgets) {
+  const availableIds = new Set((allWidgets || []).map((widget) => widget.id));
+  const resolved = [];
+
+  for (const requestedId of preset?.widgetIds || []) {
+    if (requestedId.endsWith("-")) {
+      const match = (allWidgets || [])
+        .filter((widget) => widget.id.startsWith(requestedId))
+        .map((widget) => widget.id);
+      resolved.push(...match);
+      continue;
+    }
+
+    if (availableIds.has(requestedId)) {
+      resolved.push(requestedId);
+    }
+  }
+
+  return Array.from(new Set(resolved));
 }
 
 export function slugify(value) {
