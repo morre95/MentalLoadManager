@@ -14,6 +14,13 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.v1.config import settings
+from app.v1.email_queue import (
+    EMAIL_JOB_MAX_ATTEMPTS,
+    EMAIL_JOB_STATUS_PENDING,
+    EMAIL_JOB_TYPE_WEEKLY_SUMMARY_HOUSEHOLD,
+    build_weekly_summary_household_idempotency_key,
+    enqueue_email_jobs,
+)
 from app.v1.helpers import get_session_local
 from app.v1.models import UserEmail
 
@@ -639,65 +646,50 @@ def dispatch_weekly_summary_emails(
 
     users_targeted = len({row.user_id for row in targets})
     households_targeted = len({row.household_id for row in targets})
-    emails_sent = 0
-    emails_failed = 0
-    summary_generation_failures = 0
-    household_summaries: dict[UUID, dict[str, object] | None] = {}
+    household_jobs: dict[UUID, dict[str, object]] = {}
 
     for row in targets:
-        household_summary = household_summaries.get(row.household_id)
-
-        if household_summary is None and row.household_id not in household_summaries:
-            try:
-                household_summary = _generate_summary_payload(
-                    GenerateWeeklySummaryRequest(
-                        household_id=row.household_id,
-                        week_start=week_start,
-                    ),
-                    username=row.username,
-                )
-            except Exception as exc:
-                logger.exception(
-                    "Weekly summary generation failed for household %s",
-                    row.household_id,
-                )
-                household_summaries[row.household_id] = {
-                    "error": str(exc),
-                }
-                summary_generation_failures += 1
-                emails_failed += 1
-                continue
-
-            household_summaries[row.household_id] = household_summary
-
-        summary_payload = household_summaries.get(row.household_id)
-        if not summary_payload or "summary_text" not in summary_payload:
-            emails_failed += 1
-            continue
-
         recipient_name = (
             row.display_name.strip()
             if isinstance(row.display_name, str) and row.display_name.strip()
             else row.username
         )
+        job = household_jobs.get(row.household_id)
+        if not job:
+            job = {
+                "job_type": EMAIL_JOB_TYPE_WEEKLY_SUMMARY_HOUSEHOLD,
+                "status": EMAIL_JOB_STATUS_PENDING,
+                "idempotency_key": build_weekly_summary_household_idempotency_key(
+                    household_id=str(row.household_id),
+                    week_start_iso=week_start.isoformat(),
+                ),
+                "payload": {
+                    "household_id": str(row.household_id),
+                    "household_name": row.household_name,
+                    "username": row.username,
+                    "week_start": week_start.isoformat(),
+                    "recipients": [],
+                },
+                "max_attempts": EMAIL_JOB_MAX_ATTEMPTS,
+                "run_after": datetime.now(UTC),
+            }
+            household_jobs[row.household_id] = job
 
-        try:
-            _send_weekly_summary_email(
-                recipient_email=row.email.strip(),
-                recipient_name=recipient_name,
-                household_name=row.household_name,
-                week_start=week_start,
-                week_end_exclusive=week_end,
-                summary_text=str(summary_payload["summary_text"]),
-            )
-            emails_sent += 1
-        except Exception:
-            logger.exception(
-                "Weekly summary email send failed for user %s in household %s",
-                row.user_id,
-                row.household_id,
-            )
-            emails_failed += 1
+        payload = cast(dict[str, object], job["payload"])
+        recipients = cast(list[dict[str, str]], payload["recipients"])
+        recipients.append(
+            {
+                "user_id": str(row.user_id),
+                "email": row.email.strip(),
+                "recipient_name": recipient_name,
+            }
+        )
+
+    with session_local() as db:
+        jobs_enqueued = enqueue_email_jobs(db, list(household_jobs.values()))
+        db.commit()
+
+    jobs_skipped = max(len(household_jobs) - jobs_enqueued, 0)
 
     return WeeklySummaryEmailDispatchResponse(
         dispatch_date=current_date,
@@ -706,9 +698,8 @@ def dispatch_weekly_summary_emails(
         week_end=week_end,
         users_targeted=users_targeted,
         households_targeted=households_targeted,
-        emails_sent=emails_sent,
-        emails_failed=emails_failed,
-        summary_generation_failures=summary_generation_failures,
+        jobs_enqueued=jobs_enqueued,
+        jobs_skipped=jobs_skipped,
     )
 
 

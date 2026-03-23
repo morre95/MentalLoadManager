@@ -37,6 +37,14 @@ from fastapi import HTTPException  # noqa: E402
 from routers.ai_summaries import service  # noqa: E402
 
 
+class _FakeDB:
+    def __init__(self) -> None:
+        self.commit_calls = 0
+
+    def commit(self) -> None:
+        self.commit_calls += 1
+
+
 class _FakeSessionContext:
     def __init__(self, db: object) -> None:
         self._db = db
@@ -50,12 +58,12 @@ class _FakeSessionContext:
 
 class AIWeeklySummaryEmailDispatchServiceTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.db = object()
+        self.db = _FakeDB()
 
     def _session_local(self):
         return _FakeSessionContext(self.db)
 
-    def test_dispatch_sends_emails_for_targets_and_reuses_household_summary(self) -> None:
+    def test_dispatch_enqueues_one_household_job_for_targets(self) -> None:
         household_id = uuid4()
         user_id_1 = uuid4()
         user_id_2 = uuid4()
@@ -80,28 +88,24 @@ class AIWeeklySummaryEmailDispatchServiceTest(unittest.TestCase):
             ),
         ]
 
+        captured_jobs = []
+
+        def _capture_enqueue(db, jobs):
+            self.assertIs(db, self.db)
+            captured_jobs.extend(jobs)
+            return 1
+
         with patch.object(service, "get_session_local", return_value=self._session_local):
             with patch.object(
                 service,
                 "list_weekly_summary_email_targets",
                 return_value=targets,
             ) as targets_mock:
-                with patch.object(
-                    service,
-                    "_generate_summary_payload",
-                    return_value={
-                        "week_start": date(2026, 3, 9),
-                        "week_end": date(2026, 3, 16),
-                        "summary_text": "Neutral weekly summary.",
-                        "model": "test-model",
-                        "prompt_hash": "abc123",
-                    },
-                ) as summary_mock:
-                    with patch.object(service, "_send_weekly_summary_email") as send_mock:
-                        response = service.dispatch_weekly_summary_emails(
-                            cron_secret="cron-test-secret",
-                            dispatch_date=dispatch_date,
-                        )
+                with patch.object(service, "enqueue_email_jobs", side_effect=_capture_enqueue):
+                    response = service.dispatch_weekly_summary_emails(
+                        cron_secret="cron-test-secret",
+                        dispatch_date=dispatch_date,
+                    )
 
         self.assertEqual(response.dispatch_date, dispatch_date)
         self.assertEqual(response.first_day_of_week, "monday")
@@ -109,13 +113,19 @@ class AIWeeklySummaryEmailDispatchServiceTest(unittest.TestCase):
         self.assertEqual(response.week_end, date(2026, 3, 16))
         self.assertEqual(response.users_targeted, 2)
         self.assertEqual(response.households_targeted, 1)
-        self.assertEqual(response.emails_sent, 2)
-        self.assertEqual(response.emails_failed, 0)
-        self.assertEqual(response.summary_generation_failures, 0)
+        self.assertEqual(response.jobs_enqueued, 1)
+        self.assertEqual(response.jobs_skipped, 0)
         targets_mock.assert_called_once_with(self.db)
-        summary_mock.assert_called_once()
-        send_mock.assert_called()
-        self.assertEqual(send_mock.call_count, 2)
+        self.assertEqual(self.db.commit_calls, 1)
+        self.assertEqual(len(captured_jobs), 1)
+        queued_job = captured_jobs[0]
+        self.assertEqual(queued_job["job_type"], "weekly_summary_household")
+        self.assertEqual(
+            queued_job["idempotency_key"],
+            f"weekly_summary_household:{household_id}:2026-03-09",
+        )
+        self.assertEqual(queued_job["payload"]["household_id"], str(household_id))
+        self.assertEqual(len(queued_job["payload"]["recipients"]), 2)
 
     def test_dispatch_rejects_invalid_cron_secret(self) -> None:
         with self.assertRaises(HTTPException) as exc:

@@ -49,9 +49,8 @@ class AIWeeklySummaryEmailDispatchRouteTest(unittest.TestCase):
             "week_end": "2026-03-16",
             "users_targeted": 2,
             "households_targeted": 1,
-            "emails_sent": 2,
-            "emails_failed": 0,
-            "summary_generation_failures": 0,
+            "jobs_enqueued": 1,
+            "jobs_skipped": 0,
         }
 
         with patch(

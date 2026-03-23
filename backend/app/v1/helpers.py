@@ -180,6 +180,18 @@ def setup_db_and_tables() -> None:
                     "ADD COLUMN IF NOT EXISTS weekly_analytics_email BOOLEAN NOT NULL DEFAULT TRUE"
                 )
             )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_email_jobs_status_run_after "
+                "ON email_jobs(status, run_after)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_email_jobs_job_type_status "
+                "ON email_jobs(job_type, status)"
+            )
+        )
         if "week_end" not in ai_summary_columns:
             connection.execute(
                 text("ALTER TABLE ai_summaries ADD COLUMN IF NOT EXISTS week_end DATE")
