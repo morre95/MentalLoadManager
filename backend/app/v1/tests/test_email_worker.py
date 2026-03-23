@@ -77,14 +77,14 @@ class EmailWorkerTests(unittest.TestCase):
                 raise RuntimeError("Resend failure")
 
         original_generate = worker._generate_summary_payload
-        original_send = worker._send_weekly_summary_email
+        original_send = worker.send_weekly_summary_email
         worker._generate_summary_payload = _generate_summary_payload
-        worker._send_weekly_summary_email = _send_email
+        worker.send_weekly_summary_email = _send_email
         try:
             succeeded, next_payload, last_error = process_email_job(job)
         finally:
             worker._generate_summary_payload = original_generate
-            worker._send_weekly_summary_email = original_send
+            worker.send_weekly_summary_email = original_send
 
         self.assertFalse(succeeded)
         self.assertEqual(calls, ["alex@example.com", "sam@example.com"])

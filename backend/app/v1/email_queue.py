@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import Select, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -35,7 +35,8 @@ def enqueue_email_jobs(db: Session, jobs: list[dict[str, Any]]) -> int:
         .values(jobs)
         .on_conflict_do_nothing(index_elements=[EmailJobs.idempotency_key])
     )
-    return int(result.rowcount or 0)
+    result_with_rowcount = cast(Any, result)
+    return int(result_with_rowcount.rowcount or 0)
 
 
 def recover_stale_processing_email_jobs(

@@ -238,7 +238,7 @@ def _build_weekly_summary_email_html(
     )
 
 
-def _send_weekly_summary_email(
+def send_weekly_summary_email(
     *,
     recipient_email: str,
     recipient_name: str,

@@ -22,7 +22,7 @@ from app.v1.models import EmailJobs
 from app.v1.routers.ai_summaries.schemas import GenerateWeeklySummaryRequest
 from app.v1.routers.ai_summaries.service import (
     _generate_summary_payload,
-    _send_weekly_summary_email,
+    send_weekly_summary_email,
 )
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ def _process_weekly_summary_household_job(job: EmailJobs) -> tuple[bool, dict | 
 
     for recipient in recipients:
         try:
-            _send_weekly_summary_email(
+            send_weekly_summary_email(
                 recipient_email=recipient["email"],
                 recipient_name=recipient["recipient_name"],
                 household_name=household_name,
