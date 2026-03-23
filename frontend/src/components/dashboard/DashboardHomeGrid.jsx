@@ -127,18 +127,19 @@ function InlineInsertSlot({ open, hiddenWidgets, onToggle, onInsert }) {
   const quickPicks = hiddenWidgets.slice(0, 3);
 
   return (
-    <div className="rounded-[1.15rem] border border-dashed border-border/70 bg-background/45 p-3 transition-colors hover:bg-background/70">
+    <div className="pointer-events-none absolute -right-3 top-1/2 z-20 flex -translate-y-1/2 items-center justify-center">
+      <div className="h-20 w-px bg-border/70" />
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="pointer-events-auto absolute inline-flex h-7 w-7 items-center justify-center rounded-full border border-border/70 bg-background text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-foreground"
+        aria-label="Add widget here"
       >
-        <Plus className="h-4 w-4" />
-        Add block here
+        <Plus className="h-3.5 w-3.5" />
       </button>
 
       {open ? (
-        <div className="mt-2 space-y-2 rounded-xl border border-border/60 bg-background/90 p-2">
+        <div className="pointer-events-auto absolute left-8 top-1/2 z-20 w-[min(22rem,calc(100vw-2rem))] -translate-y-1/2 space-y-2 rounded-xl border border-border/60 bg-background/95 p-2 shadow-lg">
           <p className="px-2 pt-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
             Quick insert
           </p>
@@ -420,17 +421,21 @@ export default function DashboardHomeGrid() {
       >
         <SortableContext items={activeWidgetIds} strategy={rectSortingStrategy}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {isEditing && hiddenWidgets.length > 0 ? (
-              <InlineInsertSlot
-                open={activeInsertIndex === 0}
-                hiddenWidgets={hiddenWidgets}
-                onToggle={() => setActiveInsertIndex((current) => (current === 0 ? null : 0))}
-                onInsert={(id) => handleInsertAt(id, 0)}
-              />
-            ) : null}
             <AnimatePresence>
               {activeWidgets.map((widget, index) => (
                 <Fragment key={widget.id}>
+                  {isEditing && hiddenWidgets.length > 0 && index === 0 ? (
+                    <div className="pointer-events-none absolute left-0 top-0 z-20 h-0 w-0">
+                      <div className="absolute -left-3 top-[10.5rem]">
+                        <InlineInsertSlot
+                          open={activeInsertIndex === 0}
+                          hiddenWidgets={hiddenWidgets}
+                          onToggle={() => setActiveInsertIndex((current) => (current === 0 ? null : 0))}
+                          onInsert={(id) => handleInsertAt(id, 0)}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
                   <SortableWidget
                     widget={widget}
                     onRemove={handleRemove}
