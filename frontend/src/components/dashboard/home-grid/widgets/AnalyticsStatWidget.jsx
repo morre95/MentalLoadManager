@@ -15,6 +15,7 @@ export function AnalyticsStatWidget({ stat }) {
       title={stat?.title || "Analytics"}
       description={stat?.description || "Live household metric."}
       accent="h-9 w-9 rounded-2xl bg-primary/10"
+      className="h-[220px]"
     >
       <div className="flex h-full flex-col justify-between gap-4">
         <div>

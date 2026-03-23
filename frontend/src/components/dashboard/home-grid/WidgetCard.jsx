@@ -6,9 +6,9 @@ import { CSS } from "@dnd-kit/utilities";
 import { Badge } from "@/components/ui/badge";
 import { sizeClasses } from "@/components/dashboard/home-grid/helpers";
 
-export function WidgetShell({ title, description, accent, children }) {
+export function WidgetShell({ title, description, accent, children, className = "", contentClassName = "" }) {
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-[1.35rem] border border-border bg-card/95 p-4 shadow-sm">
+    <div className={`flex h-full flex-col overflow-hidden rounded-[1.35rem] border border-border bg-card/95 p-4 shadow-sm ${className}`}>
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="font-display text-base font-semibold text-foreground">{title}</h3>
@@ -18,7 +18,7 @@ export function WidgetShell({ title, description, accent, children }) {
         </div>
         {accent ? <div className={accent} /> : null}
       </div>
-      <div className="min-h-0 flex-1">{children}</div>
+      <div className={`min-h-0 flex-1 ${contentClassName}`}>{children}</div>
     </div>
   );
 }

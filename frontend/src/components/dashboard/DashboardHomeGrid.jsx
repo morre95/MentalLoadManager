@@ -420,7 +420,7 @@ export default function DashboardHomeGrid() {
         onDragEnd={handleDragEnd}
       >
         <SortableContext items={activeWidgetIds} strategy={rectSortingStrategy}>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
             <AnimatePresence>
               {activeWidgets.map((widget, index) => (
                 <Fragment key={widget.id}>
