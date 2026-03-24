@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Bot, CalendarDays, Loader2, Sparkles } from "lucide-react";
+import { Bot, CalendarDays, Loader2, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +51,7 @@ export default function Summarys() {
   const [savedReports, setSavedReports] = useState([]);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [activeReportAction, setActiveReportAction] = useState(null);
   const [requestError, setRequestError] = useState(null);
 
   const householdOptions = useMemo(
@@ -194,6 +195,52 @@ export default function Summarys() {
     setSummary(mapReportToSummary(report));
   };
 
+  const handleDeleteReport = async (report) => {
+    if (!report?.ai_summary_id || activeReportAction) return;
+
+    setActiveReportAction({ type: "delete", reportId: report.ai_summary_id });
+    setRequestError(null);
+
+    try {
+      await apiFetch(`/api/v1/ai/summaries/${report.ai_summary_id}`, {
+        method: "DELETE",
+      });
+
+      const nextReports = savedReports.filter(
+        (savedReport) => savedReport.ai_summary_id !== report.ai_summary_id
+      );
+      setSavedReports(nextReports);
+      setSummary((previousSummary) => {
+        if (previousSummary?.ai_summary_id !== report.ai_summary_id) {
+          return previousSummary;
+        }
+        return nextReports.length > 0 ? mapReportToSummary(nextReports[0]) : null;
+      });
+    } catch (err) {
+      setRequestError(err?.message || "Failed to delete saved summary.");
+    } finally {
+      setActiveReportAction(null);
+    }
+  };
+
+  const handleRegenerateReport = async (report) => {
+    if (!report?.ai_summary_id || activeReportAction) return;
+
+    setActiveReportAction({ type: "regenerate", reportId: report.ai_summary_id });
+    setRequestError(null);
+
+    try {
+      const nextSummary = await apiFetch(`/api/v1/ai/summaries/${report.ai_summary_id}/regenerate`, {
+        method: "POST",
+      });
+      setSummary(nextSummary);
+    } catch (err) {
+      setRequestError(err?.message || "Failed to regenerate weekly summary.");
+    } finally {
+      setActiveReportAction(null);
+    }
+  };
+
   if (loading && householdOptions.length === 0) {
     return <div className="p-6 text-muted-foreground">Loading summaries…</div>;
   }
@@ -300,26 +347,60 @@ export default function Summarys() {
             </div>
           ) : null}
           {savedReports.map((report) => (
-            <button
+            <div
               key={report.ai_summary_id}
-              type="button"
-              onClick={() => handleOpenSavedReport(report)}
-              className="flex w-full items-start justify-between rounded-lg border border-border bg-background p-4 text-left transition hover:bg-muted/30"
+              className="flex items-start gap-3 rounded-lg border border-border bg-background p-4 transition hover:bg-muted/30"
             >
-              <div className="space-y-1">
-                <div className="text-sm font-medium text-foreground">
-                  Weekly summary
+              <button
+                type="button"
+                onClick={() => handleOpenSavedReport(report)}
+                className="flex min-w-0 flex-1 items-start justify-between text-left"
+              >
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-foreground">
+                    Weekly summary
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {formatWeekLabel(report.week_start)}
+                    {report.week_start !== report.week_end ? ` to ${formatWeekLabel(report.week_end)}` : ""}
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {formatWeekLabel(report.week_start)}
-                  {report.week_start !== report.week_end ? ` to ${formatWeekLabel(report.week_end)}` : ""}
+                <div className="ml-4 text-right text-xs text-muted-foreground">
+                  <div>{report.status}</div>
+                  {report.model ? <div>{report.model}</div> : null}
                 </div>
+              </button>
+              <div className="flex shrink-0 gap-2">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  onClick={() => void handleRegenerateReport(report)}
+                  disabled={Boolean(activeReportAction)}
+                  aria-label="Regenerate summary"
+                >
+                  {activeReportAction?.type === "regenerate" && activeReportAction?.reportId === report.ai_summary_id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  onClick={() => void handleDeleteReport(report)}
+                  disabled={Boolean(activeReportAction)}
+                  aria-label="Delete summary"
+                >
+                  {activeReportAction?.type === "delete" && activeReportAction?.reportId === report.ai_summary_id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
-              <div className="text-right text-xs text-muted-foreground">
-                <div>{report.status}</div>
-                {report.model ? <div>{report.model}</div> : null}
-              </div>
-            </button>
+            </div>
           ))}
         </CardContent>
       </Card>

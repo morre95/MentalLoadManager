@@ -6,6 +6,7 @@ import unittest
 from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 from uuid import uuid4
 
 from fastapi import HTTPException
@@ -106,25 +107,25 @@ class AISummaryActionsServiceTest(unittest.TestCase):
         )
         background_tasks = _BackgroundTasksStub()
 
-        with unittest.mock.patch.object(
+        with patch.object(
             service, "get_session_local", return_value=self._session_local
         ):
-            with unittest.mock.patch.object(
+            with patch.object(
                 service,
                 "get_user_by_username",
                 return_value=SimpleNamespace(user_id=self.user_id),
             ):
-                with unittest.mock.patch.object(
+                with patch.object(
                     service,
                     "get_ai_summary",
                     return_value=existing_summary,
                 ):
-                    with unittest.mock.patch.object(
+                    with patch.object(
                         service,
                         "has_household_membership",
                         return_value=True,
                     ):
-                        with unittest.mock.patch.object(
+                        with patch.object(
                             service,
                             "create_ai_summary",
                             return_value=new_summary,
@@ -165,20 +166,20 @@ class AISummaryActionsServiceTest(unittest.TestCase):
             week_start=date(2026, 3, 16),
         )
 
-        with unittest.mock.patch.object(
+        with patch.object(
             service, "get_session_local", return_value=self._session_local
         ):
-            with unittest.mock.patch.object(
+            with patch.object(
                 service,
                 "get_user_by_username",
                 return_value=SimpleNamespace(user_id=self.user_id),
             ):
-                with unittest.mock.patch.object(
+                with patch.object(
                     service,
                     "get_ai_summary",
                     return_value=existing_summary,
                 ):
-                    with unittest.mock.patch.object(
+                    with patch.object(
                         service,
                         "has_household_membership",
                         return_value=False,
@@ -198,25 +199,25 @@ class AISummaryActionsServiceTest(unittest.TestCase):
             household_id=self.household_id,
         )
 
-        with unittest.mock.patch.object(
+        with patch.object(
             service, "get_session_local", return_value=self._session_local
         ):
-            with unittest.mock.patch.object(
+            with patch.object(
                 service,
                 "get_user_by_username",
                 return_value=SimpleNamespace(user_id=self.user_id),
             ):
-                with unittest.mock.patch.object(
+                with patch.object(
                     service,
                     "get_ai_summary",
                     return_value=existing_summary,
                 ):
-                    with unittest.mock.patch.object(
+                    with patch.object(
                         service,
                         "has_household_membership",
                         return_value=True,
                     ):
-                        with unittest.mock.patch.object(
+                        with patch.object(
                             service,
                             "delete_ai_summary",
                         ) as delete_mock:
