@@ -7,6 +7,7 @@ from .calendar_connections import CalendarConnections
 from .categories import Categories
 from .contact_messages import ContactMessages
 from .daily_reports import DailyReports
+from .email_verification_token import EmailVerificationToken
 from .email_jobs import EmailJobs
 from .goals import Goals
 from .goal_ai_checkins_cache import GoalAICheckinsCache
@@ -58,6 +59,7 @@ __all__ = [
     "MonthlyReports",
     "MoodEntries",
     "DailyReports",
+    "EmailVerificationToken",
     "EmailJobs",
     "AISummaries",
     "ContactMessages",

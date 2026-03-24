@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     MAIL_FROM_NAME: str = "Mental Load Manager"
     CONTACT_RECIPIENT_EMAIL: str
     WEEKLY_SUMMARY_CRON_SECRET: str = ""
+    EMAIL_VERIFICATION_EXPIRE_HOURS: int = 24
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

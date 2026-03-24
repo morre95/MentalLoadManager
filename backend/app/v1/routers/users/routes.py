@@ -8,9 +8,20 @@ from .schemas import (
     ChangePasswordRequest,
     RegisterUserRequest,
     RegisterUserResponse,
+    ResendVerificationEmailRequest,
     UpdateMeRequest,
+    VerificationEmailResponse,
+    VerifyEmailCodeRequest,
+    VerifyEmailResponse,
 )
-from .service import change_my_password, register_user, update_me
+from .service import (
+    change_my_password,
+    register_user,
+    resend_verification_email,
+    update_me,
+    verify_email_code,
+    verify_email_token,
+)
 
 router = APIRouter(
     prefix="/api/v1/users",
@@ -26,6 +37,35 @@ router = APIRouter(
 @limiter.limit("5/minute")
 def register_user_route(request: Request, payload: RegisterUserRequest):
     return register_user(payload)
+
+
+@router.get("/verify-email")
+def verify_email_route(token: str):
+    return verify_email_token(token)
+
+
+@router.post(
+    "/verify-email/resend",
+    response_model=VerificationEmailResponse,
+)
+@limiter.limit("5/minute")
+def resend_verification_email_route(
+    request: Request,
+    payload: ResendVerificationEmailRequest,
+):
+    return resend_verification_email(payload)
+
+
+@router.post(
+    "/verify-email/code",
+    response_model=VerifyEmailResponse,
+)
+@limiter.limit("10/minute")
+def verify_email_code_route(
+    request: Request,
+    payload: VerifyEmailCodeRequest,
+):
+    return verify_email_code(payload)
 
 
 @router.get("/me", response_model=UserEmail)
