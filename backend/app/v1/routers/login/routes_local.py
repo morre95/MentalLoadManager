@@ -37,6 +37,7 @@ def login_route(
     token = login(form, request)
     set_auth_cookies(
         response,
+        request=request,
         access_token=token.access_token,
         refresh_token=token.refresh_token,
     )
@@ -54,6 +55,7 @@ def refresh_route(
     token = refresh_password_session(payload, request)
     set_auth_cookies(
         response,
+        request=request,
         access_token=token.access_token,
         refresh_token=token.refresh_token,
     )
@@ -61,5 +63,5 @@ def refresh_route(
 
 
 @router.post("/api/v1/password/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout_route(response: Response):
-    clear_auth_cookies(response)
+def logout_route(request: Request, response: Response):
+    clear_auth_cookies(response, request)

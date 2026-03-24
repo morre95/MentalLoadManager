@@ -4,7 +4,7 @@ import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Literal, cast
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from uuid import UUID, uuid4
 
 import jwt
@@ -177,6 +177,7 @@ def issue_login_redirect(username: str, request: Request) -> RedirectResponse:
     response = RedirectResponse(url=f"{FRONTEND_URL}/dashboard")
     set_auth_cookies(
         response,
+        request=request,
         access_token=access_token,
         refresh_token=raw_refresh_token,
     )
@@ -196,16 +197,18 @@ def _issue_login_error_redirect(
 def set_auth_cookies(
     response: Response,
     *,
+    request: Request | None = None,
     access_token: str,
     refresh_token: str | None,
 ) -> None:
+    cookie_secure, cookie_samesite = _resolve_auth_cookie_policy(request)
     response.set_cookie(
         key=ACCESS_TOKEN_COOKIE_KEY,
         value=access_token,
         max_age=ACCESS_TOKEN_COOKIE_MAX_AGE_SECONDS,
         httponly=True,
-        secure=AUTH_COOKIE_SECURE,
-        samesite=AUTH_COOKIE_SAMESITE_VALUE,
+        secure=cookie_secure,
+        samesite=cookie_samesite,
         path="/",
     )
 
@@ -215,35 +218,89 @@ def set_auth_cookies(
             value=refresh_token,
             max_age=REFRESH_TOKEN_COOKIE_MAX_AGE_SECONDS,
             httponly=True,
-            secure=AUTH_COOKIE_SECURE,
-            samesite=AUTH_COOKIE_SAMESITE_VALUE,
+            secure=cookie_secure,
+            samesite=cookie_samesite,
             path="/",
         )
     else:
         response.delete_cookie(
             key=REFRESH_TOKEN_COOKIE_KEY,
             httponly=True,
-            secure=AUTH_COOKIE_SECURE,
-            samesite=AUTH_COOKIE_SAMESITE_VALUE,
+            secure=cookie_secure,
+            samesite=cookie_samesite,
             path="/",
         )
 
 
-def clear_auth_cookies(response: Response) -> None:
+def clear_auth_cookies(response: Response, request: Request | None = None) -> None:
+    cookie_secure, cookie_samesite = _resolve_auth_cookie_policy(request)
     response.delete_cookie(
         key=ACCESS_TOKEN_COOKIE_KEY,
         httponly=True,
-        secure=AUTH_COOKIE_SECURE,
-        samesite=AUTH_COOKIE_SAMESITE_VALUE,
+        secure=cookie_secure,
+        samesite=cookie_samesite,
         path="/",
     )
     response.delete_cookie(
         key=REFRESH_TOKEN_COOKIE_KEY,
         httponly=True,
-        secure=AUTH_COOKIE_SECURE,
-        samesite=AUTH_COOKIE_SAMESITE_VALUE,
+        secure=cookie_secure,
+        samesite=cookie_samesite,
         path="/",
     )
+
+
+def _resolve_auth_cookie_policy(
+    request: Request | None,
+) -> tuple[bool, Literal["lax", "strict", "none"]]:
+    samesite = AUTH_COOKIE_SAMESITE_VALUE
+    secure = AUTH_COOKIE_SECURE
+
+    if samesite == "lax" and request is not None and _auth_cookie_needs_cross_site(request):
+        samesite = "none"
+
+    if samesite == "none" and request is not None and _request_is_https(request):
+        secure = True
+
+    return secure, samesite
+
+
+def _auth_cookie_needs_cross_site(request: Request) -> bool:
+    frontend_origin = _normalized_origin(FRONTEND_URL)
+    backend_origin = _normalized_origin(_request_origin(request))
+    if not frontend_origin or not backend_origin:
+        return False
+    return frontend_origin != backend_origin
+
+
+def _request_is_https(request: Request) -> bool:
+    forwarded_proto = request.headers.get("x-forwarded-proto")
+    if forwarded_proto:
+        return forwarded_proto.split(",")[0].strip().lower() == "https"
+    return request.url.scheme.lower() == "https"
+
+
+def _request_origin(request: Request) -> str:
+    if BACKEND_URL:
+        return BACKEND_URL
+
+    forwarded_proto = request.headers.get("x-forwarded-proto")
+    forwarded_host = request.headers.get("x-forwarded-host")
+    if forwarded_proto and forwarded_host:
+        proto = forwarded_proto.split(",")[0].strip()
+        host = forwarded_host.split(",")[0].strip()
+        return f"{proto}://{host}"
+
+    return str(request.base_url).rstrip("/")
+
+
+def _normalized_origin(url: str) -> str:
+    if not url:
+        return ""
+    parsed = urlparse(url)
+    if not parsed.scheme or not parsed.netloc:
+        return ""
+    return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}"
 
 
 def require_env(name: str) -> str:
