@@ -189,6 +189,11 @@ def _to_saved_summary_item(ai_summary) -> SavedSummaryItemResponse:
     return SavedSummaryItemResponse(
         ai_summary_id=str(ai_summary.ai_summary_id),
         household_id=str(ai_summary.household_id),
+        household_name=(
+            ai_summary.household.name
+            if getattr(ai_summary, "household", None) and ai_summary.household.name
+            else "Unnamed household"
+        ),
         week_start=ai_summary.week_start,
         week_end=_resolve_week_end(ai_summary),
         granted_at=created_at,

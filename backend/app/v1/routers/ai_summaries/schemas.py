@@ -25,6 +25,7 @@ class WeeklySummaryResponse(BaseModel):
 class SavedSummaryItemResponse(BaseModel):
     ai_summary_id: str
     household_id: str
+    household_name: str
     week_start: date
     week_end: date
     granted_at: date | None = None

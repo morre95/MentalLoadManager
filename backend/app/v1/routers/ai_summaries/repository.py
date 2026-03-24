@@ -4,7 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import and_, desc, func, or_, select
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session, aliased, joinedload
 
 from app.v1.models import (
     AISummaries,
@@ -140,6 +140,7 @@ def list_ai_summaries_for_user(
 ) -> list[AISummaries]:
     query = (
         select(AISummaries)
+        .options(joinedload(AISummaries.household))
         .join(UsersHouseholds, UsersHouseholds.household_id == AISummaries.household_id)
         .where(UsersHouseholds.user_id == user_id)
         .order_by(desc(AISummaries.created_at), desc(AISummaries.week_start))

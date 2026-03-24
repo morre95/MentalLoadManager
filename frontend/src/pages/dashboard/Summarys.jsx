@@ -361,6 +361,9 @@ export default function Summarys() {
                     Weekly summary
                   </div>
                   <div className="text-xs text-muted-foreground">
+                    {report.household_name || "Unnamed household"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
                     {formatWeekLabel(report.week_start)}
                     {report.week_start !== report.week_end ? ` to ${formatWeekLabel(report.week_end)}` : ""}
                   </div>
