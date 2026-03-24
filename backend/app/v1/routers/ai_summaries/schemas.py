@@ -38,6 +38,11 @@ class SavedSummariesListResponse(BaseModel):
     summaries: list[SavedSummaryItemResponse]
 
 
+class SummaryDeleteResponse(BaseModel):
+    ai_summary_id: str
+    deleted: bool
+
+
 class WeeklySummaryEmailDispatchResponse(BaseModel):
     dispatch_date: date
     first_day_of_week: str

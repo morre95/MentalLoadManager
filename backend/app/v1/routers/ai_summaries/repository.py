@@ -128,6 +128,10 @@ def get_ai_summary(db: Session, ai_summary_id: UUID) -> AISummaries | None:
     return db.get(AISummaries, ai_summary_id)
 
 
+def delete_ai_summary(db: Session, ai_summary: AISummaries) -> None:
+    db.delete(ai_summary)
+
+
 def list_ai_summaries_for_user(
     db: Session,
     *,

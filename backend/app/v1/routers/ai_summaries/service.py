@@ -26,6 +26,7 @@ from app.v1.models import UserEmail
 
 from .repository import (
     create_ai_summary,
+    delete_ai_summary,
     fetch_household_tasks,
     fetch_weekly_tasks,
     get_ai_summary,
@@ -37,6 +38,7 @@ from .repository import (
 from .schemas import (
     GenerateWeeklySummaryRequest,
     SavedSummariesListResponse,
+    SummaryDeleteResponse,
     SavedSummaryItemResponse,
     WeeklySummaryEmailDispatchResponse,
     WeeklySummaryResponse,
@@ -626,6 +628,110 @@ def queue_weekly_summary_generation(
     )
 
     return _to_weekly_summary_response(ai_summary)
+
+
+def regenerate_weekly_summary(
+    ai_summary_id: UUID,
+    current_user: UserEmail,
+    background_tasks,
+) -> WeeklySummaryResponse:
+    session_local = _get_session_factory()
+
+    with session_local() as db:
+        user = get_user_by_username(db, current_user.username)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+            )
+
+        existing_summary = get_ai_summary(db, ai_summary_id)
+        if not existing_summary:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="AI summary not found",
+            )
+
+        if not has_household_membership(db, user.user_id, existing_summary.household_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a member of the specified household",
+            )
+
+        week_start = _normalize_week_start(existing_summary.week_start)
+        week_end = _week_end_exclusive(week_start)
+        ai_summary = create_ai_summary(
+            db,
+            household_id=existing_summary.household_id,
+            week_start=week_start,
+            week_end=week_end,
+            content="",
+            model=None,
+            prompt_hash=None,
+            status="pending",
+            error=None,
+        )
+        try:
+            db.commit()
+        except SQLAlchemyError as exc:
+            db.rollback()
+            logger.exception("Failed to queue ai_summary regeneration job: %s", exc)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to queue weekly summary job",
+            ) from exc
+        db.refresh(ai_summary)
+
+    background_tasks.add_task(
+        _run_weekly_summary_generation_task,
+        ai_summary_id=ai_summary.ai_summary_id,
+        household_id=ai_summary.household_id,
+        week_start=week_start,
+        username=current_user.username,
+    )
+
+    return _to_weekly_summary_response(ai_summary)
+
+
+def delete_summary(
+    ai_summary_id: UUID,
+    current_user: UserEmail,
+) -> SummaryDeleteResponse:
+    session_local = _get_session_factory()
+
+    with session_local() as db:
+        user = get_user_by_username(db, current_user.username)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+            )
+
+        ai_summary = get_ai_summary(db, ai_summary_id)
+        if not ai_summary:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="AI summary not found",
+            )
+
+        if not has_household_membership(db, user.user_id, ai_summary.household_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a member of the specified household",
+            )
+
+        delete_ai_summary(db, ai_summary)
+        try:
+            db.commit()
+        except SQLAlchemyError as exc:
+            db.rollback()
+            logger.exception("Failed to delete ai_summary %s: %s", ai_summary_id, exc)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete weekly summary",
+            ) from exc
+
+    return SummaryDeleteResponse(ai_summary_id=str(ai_summary_id), deleted=True)
 
 
 def dispatch_weekly_summary_emails(

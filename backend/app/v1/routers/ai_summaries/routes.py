@@ -10,14 +10,17 @@ from app.v1.models import UserEmail
 from .schemas import (
     GenerateWeeklySummaryRequest,
     SavedSummariesListResponse,
+    SummaryDeleteResponse,
     WeeklySummaryEmailDispatchResponse,
     WeeklySummaryResponse,
 )
 from .service import (
+    delete_summary,
     dispatch_weekly_summary_emails,
     get_weekly_summary,
     list_summaries,
     queue_weekly_summary_generation,
+    regenerate_weekly_summary,
 )
 
 router = APIRouter(
@@ -49,6 +52,23 @@ def list_summaries_route(
     current_user: UserEmail = Depends(get_current_user),
 ):
     return list_summaries(current_user, household_id)
+
+
+@router.post("/summaries/{ai_summary_id}/regenerate", response_model=WeeklySummaryResponse)
+def regenerate_summary_route(
+    ai_summary_id: UUID,
+    background_tasks: BackgroundTasks,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    return regenerate_weekly_summary(ai_summary_id, current_user, background_tasks)
+
+
+@router.delete("/summaries/{ai_summary_id}", response_model=SummaryDeleteResponse)
+def delete_summary_route(
+    ai_summary_id: UUID,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    return delete_summary(ai_summary_id, current_user)
 
 
 @router.post(
