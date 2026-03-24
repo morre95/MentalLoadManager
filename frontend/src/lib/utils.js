@@ -6,6 +6,9 @@ import {
   isUserLoggedIn,
   getUserFromLocalStorage,
   saveUserToLocalStorage,
+  getAccessToken,
+  getRefreshToken,
+  setAuthTokens,
 } from "./auth";
 import {
   acceptHouseholdInvite as sharedAcceptHouseholdInvite,
@@ -80,6 +83,9 @@ function getHouseholdIdFromStoredValue(value) {
 
 
 export const apiClient = createApiClient({
+  getAccessToken,
+  getRefreshToken,
+  setAuthTokens,
   onUnauthorized: clearAuth,
   shouldRefresh: isUserLoggedIn,
   onNetworkError: () => {
