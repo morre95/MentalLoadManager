@@ -463,7 +463,7 @@ def _resolve_oauth_user(
     email_verified: bool,
     display_name: str | None,
 ) -> str:
-    from models import OAuthAccounts, UserDB
+    from app.v1.models import OAuthAccounts, UserDB
 
     normalized_email = email.strip().lower() if email else None
     username = normalized_email or f"{provider}:{provider_user_id}"
@@ -558,7 +558,7 @@ def save_oauth_tokens(
     email: str | None = None,
     expires_at: datetime | None = None,
 ) -> None:
-    from models import OAuthAccounts
+    from app.v1.models import OAuthAccounts
 
     try:
         session_local = get_session_local()
