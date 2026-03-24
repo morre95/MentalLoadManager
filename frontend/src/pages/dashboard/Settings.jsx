@@ -105,6 +105,7 @@ const Settings = () => {
   const [isSavingCategory, setIsSavingCategory] = useState(false);
   const [deletingCategoryId, setDeletingCategoryId] = useState(null);
   const [theme, setTheme] = useState("light");
+  const [profileUsername, setProfileUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -150,12 +151,14 @@ const Settings = () => {
     const hydrateProfile = async () => {
       const cached = getUserFromLocalStorage();
       if (cached && active) {
+        setProfileUsername(cached.username || "");
         setDisplayName(cached.display_name || "");
         setProfileEmail(cached.email || "");
       }
 
       const me = await fetchMe();
       if (active && me) {
+        setProfileUsername(me.username || "");
         setDisplayName(me.display_name || "");
         setProfileEmail(me.email || "");
         setHasPassword(Boolean(me.has_password));
@@ -416,16 +419,24 @@ const Settings = () => {
   };
 
   const handleSaveProfile = async () => {
+    const trimmedUsername = profileUsername.trim();
     const trimmedDisplayName = displayName.trim();
     const trimmedEmail = profileEmail.trim();
+
+    if (!trimmedUsername) {
+      toast.error("Username cannot be empty");
+      return;
+    }
 
     setIsSavingProfile(true);
     try {
       const updated = await updateMe({
+        username: trimmedUsername,
         display_name: trimmedDisplayName || null,
         email: trimmedEmail || null,
       });
 
+      setProfileUsername(updated?.username || "");
       setDisplayName(updated?.display_name || "");
       setProfileEmail(updated?.email || "");
       toast.success("Profile saved");
@@ -539,6 +550,15 @@ const Settings = () => {
           <SectionHeader icon={User} title="Profile" description="Your personal information" />
           <Separator />
           <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-sm text-muted-foreground">Username</Label>
+              <Input
+                value={profileUsername}
+                onChange={(e) => setProfileUsername(e.target.value)}
+                placeholder="your_username"
+                autoComplete="username"
+              />
+            </div>
             <div className="space-y-1.5">
               <Label className="text-sm text-muted-foreground">Display Name</Label>
               <Input

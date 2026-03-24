@@ -242,10 +242,11 @@ def register_user(payload: RegisterUserRequest) -> RegisterUserResponse:
 
 
 def update_me(payload: UpdateMeRequest, current_user: UserEmail) -> UserEmail:
+    username_provided = payload.username is not None
     email_provided = payload.email is not None
     display_name_provided = payload.display_name is not None
 
-    if not email_provided and not display_name_provided:
+    if not username_provided and not email_provided and not display_name_provided:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="At least one field must be provided",
@@ -266,6 +267,22 @@ def update_me(payload: UpdateMeRequest, current_user: UserEmail) -> UserEmail:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Could not validate credentials",
             )
+
+        if username_provided:
+            new_username = payload.username.strip()
+            if not new_username:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Username cannot be empty",
+                )
+            if new_username.lower() != user.username.lower():
+                conflict = find_user_by_username(db, new_username)
+                if conflict and conflict.user_id != user.user_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Username already taken",
+                    )
+                user.username = new_username
 
         current_email = _normalize_email(user.email)
         email_changed = False
@@ -320,6 +337,7 @@ def update_me(payload: UpdateMeRequest, current_user: UserEmail) -> UserEmail:
             email=user.email,
             display_name=user.display_name,
             email_verified=bool(user.email_verified_at),
+            has_password=bool(user.password),
         )
 
 

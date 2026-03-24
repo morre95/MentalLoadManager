@@ -18,6 +18,7 @@ class RegisterUserResponse(BaseModel):
 
 
 class UpdateMeRequest(BaseModel):
+    username: str | None = Field(default=None, min_length=1, max_length=50)
     email: str | None = Field(default=None, max_length=254)
     display_name: str | None = Field(default=None, max_length=100)
 
