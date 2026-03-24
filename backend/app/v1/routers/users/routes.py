@@ -9,6 +9,7 @@ from .schemas import (
     RegisterUserRequest,
     RegisterUserResponse,
     ResendVerificationEmailRequest,
+    SetPasswordRequest,
     UpdateMeRequest,
     VerificationEmailResponse,
     VerifyEmailCodeRequest,
@@ -18,6 +19,7 @@ from .service import (
     change_my_password,
     register_user,
     resend_verification_email,
+    set_my_password,
     update_me,
     verify_email_code,
     verify_email_token,
@@ -87,3 +89,11 @@ def change_users_me_password(
     current_user: UserEmail = Depends(get_current_user),
 ):
     return change_my_password(payload, current_user)
+
+
+@router.post("/me/set-password")
+def set_users_me_password(
+    payload: SetPasswordRequest,
+    current_user: UserEmail = Depends(get_current_user),
+):
+    return set_my_password(payload, current_user)

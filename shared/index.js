@@ -63,6 +63,7 @@ export {
 
 export {
   changeMyPassword,
+  setMyPassword,
   fetchPreferences,
   fetchMe,
   fetchNotificationSettings,

@@ -488,3 +488,40 @@ def change_my_password(payload: ChangePasswordRequest, current_user: UserEmail) 
         db.commit()
 
     return {"message": "Password updated successfully"}
+
+
+def set_my_password(payload, current_user: UserEmail) -> dict:
+    new_password = payload.new_password or ""
+
+    if len(new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters",
+        )
+
+    try:
+        session_local = get_session_local()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    with session_local() as db:
+        user = find_user_by_username(db, current_user.username)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+            )
+        if user.password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Account already has a password. Use the change password endpoint.",
+            )
+
+        user.password = password_hasher.hash(new_password)
+        user.updated_at = datetime.now(timezone.utc)
+        db.commit()
+
+    return {"message": "Password set successfully"}

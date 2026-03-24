@@ -16,6 +16,7 @@ import {
   createKanbanTask as sharedCreateKanbanTask,
   createHouseholdCategory as sharedCreateHouseholdCategory,
   changeMyPassword as sharedChangeMyPassword,
+  setMyPassword as sharedSetMyPassword,
   fetchPreferences as sharedFetchPreferences,
   fetchNotificationSettings as sharedFetchNotificationSettings,
   fetchTaskReminderSummary as sharedFetchTaskReminderSummary,
@@ -175,6 +176,10 @@ export async function updateMe(payload) {
 
 export async function changeMyPassword(payload) {
   return sharedChangeMyPassword(apiClient, payload);
+}
+
+export async function setMyPassword(payload) {
+  return sharedSetMyPassword(apiClient, payload);
 }
 
 export async function fetchKanbanTasks(householdId, options = {}) {

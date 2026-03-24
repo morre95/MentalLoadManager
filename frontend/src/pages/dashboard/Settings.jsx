@@ -43,6 +43,7 @@ import { toast } from "@/components/ui/sonner";
 import { getUserFromLocalStorage } from "@/lib/auth";
 import {
   changeMyPassword,
+  setMyPassword,
   createHouseholdCategory,
   deleteHouseholdCategory,
   fetchPreferences,
@@ -107,6 +108,7 @@ const Settings = () => {
   const [displayName, setDisplayName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [hasPassword, setHasPassword] = useState(null); // null = not yet loaded
 
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -156,6 +158,7 @@ const Settings = () => {
       if (active && me) {
         setDisplayName(me.display_name || "");
         setProfileEmail(me.email || "");
+        setHasPassword(Boolean(me.has_password));
       }
 
       try {
@@ -349,6 +352,34 @@ const Settings = () => {
     toast.success(`Theme set to ${value}`);
   };
 
+  const handleSetPassword = async () => {
+    if (!newPassword || !confirmPassword) {
+      toast.error("Please fill in both password fields");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords don't match");
+      return;
+    }
+    if (newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await setMyPassword({ new_password: newPassword });
+      toast.success("Password set successfully");
+      setNewPassword("");
+      setConfirmPassword("");
+      setHasPassword(true);
+    } catch (error) {
+      toast.error(error?.message || "Could not set password");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast.error("Please fill in all password fields");
@@ -535,31 +566,42 @@ const Settings = () => {
 
         {/* Security */}
         <SectionCard delay={0.1}>
-          <SectionHeader icon={Lock} title="Security" description="Password and account protection" />
+          <SectionHeader
+            icon={Lock}
+            title="Security"
+            description={hasPassword === false ? "Add a password to enable email/password login" : "Password and account protection"}
+          />
           <Separator />
+          {hasPassword === false && (
+            <p className="text-sm text-muted-foreground">
+              Your account was created via social login and has no password yet. Set one to also sign in with email and password.
+            </p>
+          )}
           <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-sm text-muted-foreground">Current Password</Label>
-              <div className="relative">
-                <Input
-                  type={showCurrentPassword ? "text" : "password"}
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Enter current password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+            {hasPassword !== false && (
+              <div className="space-y-1.5">
+                <Label className="text-sm text-muted-foreground">Current Password</Label>
+                <div className="relative">
+                  <Input
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Enter current password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label className="text-sm text-muted-foreground">New Password</Label>
+                <Label className="text-sm text-muted-foreground">{hasPassword === false ? "Password" : "New Password"}</Label>
                 <div className="relative">
                   <Input
                     type={showNewPassword ? "text" : "password"}
@@ -578,20 +620,26 @@ const Settings = () => {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-sm text-muted-foreground">Confirm New Password</Label>
+                <Label className="text-sm text-muted-foreground">Confirm Password</Label>
                 <Input
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Repeat new password"
+                  placeholder="Repeat password"
                 />
               </div>
             </div>
           </div>
           <div className="flex justify-end">
-            <Button size="sm" onClick={handleChangePassword} disabled={isChangingPassword}>
-              {isChangingPassword ? "Updating..." : "Update Password"}
-            </Button>
+            {hasPassword === false ? (
+              <Button size="sm" onClick={handleSetPassword} disabled={isChangingPassword || hasPassword === null}>
+                {isChangingPassword ? "Setting..." : "Set Password"}
+              </Button>
+            ) : (
+              <Button size="sm" onClick={handleChangePassword} disabled={isChangingPassword || hasPassword === null}>
+                {isChangingPassword ? "Updating..." : "Update Password"}
+              </Button>
+            )}
           </div>
         </SectionCard>
 

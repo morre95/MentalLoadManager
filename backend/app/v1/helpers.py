@@ -556,4 +556,5 @@ def get_current_user(
             email=user.email,
             display_name=user.display_name,
             email_verified=bool(user.email_verified_at),
+            has_password=bool(user.password),
         )

@@ -16,6 +16,13 @@ export async function changeMyPassword(apiClient, payload) {
   });
 }
 
+export async function setMyPassword(apiClient, payload) {
+  return apiClient.request("/api/v1/users/me/set-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function fetchNotificationSettings(apiClient) {
   return apiClient.request("/api/v1/settings/notification-settings", {
     method: "GET",
