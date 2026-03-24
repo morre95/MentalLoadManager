@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bot, CalendarDays, Loader2, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -68,10 +68,16 @@ export default function Summarys() {
     [householdOptions]
   );
 
+  const resolveHouseholdName = useCallback((householdId, fallbackName = "") => {
+    if (fallbackName) return fallbackName;
+    if (!householdId) return "Unnamed household";
+    return householdNameById.get(String(householdId)) || "Unnamed household";
+  }, [householdNameById]);
+
   const summaryHouseholdName = useMemo(() => {
     if (!summary?.household_id) return "";
-    return householdNameById.get(String(summary.household_id)) || String(summary.household_id);
-  }, [householdNameById, summary?.household_id]);
+    return resolveHouseholdName(summary.household_id, summary.household_name);
+  }, [resolveHouseholdName, summary?.household_id, summary?.household_name]);
 
   useEffect(() => {
     if (householdOptions.length === 0) {
@@ -361,7 +367,7 @@ export default function Summarys() {
                     Weekly summary
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {report.household_name || "Unnamed household"}
+                    {resolveHouseholdName(report.household_id, report.household_name)}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {formatWeekLabel(report.week_start)}
