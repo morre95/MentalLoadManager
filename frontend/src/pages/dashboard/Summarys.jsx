@@ -30,6 +30,19 @@ function formatWeekLabel(value) {
   });
 }
 
+function mapReportToSummary(report) {
+  return {
+    ai_summary_id: report.ai_summary_id,
+    household_id: report.household_id,
+    week_start: report.week_start,
+    week_end: report.week_end,
+    status: report.status,
+    model: report.model,
+    content: report.content,
+    error: report.error,
+  };
+}
+
 export default function Summarys() {
   const { households, loading, error, refetch } = useHousehold();
   const [selectedHouseholdId, setSelectedHouseholdId] = useState("");
@@ -146,7 +159,18 @@ export default function Summarys() {
           method: "GET",
         });
         if (active) {
-          setSavedReports(Array.isArray(data?.summaries) ? data.summaries : []);
+          const reports = Array.isArray(data?.summaries) ? data.summaries : [];
+          setSavedReports(reports);
+          setSummary((previousSummary) => {
+            if (
+              previousSummary &&
+              String(previousSummary.household_id || "") === selectedHouseholdId
+            ) {
+              return previousSummary;
+            }
+
+            return reports.length > 0 ? mapReportToSummary(reports[0]) : null;
+          });
         }
       } catch (err) {
         if (active) {
@@ -167,16 +191,7 @@ export default function Summarys() {
   }, [selectedHouseholdId, summary?.ai_summary_id, summary?.status]);
 
   const handleOpenSavedReport = (report) => {
-    setSummary({
-      ai_summary_id: report.ai_summary_id,
-      household_id: report.household_id,
-      week_start: report.week_start,
-      week_end: report.week_end,
-      status: report.status,
-      model: report.model,
-      content: report.content,
-      error: report.error,
-    });
+    setSummary(mapReportToSummary(report));
   };
 
   if (loading && householdOptions.length === 0) {
