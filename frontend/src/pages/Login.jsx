@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { GET_API_BASE_URL } from "@/components/ui/base_url";
+import { setAuthTokens } from "@/lib/auth";
 import { fetchMe } from "@/lib/utils";
 
 const API_BASE_URL = GET_API_BASE_URL();
@@ -38,8 +39,12 @@ const Login = () => {
       if (hash) {
         const params = new URLSearchParams(hash);
         const hashToken = params.get("access_token");
+        const hashRefreshToken = params.get("refresh_token");
         if (hashToken) {
-          void hashToken;
+          setAuthTokens({
+            accessToken: hashToken,
+            refreshToken: hashRefreshToken,
+          });
 
           // Clean URL
           window.history.replaceState(
@@ -159,7 +164,10 @@ const Login = () => {
       }
 
       const loginData = await loginRes.json();
-      void loginData;
+      setAuthTokens({
+        accessToken: loginData?.access_token,
+        refreshToken: loginData?.refresh_token,
+      });
       await finishLogin();
     } catch (err) {
       setAuthError(err?.message || (isSignUp ? "Registration failed" : "Login failed"));

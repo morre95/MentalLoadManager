@@ -9,21 +9,30 @@ function dispatchAuthChanged() {
 }
 
 export function getAccessToken() {
-  return null;
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
 export function getRefreshToken() {
-  return null;
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
 export function setAuthToken(token, refreshToken = null) {
   if (typeof window === "undefined") return;
 
-  void token;
-  void refreshToken;
+  if (token) {
+    localStorage.setItem(ACCESS_TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+  }
 
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  if (refreshToken) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  } else {
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+  }
+
   localStorage.setItem(AUTH_STATE_KEY, "1");
 
   localStorage.removeItem("token");
@@ -34,9 +43,21 @@ export function setAuthToken(token, refreshToken = null) {
 export function setAuthTokens(tokens) {
   if (typeof window === "undefined") return;
 
-  void tokens;
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  const accessToken = tokens?.accessToken ?? null;
+  const refreshToken = tokens?.refreshToken ?? null;
+
+  if (accessToken) {
+    localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+  } else {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+  }
+
+  if (refreshToken) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  } else {
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+  }
+
   localStorage.setItem(AUTH_STATE_KEY, "1");
 
   dispatchAuthChanged();
