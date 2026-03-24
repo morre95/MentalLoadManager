@@ -108,6 +108,18 @@ class SetupDbAndTablesTests(unittest.TestCase):
         self.assertIn("CREATE INDEX IF NOT EXISTS idx_email_jobs_status_run_after", executed)
         self.assertIn("CREATE INDEX IF NOT EXISTS idx_email_jobs_job_type_status", executed)
         self.assertIn(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at",
+            executed,
+        )
+        self.assertIn(
+            "CREATE TABLE IF NOT EXISTS email_verification_tokens",
+            executed,
+        )
+        self.assertIn(
+            "CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user",
+            executed,
+        )
+        self.assertIn(
             "ALTER TABLE analytics_ai_insights_cache ADD COLUMN IF NOT EXISTS created_at",
             executed,
         )
