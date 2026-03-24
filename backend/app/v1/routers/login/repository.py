@@ -26,6 +26,29 @@ def get_google_oauth_account(db: Session, user_id):
     )
 
 
+def get_oauth_account(db: Session, *, provider: str, user_id):
+    return db.scalar(
+        select(OAuthAccounts).where(
+            OAuthAccounts.user_id == user_id,
+            OAuthAccounts.provider == provider,
+        )
+    )
+
+
+def get_oauth_account_by_provider_user_id(
+    db: Session,
+    *,
+    provider: str,
+    provider_user_id: str,
+):
+    return db.scalar(
+        select(OAuthAccounts).where(
+            OAuthAccounts.provider == provider,
+            OAuthAccounts.provider_user_id == provider_user_id,
+        )
+    )
+
+
 def get_login_attempt(
     db: Session,
     *,

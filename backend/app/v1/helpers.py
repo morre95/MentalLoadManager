@@ -192,6 +192,38 @@ def setup_db_and_tables() -> None:
                 "ON email_jobs(job_type, status)"
             )
         )
+        connection.execute(
+            text(
+                "ALTER TABLE users "
+                "ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS email_verification_tokens ("
+                "  email_verification_token_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),"
+                "  user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,"
+                "  email VARCHAR(255) NOT NULL,"
+                "  token_hash VARCHAR(64) NOT NULL UNIQUE,"
+                "  code_hash VARCHAR(64) NOT NULL UNIQUE,"
+                "  expires_at TIMESTAMPTZ NOT NULL,"
+                "  consumed_at TIMESTAMPTZ,"
+                "  created_at TIMESTAMPTZ DEFAULT NOW()"
+                ")"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user "
+                "ON email_verification_tokens(user_id)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_email "
+                "ON email_verification_tokens(email)"
+            )
+        )
         if "week_end" not in ai_summary_columns:
             connection.execute(
                 text("ALTER TABLE ai_summaries ADD COLUMN IF NOT EXISTS week_end DATE")
@@ -407,6 +439,11 @@ def authenticate_user(username: str, password: str) -> User | None:
             if not user.password:
                 continue
             if verify_password(password, user.password):
+                if user.email and not user.email_verified_at:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Email verification is required before login",
+                    )
                 user.last_login = datetime.now(timezone.utc)
                 db.commit()
                 return User(username=user.username, user_id=user.user_id)
@@ -509,4 +546,5 @@ def get_current_user(
             user_id=user.user_id,
             email=user.email,
             display_name=user.display_name,
+            email_verified=bool(user.email_verified_at),
         )
