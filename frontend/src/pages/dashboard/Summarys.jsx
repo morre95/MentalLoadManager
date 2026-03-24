@@ -49,6 +49,16 @@ export default function Summarys() {
     [households]
   );
 
+  const householdNameById = useMemo(
+    () => new Map(householdOptions.map((household) => [household.id, household.name])),
+    [householdOptions]
+  );
+
+  const summaryHouseholdName = useMemo(() => {
+    if (!summary?.household_id) return "";
+    return householdNameById.get(String(summary.household_id)) || String(summary.household_id);
+  }, [householdNameById, summary?.household_id]);
+
   useEffect(() => {
     if (householdOptions.length === 0) {
       setSelectedHouseholdId("");
@@ -317,7 +327,7 @@ export default function Summarys() {
               <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                 <span>Status: {summary.status}</span>
                 {summary.model ? <span>Model: {summary.model}</span> : null}
-                <span>Household: {summary.household_id}</span>
+                <span>Household: {summaryHouseholdName}</span>
               </div>
               {summary.status === "pending" ? (
                 <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
