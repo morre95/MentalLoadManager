@@ -74,6 +74,7 @@ def _build_verification_email_html(
     verify_link: str,
     verification_code: str,
 ) -> str:
+    expiry_hours = max(settings.EMAIL_VERIFICATION_EXPIRE_HOURS, 1)
     safe_name = escape(username)
     safe_link = escape(verify_link, quote=True)
     safe_code = escape(verification_code)
@@ -84,7 +85,7 @@ def _build_verification_email_html(
         'style="display:inline-block;padding:12px 18px;background:#64786f;color:#ffffff;'
         'text-decoration:none;border-radius:8px;font-weight:600;">Verify email</a></p>'
         f"<p>If you prefer entering a code, use this one-time code:</p><p><strong style=\"font-size:24px;letter-spacing:4px;\">{safe_code}</strong></p>"
-        "<p>This verification expires in 24 hours.</p>"
+        f"<p>This verification expires in {expiry_hours} hour{'s' if expiry_hours != 1 else ''}.</p>"
     )
 
 
