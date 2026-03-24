@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { GET_API_BASE_URL } from "@/components/ui/base_url";
 import { fetchMe } from "@/lib/utils";
@@ -24,9 +24,13 @@ const Login = () => {
   const [email, setEmail] = useState("");
 
   const [authError, setAuthError] = useState(null);
+  const [infoMessage, setInfoMessage] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verificationLoading, setVerificationLoading] = useState(false);
 
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // 1) Handle OAuth hash token or existing token
   useEffect(() => {
@@ -61,6 +65,33 @@ const Login = () => {
     }
   }, [navigate]);
 
+  useEffect(() => {
+    const verified = searchParams.get("verified");
+    const verification = searchParams.get("verification");
+    const authErrorParam = searchParams.get("authError");
+
+    if (verified === "1") {
+      setInfoMessage("Email verified. You can sign in now.");
+      setAuthError(null);
+      setIsSignUp(false);
+    } else if (verification === "expired") {
+      setAuthError("Verification link expired. Request a new email below.");
+    } else if (verification === "invalid") {
+      setAuthError("Verification link is invalid.");
+    } else if (authErrorParam) {
+      setAuthError(authErrorParam);
+    }
+
+    if (verified || verification || authErrorParam) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("verified");
+      next.delete("verification");
+      next.delete("authError");
+      next.delete("provider");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const finishLogin = async () => {
     window.dispatchEvent(new Event("auth:changed"));
 
@@ -78,6 +109,7 @@ const Login = () => {
   const login = async (e) => {
     e.preventDefault();
     setAuthError(null);
+    setInfoMessage(null);
     setAuthLoading(true);
 
     try {
@@ -92,7 +124,7 @@ const Login = () => {
           body: JSON.stringify({
             username: identifier,
             password,
-            email: email || null,
+            email,
             display_name: name || null,
           }),
         });
@@ -101,6 +133,12 @@ const Login = () => {
           const err = await registerRes.json().catch(() => ({}));
           throw new Error(err.detail || `Registration failed (${registerRes.status})`);
         }
+
+        setInfoMessage("Account created. Check your email for a verification link or code before signing in.");
+        setIsSignUp(false);
+        setPassword("");
+        setConfirmPassword("");
+        return;
       }
 
       const body = new URLSearchParams();
@@ -132,6 +170,58 @@ const Login = () => {
 
   const loginWithProvider = (provider) => {
     window.location.href = `${API_BASE_URL}/api/v1/auth/${provider}/login`;
+  };
+
+  const verifyWithCode = async (e) => {
+    e.preventDefault();
+    setAuthError(null);
+    setInfoMessage(null);
+    setVerificationLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/users/verify-email/code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          code: verificationCode,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.detail || `Verification failed (${response.status})`);
+      }
+      setInfoMessage(data?.message || "Email verified. You can sign in now.");
+      setVerificationCode("");
+      setIsSignUp(false);
+    } catch (err) {
+      setAuthError(err?.message || "Verification failed");
+    } finally {
+      setVerificationLoading(false);
+    }
+  };
+
+  const resendVerificationEmail = async () => {
+    setAuthError(null);
+    setInfoMessage(null);
+    setVerificationLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/users/verify-email/resend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.detail || `Resend failed (${response.status})`);
+      }
+      setInfoMessage(data?.message || "If that email exists, a verification message has been sent.");
+    } catch (err) {
+      setAuthError(err?.message || "Could not resend verification email");
+    } finally {
+      setVerificationLoading(false);
+    }
   };
 
   return (
@@ -316,6 +406,12 @@ const Login = () => {
               </div>
             )}
 
+            {infoMessage && (
+              <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md p-3">
+                {infoMessage}
+              </div>
+            )}
+
             <Button type="submit" className="w-full h-11" disabled={authLoading}>
               {authLoading
                 ? isSignUp
@@ -326,6 +422,42 @@ const Login = () => {
                   : "Sign In"}
             </Button>
           </form>
+
+          <div className="mt-6 rounded-xl border border-border/60 bg-card/70 p-4">
+            <p className="text-sm font-medium text-foreground">Verify email with code</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Enter the email address and code from your verification email, or resend a new one.
+            </p>
+            <form onSubmit={verifyWithCode} className="mt-4 space-y-3">
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+              />
+              <Input
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value)}
+                placeholder="123456"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+              />
+              <div className="flex gap-3">
+                <Button type="submit" variant="outline" disabled={verificationLoading}>
+                  Verify code
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={verificationLoading || !email}
+                  onClick={resendVerificationEmail}
+                >
+                  Resend email
+                </Button>
+              </div>
+            </form>
+          </div>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
             {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}

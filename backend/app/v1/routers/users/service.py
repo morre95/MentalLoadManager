@@ -117,7 +117,7 @@ def _send_verification_email(*, email: str, username: str, link: str, code: str)
         logger.exception("Failed to send verification email to %s: %s", email, exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Account was created, but the verification email could not be sent",
+            detail="Verification email could not be sent",
         ) from exc
 
 

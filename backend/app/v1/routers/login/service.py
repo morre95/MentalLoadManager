@@ -26,8 +26,9 @@ from app.v1.models import LoginAttempt, PasswordRefreshToken, Token, UserDB
 
 from .repository import (
     find_user,
-    get_google_oauth_account,
     get_login_attempt,
+    get_oauth_account,
+    get_oauth_account_by_provider_user_id,
     get_user_by_username,
 )
 from .schemas import RefreshTokenRequest
@@ -180,6 +181,16 @@ def issue_login_redirect(username: str, request: Request) -> RedirectResponse:
         refresh_token=raw_refresh_token,
     )
     return response
+
+
+def _issue_login_error_redirect(
+    *,
+    error: str,
+    provider: str,
+) -> RedirectResponse:
+    return RedirectResponse(
+        url=f"{FRONTEND_URL}/login?{urlencode({'authError': error, 'provider': provider})}"
+    )
 
 
 def set_auth_cookies(
@@ -444,12 +455,18 @@ def _revoke_refresh_token_family(db, *, user_id: UUID, family_id: UUID) -> None:
         row.revoked_at = now_utc
 
 
-def upsert_google_user(user_data: dict) -> str:
-    from models import UserDB
+def _resolve_oauth_user(
+    *,
+    provider: str,
+    provider_user_id: str,
+    email: str | None,
+    email_verified: bool,
+    display_name: str | None,
+) -> str:
+    from models import OAuthAccounts, UserDB
 
-    email = user_data.get("email")
-    provider_sub = user_data.get("sub")
-    username = email or f"google:{provider_sub or 'unknown'}"
+    normalized_email = email.strip().lower() if email else None
+    username = normalized_email or f"{provider}:{provider_user_id}"
     now_utc = datetime.now(timezone.utc)
 
     try:
@@ -461,36 +478,79 @@ def upsert_google_user(user_data: dict) -> str:
         ) from exc
 
     with session_local() as db:
-        user = find_user(db=db, email=email, username=username)
+        oauth_account = get_oauth_account_by_provider_user_id(
+            db,
+            provider=provider,
+            provider_user_id=provider_user_id,
+        )
+        user = oauth_account.user if oauth_account is not None else None
+
+        if user is None and normalized_email and email_verified:
+            user = find_user(db=db, email=normalized_email, username=username)
 
         if user is None:
+            if not normalized_email:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Provider did not return a usable email address",
+                )
+            if not email_verified:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Provider email must be verified before it can be linked",
+                )
             user = UserDB(
                 username=username,
-                email=email,
+                email=normalized_email,
+                display_name=display_name,
                 last_login=now_utc,
+                email_verified_at=now_utc,
             )
             db.add(user)
+            db.flush()
         else:
             user.last_login = now_utc
-            if email and not user.email:
-                user.email = email
+            if display_name and not user.display_name:
+                user.display_name = display_name
+            if normalized_email and not user.email:
+                user.email = normalized_email
+            if normalized_email and user.email and user.email.lower() != normalized_email:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="This provider email belongs to a different account",
+                )
+            if email_verified and user.email:
+                user.email_verified_at = now_utc
 
         try:
+            if oauth_account is None:
+                oauth_account = OAuthAccounts(
+                    user_id=user.user_id,
+                    provider=provider,
+                    provider_user_id=provider_user_id,
+                    email=normalized_email,
+                )
+                db.add(oauth_account)
+            else:
+                oauth_account.email = normalized_email
+                oauth_account.updated_at = now_utc
             db.commit()
         except IntegrityError:
             db.rollback()
-            user = find_user(db=db, email=email, username=username)
+            user = find_user(db=db, email=normalized_email, username=username)
             if user is None:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to upsert Google user",
+                    detail="Failed to upsert OAuth user",
                 )
 
         db.refresh(user)
         return user.username
 
 
-def save_google_tokens(
+def save_oauth_tokens(
+    *,
+    provider: str,
     username: str,
     access_token: str,
     refresh_token: str | None,
@@ -515,16 +575,16 @@ def save_google_tokens(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found",
             )
-        oauth_account = get_google_oauth_account(db, user.user_id)
+        oauth_account = get_oauth_account(db, provider=provider, user_id=user.user_id)
         if oauth_account is None:
             if not provider_user_id:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Google OAuth account not found",
+                    detail=f"{provider.title()} OAuth account not found",
                 )
             oauth_account = OAuthAccounts(
                 user_id=user.user_id,
-                provider="google",
+                provider=provider,
                 provider_user_id=provider_user_id,
                 email=email,
                 access_token=access_token,
@@ -537,7 +597,7 @@ def save_google_tokens(
             if refresh_token:
                 oauth_account.refresh_token = refresh_token
             if email:
-                oauth_account.email = email
+                oauth_account.email = email.strip().lower()
             if provider_user_id:
                 oauth_account.provider_user_id = provider_user_id
             if expires_at:
@@ -564,7 +624,7 @@ def get_google_tokens(username: str) -> tuple[str, str]:
                 detail="User not found",
             )
 
-        oauth_account = get_google_oauth_account(db, user.user_id)
+        oauth_account = get_oauth_account(db, provider="google", user_id=user.user_id)
         if oauth_account is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -622,7 +682,8 @@ def create_calendar_event(access_token, username):
     if not response.ok and response.status_code == status.HTTP_401_UNAUTHORIZED:
         access_token, refresh_token = get_google_tokens(username=username)
         new_access_token = refresh_google_token(refresh_token)
-        save_google_tokens(
+        save_oauth_tokens(
+            provider="google",
             username=username,
             access_token=new_access_token,
             refresh_token=refresh_token,
@@ -662,6 +723,8 @@ def login(form: OAuth2PasswordRequestForm, request: Request) -> Token:
 
     try:
         user = authenticate_user(form.username, form.password)
+    except HTTPException:
+        raise
     except RuntimeError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -967,17 +1030,29 @@ def callback_google(request: Request, code: str = Query(...), state: str = Query
     if not user_res.ok:
         raise HTTPException(status_code=400, detail="Google user info fetch failed")
     user_data = user_res.json()
-    username = upsert_google_user(user_data)
-
     provider_user_id = user_data.get("sub")
     if not provider_user_id:
         raise HTTPException(status_code=400, detail="Google subject id missing")
+    try:
+        username = _resolve_oauth_user(
+            provider="google",
+            provider_user_id=provider_user_id,
+            email=user_data.get("email"),
+            email_verified=bool(user_data.get("email_verified")),
+            display_name=user_data.get("name"),
+        )
+    except HTTPException as exc:
+        return _issue_login_error_redirect(
+            error=str(exc.detail),
+            provider="google",
+        )
     expires_in = tokens.get("expires_in")
     expires_at = None
     if isinstance(expires_in, int):
         expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
 
-    save_google_tokens(
+    save_oauth_tokens(
+        provider="google",
         username=username,
         access_token=access_token,
         refresh_token=refresh_token,
@@ -1029,13 +1104,36 @@ def callback_facebook(
 
     user_res = requests.get(
         "https://graph.facebook.com/me",
-        params={"fields": "id,name,email", "access_token": access_token},
+        params={"fields": "id,name,email,verified", "access_token": access_token},
         timeout=15,
     )
     if not user_res.ok:
         raise HTTPException(status_code=400, detail="Facebook user info fetch failed")
     user_data = user_res.json()
-    username = user_data.get("email") or f"facebook:{user_data.get('id', 'unknown')}"
+    provider_user_id = str(user_data.get("id") or "").strip()
+    if not provider_user_id:
+        raise HTTPException(status_code=400, detail="Facebook user id missing")
+    try:
+        username = _resolve_oauth_user(
+            provider="facebook",
+            provider_user_id=provider_user_id,
+            email=user_data.get("email"),
+            email_verified=bool(user_data.get("verified")),
+            display_name=user_data.get("name"),
+        )
+    except HTTPException as exc:
+        return _issue_login_error_redirect(
+            error=str(exc.detail),
+            provider="facebook",
+        )
+    save_oauth_tokens(
+        provider="facebook",
+        username=username,
+        access_token=access_token,
+        refresh_token=None,
+        provider_user_id=provider_user_id,
+        email=user_data.get("email"),
+    )
     return issue_login_redirect(username, request)
 
 
