@@ -542,6 +542,7 @@ def _run_weekly_summary_generation_task(
     ai_summary_id: UUID,
     household_id: UUID,
     week_start: date,
+    model: str | None,
     username: str,
 ) -> None:
     session_local = _get_session_factory()
@@ -551,6 +552,7 @@ def _run_weekly_summary_generation_task(
             GenerateWeeklySummaryRequest(
                 household_id=household_id,
                 week_start=week_start,
+                model=model,
             ),
             username=username,
         )
@@ -599,6 +601,7 @@ def queue_weekly_summary_generation(
 ) -> WeeklySummaryResponse:
     week_start = _normalize_week_start(payload.week_start)
     week_end = _week_end_exclusive(week_start)
+    requested_model = str(payload.model or "").strip() or None
     session_local = _get_session_factory()
 
     with session_local() as db:
@@ -613,7 +616,7 @@ def queue_weekly_summary_generation(
             week_start=week_start,
             week_end=week_end,
             content="",
-            model=None,
+            model=requested_model,
             prompt_hash=None,
             status="pending",
             error=None,
@@ -634,6 +637,7 @@ def queue_weekly_summary_generation(
         ai_summary_id=ai_summary.ai_summary_id,
         household_id=payload.household_id,
         week_start=week_start,
+        model=requested_model,
         username=current_user.username,
     )
 
@@ -670,13 +674,14 @@ def regenerate_weekly_summary(
 
         week_start = _normalize_week_start(existing_summary.week_start)
         week_end = _week_end_exclusive(week_start)
+        requested_model = str(existing_summary.model or "").strip() or None
         ai_summary = create_ai_summary(
             db,
             household_id=existing_summary.household_id,
             week_start=week_start,
             week_end=week_end,
             content="",
-            model=None,
+            model=requested_model,
             prompt_hash=None,
             status="pending",
             error=None,
@@ -697,6 +702,7 @@ def regenerate_weekly_summary(
         ai_summary_id=ai_summary.ai_summary_id,
         household_id=ai_summary.household_id,
         week_start=week_start,
+        model=requested_model,
         username=current_user.username,
     )
 

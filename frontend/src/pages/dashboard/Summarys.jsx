@@ -22,6 +22,24 @@ const SUMMARY_MODELS = [
   { name: "GPT-OSS 120b", value: "openai/gpt-oss-120b" },
 ];
 
+function mapModelName(model) {
+  const normalizedModel = String(model || "").trim();
+  if (!normalizedModel) {
+    return null;
+  }
+
+  if (normalizedModel === DEFAULT_SUMMARY_MODEL) {
+    return "Free";
+  }
+
+  const result = SUMMARY_MODELS.find((entry) => entry.value === normalizedModel);
+  if (result) {
+    return result.name;
+  }
+
+  return normalizedModel;
+}
+
 function getCurrentWeekStart() {
   const today = new Date();
   const day = today.getDay();
@@ -409,7 +427,7 @@ export default function Summarys() {
                 </div>
                 <div className="ml-4 text-right text-xs text-muted-foreground">
                   <div>{report.status}</div>
-                  {report.model ? <div>{report.model}</div> : null}
+                  {report.model ? <div>{mapModelName(report.model)}</div> : null}
                 </div>
               </button>
               <div className="flex shrink-0 gap-2">
@@ -464,7 +482,7 @@ export default function Summarys() {
             <>
               <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                 <span>Status: {summary.status}</span>
-                {summary.model ? <span>Model: {summary.model}</span> : null}
+                {summary.model ? <span>Model: {mapModelName(summary.model)}</span> : null}
                 <span>Household: {summaryHouseholdName}</span>
               </div>
               {summary.status === "pending" ? (
