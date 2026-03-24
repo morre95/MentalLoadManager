@@ -450,7 +450,12 @@ def _generate_summary_payload(
         "temperature": 0.2,
     }
 
-    model_name = settings.OPENROUTER_WEEKLY_SUMMARY_MODEL or DEFAULT_OPENROUTER_MODEL
+    requested_model = str(payload.model or "").strip()
+    model_name = (
+        requested_model
+        or settings.OPENROUTER_WEEKLY_SUMMARY_MODEL
+        or DEFAULT_OPENROUTER_MODEL
+    )
     model_candidates = _load_model_candidates(model_name)
     ai_response: requests.Response | None = None
     selected_model = model_name

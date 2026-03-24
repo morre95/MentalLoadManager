@@ -10,6 +10,18 @@ import { NoHouseholdState } from "@/components/ui/noHouseHoldState";
 import { useHousehold } from "@/hooks/useHouseHold";
 import { apiFetch } from "@/lib/utils";
 
+const DEFAULT_SUMMARY_MODEL = "openrouter/free";
+const SUMMARY_MODELS = [
+  "google/gemini-2.5-flash-lite",
+  "openai/gpt-oss-120b",
+  "openai/gpt-5-nano",
+  "meta-llama/llama-3.2-3b-instruct",
+  "minimax/minimax-m2.5",
+  "deepseek/deepseek-v3.2",
+  "anthropic/claude-sonnet-4.6",
+  "x-ai/grok-4-fast",
+];
+
 function getCurrentWeekStart() {
   const today = new Date();
   const day = today.getDay();
@@ -46,6 +58,7 @@ function mapReportToSummary(report) {
 export default function Summarys() {
   const { households, loading, error, refetch } = useHousehold();
   const [selectedHouseholdId, setSelectedHouseholdId] = useState("");
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_SUMMARY_MODEL);
   const [weekStart, setWeekStart] = useState(getCurrentWeekStart);
   const [summary, setSummary] = useState(null);
   const [savedReports, setSavedReports] = useState([]);
@@ -105,6 +118,7 @@ export default function Summarys() {
         body: JSON.stringify({
           household_id: selectedHouseholdId,
           week_start: weekStart || null,
+          model: selectedModel || DEFAULT_SUMMARY_MODEL,
         }),
       });
 
@@ -282,7 +296,7 @@ export default function Summarys() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_220px_auto]" onSubmit={handleGenerate}>
+          <form className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_220px_auto]" onSubmit={handleGenerate}>
             <div className="space-y-2">
               <Label htmlFor="summary-household">Household</Label>
               <Select value={selectedHouseholdId} onValueChange={setSelectedHouseholdId}>
@@ -293,6 +307,25 @@ export default function Summarys() {
                   {householdOptions.map((household) => (
                     <SelectItem key={household.id} value={household.id}>
                       {household.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="summary-model">Model</Label>
+              <Select value={selectedModel} onValueChange={setSelectedModel}>
+                <SelectTrigger id="summary-model">
+                  <SelectValue placeholder={DEFAULT_SUMMARY_MODEL} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={DEFAULT_SUMMARY_MODEL}>
+                    {DEFAULT_SUMMARY_MODEL}
+                  </SelectItem>
+                  {SUMMARY_MODELS.map((model) => (
+                    <SelectItem key={model} value={model}>
+                      {model}
                     </SelectItem>
                   ))}
                 </SelectContent>

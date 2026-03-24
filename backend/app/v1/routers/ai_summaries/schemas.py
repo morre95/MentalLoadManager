@@ -8,6 +8,7 @@ from pydantic import BaseModel
 class GenerateWeeklySummaryRequest(BaseModel):
     household_id: UUID
     week_start: date | None = None
+    model: str | None = None
 
 
 class WeeklySummaryResponse(BaseModel):
