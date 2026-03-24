@@ -174,7 +174,7 @@ def issue_login_redirect(username: str, request: Request) -> RedirectResponse:
             detail=f"Failed to issue refresh token: {exc}",
         ) from exc
 
-    response = RedirectResponse(url=f"{FRONTEND_URL}/dashboard")
+    response = RedirectResponse(url=f"{FRONTEND_URL}/dashboard", status_code=303)
     set_auth_cookies(
         response,
         request=request,
@@ -198,7 +198,8 @@ def _issue_login_error_redirect(
     provider: str,
 ) -> RedirectResponse:
     return RedirectResponse(
-        url=f"{FRONTEND_URL}/login?{urlencode({'authError': error, 'provider': provider})}"
+        url=f"{FRONTEND_URL}/login?{urlencode({'authError': error, 'provider': provider})}",
+        status_code=303,
     )
 
 

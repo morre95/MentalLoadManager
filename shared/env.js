@@ -7,7 +7,10 @@ export function getApiBaseUrl(options = {}) {
     (typeof window !== "undefined" ? window.location?.href || "" : "");
 
   const fromEnv =
-    env.EXPO_PUBLIC_API_BASE_URL || env.VITE_API_BASE_URL || env.API_BASE_URL;
+    env.EXPO_PUBLIC_API_BASE_URL ||
+    env.VITE_API_BASE_URL ||
+    env.VITE_API_URL ||
+    env.API_BASE_URL;
 
   if (fromEnv) {
     return String(fromEnv).replace(/\/$/, "");
