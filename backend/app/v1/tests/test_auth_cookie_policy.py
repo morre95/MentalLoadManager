@@ -92,6 +92,27 @@ class AuthCookiePolicyTests(unittest.TestCase):
             all("secure" not in header.lower() for header in set_cookie_headers)
         )
 
+    def test_localhost_different_port_keeps_lax_without_secure(self) -> None:
+        response = Response()
+
+        with patch.object(service, "FRONTEND_URL", "http://localhost:5173"):
+            with patch.object(service, "BACKEND_URL", "http://localhost:8000"):
+                service.set_auth_cookies(
+                    response,
+                    request=_request(scheme="http", host="localhost:8000"),
+                    access_token="access-token",
+                    refresh_token="refresh-token",
+                )
+
+        set_cookie_headers = response.headers.getlist("set-cookie")
+        self.assertEqual(len(set_cookie_headers), 2)
+        self.assertTrue(
+            all("samesite=lax" in header.lower() for header in set_cookie_headers)
+        )
+        self.assertTrue(
+            all("secure" not in header.lower() for header in set_cookie_headers)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

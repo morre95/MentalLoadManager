@@ -274,11 +274,11 @@ def _resolve_auth_cookie_policy(
 
 
 def _auth_cookie_needs_cross_site(request: Request) -> bool:
-    frontend_origin = _normalized_origin(FRONTEND_URL)
-    backend_origin = _normalized_origin(_request_origin(request))
-    if not frontend_origin or not backend_origin:
+    frontend_site = _normalized_site(FRONTEND_URL)
+    backend_site = _normalized_site(_request_origin(request))
+    if not frontend_site or not backend_site:
         return False
-    return frontend_origin != backend_origin
+    return frontend_site != backend_site
 
 
 def _request_is_https(request: Request) -> bool:
@@ -309,6 +309,15 @@ def _normalized_origin(url: str) -> str:
     if not parsed.scheme or not parsed.netloc:
         return ""
     return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}"
+
+
+def _normalized_site(url: str) -> str:
+    if not url:
+        return ""
+    parsed = urlparse(url)
+    if not parsed.scheme or not parsed.hostname:
+        return ""
+    return f"{parsed.scheme.lower()}://{parsed.hostname.lower()}"
 
 
 def require_env(name: str) -> str:
