@@ -1,5 +1,5 @@
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Bell, Search, Plus, Target, Clock3, Mail, X } from "lucide-react";
+import { Bell, Search, Plus, Target, Clock3, Mail, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -9,6 +9,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useHousehold } from "@/hooks/useHouseHold";
 import AddTaskDialog from "@/components/tasks/AddTaskDialog";
+import { readWeeklySummaryNotifications, WEEKLY_SUMMARY_READY_EVENT } from "@/lib/summaryNotifications";
 import { fetchAchievements, fetchGoals, fetchInviteEmailNotifications, fetchNotificationSettings, fetchTaskReminderSummary } from "@/lib/utils";
 import { isUserLoggedIn } from "@/lib/auth";
 
@@ -293,7 +294,20 @@ const DashboardHeader = ({ onAddTask }) => {
         createdAt: n.created_at ? new Date(n.created_at) : null,
       }));
 
+      const weeklySummaryNotifications = readWeeklySummaryNotifications()
+        .map((notification) => ({
+          ...notification,
+          entityId: notification.ai_summary_id,
+          createdAt: notification.createdAt ? new Date(notification.createdAt) : null,
+        }))
+        .sort((a, b) => {
+          const left = a.createdAt ? a.createdAt.getTime() : 0;
+          const right = b.createdAt ? b.createdAt.getTime() : 0;
+          return right - left;
+        });
+
       setNotifications([
+        ...weeklySummaryNotifications,
         ...inviteEmailNotifications,
         ...taskReminderNotifications,
         ...achievementNotifications,
@@ -328,11 +342,13 @@ const DashboardHeader = ({ onAddTask }) => {
     window.addEventListener(GOAL_MILESTONES_UPDATED_EVENT, handleGoalUpdates);
     window.addEventListener(GOAL_MILESTONE_SETTINGS_UPDATED_EVENT, handleGoalUpdates);
     window.addEventListener("auth:changed", handleGoalUpdates);
+    window.addEventListener(WEEKLY_SUMMARY_READY_EVENT, handleGoalUpdates);
 
     return () => {
       window.removeEventListener(GOAL_MILESTONES_UPDATED_EVENT, handleGoalUpdates);
       window.removeEventListener(GOAL_MILESTONE_SETTINGS_UPDATED_EVENT, handleGoalUpdates);
       window.removeEventListener("auth:changed", handleGoalUpdates);
+      window.removeEventListener(WEEKLY_SUMMARY_READY_EVENT, handleGoalUpdates);
     };
   }, [loadNotifications]);
 
@@ -409,6 +425,23 @@ const DashboardHeader = ({ onAddTask }) => {
 
     if (notification.type === "task_reminder") {
       navigate("/dashboard/tasks");
+      return;
+    }
+
+    if (notification.type === "weekly_summary") {
+      const params = new URLSearchParams();
+
+      if (notification.entityId) {
+        params.set("summaryId", notification.entityId);
+      }
+      if (notification.household_id) {
+        params.set("householdId", notification.household_id);
+      }
+
+      navigate({
+        pathname: "/dashboard/summarys",
+        search: params.toString() ? `?${params.toString()}` : "",
+      });
       return;
     }
 
@@ -555,6 +588,8 @@ const DashboardHeader = ({ onAddTask }) => {
                             <div className={`mt-0.5 rounded-lg p-2 ${notification.type === "invite_email" && notification.status === "failed" ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>
                               {notification.type === "task_reminder" ? (
                                 <Clock3 className="h-4 w-4" />
+                              ) : notification.type === "weekly_summary" ? (
+                                <Sparkles className="h-4 w-4" />
                               ) : notification.type === "invite_email" ? (
                                 <Mail className="h-4 w-4" />
                               ) : (

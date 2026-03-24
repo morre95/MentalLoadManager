@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bot, CalendarDays, Loader2, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { NoHouseholdState } from "@/components/ui/noHouseHoldState";
 import { useHousehold } from "@/hooks/useHouseHold";
+import { storeWeeklySummaryNotification } from "@/lib/summaryNotifications";
 import { apiFetch } from "@/lib/utils";
 
 const DEFAULT_SUMMARY_MODEL = "openrouter/free";
@@ -74,6 +76,7 @@ function mapReportToSummary(report) {
 }
 
 export default function Summarys() {
+  const [searchParams] = useSearchParams();
   const { households, loading, error, refetch } = useHousehold();
   const [selectedHouseholdId, setSelectedHouseholdId] = useState("");
   const [selectedModel, setSelectedModel] = useState(DEFAULT_SUMMARY_MODEL);
@@ -84,6 +87,9 @@ export default function Summarys() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeReportAction, setActiveReportAction] = useState(null);
   const [requestError, setRequestError] = useState(null);
+  const pendingNotificationSummaryIdsRef = useRef(new Set());
+  const routeSummaryId = searchParams.get("summaryId") || "";
+  const routeHouseholdId = searchParams.get("householdId") || "";
 
   const householdOptions = useMemo(
     () =>
@@ -116,11 +122,21 @@ export default function Summarys() {
       return;
     }
 
+    if (routeHouseholdId) {
+      const requestedHousehold = householdOptions.find(
+        (household) => household.id === routeHouseholdId
+      );
+      if (requestedHousehold && requestedHousehold.id !== selectedHouseholdId) {
+        setSelectedHouseholdId(requestedHousehold.id);
+        return;
+      }
+    }
+
     const exists = householdOptions.some((household) => household.id === selectedHouseholdId);
     if (!exists) {
       setSelectedHouseholdId(householdOptions[0].id);
     }
-  }, [householdOptions, selectedHouseholdId]);
+  }, [householdOptions, routeHouseholdId, selectedHouseholdId]);
 
   const handleGenerate = async (event) => {
     event.preventDefault();
@@ -140,6 +156,9 @@ export default function Summarys() {
         }),
       });
 
+      if (data?.ai_summary_id && data?.status === "pending") {
+        pendingNotificationSummaryIdsRef.current.add(String(data.ai_summary_id));
+      }
       setSummary(data);
     } catch (err) {
       setRequestError(err?.message || "Failed to generate weekly summary.");
@@ -182,6 +201,81 @@ export default function Summarys() {
       window.clearInterval(intervalId);
     };
   }, [summary?.ai_summary_id, summary?.status]);
+
+  useEffect(() => {
+    if (!routeSummaryId) {
+      return undefined;
+    }
+
+    let active = true;
+
+    const loadRequestedSummary = async () => {
+      try {
+        const requestedSummary = await apiFetch(
+          `/api/v1/ai/weekly-summary/${encodeURIComponent(routeSummaryId)}`,
+          { method: "GET" }
+        );
+
+        if (!active) {
+          return;
+        }
+
+        if (requestedSummary?.household_id) {
+          setSelectedHouseholdId(String(requestedSummary.household_id));
+        }
+        setSummary(requestedSummary);
+      } catch (err) {
+        if (active) {
+          setRequestError(err?.message || "Failed to load requested weekly summary.");
+        }
+      }
+    };
+
+    void loadRequestedSummary();
+
+    return () => {
+      active = false;
+    };
+  }, [routeSummaryId]);
+
+  useEffect(() => {
+    if (!summary?.ai_summary_id || summary.status !== "completed") {
+      return;
+    }
+
+    const summaryId = String(summary.ai_summary_id);
+    if (!pendingNotificationSummaryIdsRef.current.has(summaryId)) {
+      return;
+    }
+
+    pendingNotificationSummaryIdsRef.current.delete(summaryId);
+    storeWeeklySummaryNotification({
+      ai_summary_id: summaryId,
+      household_id: String(summary.household_id || ""),
+      household_name: resolveHouseholdName(
+        summary.household_id,
+        summary.household_name,
+      ),
+      week_start: summary.week_start,
+      week_end: summary.week_end,
+      model: summary.model,
+      title: "Weekly summary ready",
+      message: `Your weekly summary for ${resolveHouseholdName(
+        summary.household_id,
+        summary.household_name,
+      )} is ready to review.`,
+      createdAt: new Date().toISOString(),
+    });
+  }, [
+    resolveHouseholdName,
+    summary?.ai_summary_id,
+    summary?.household_id,
+    summary?.household_name,
+    summary?.model,
+    summary?.status,
+    summary?.week_end,
+    summary?.week_start,
+  ]);
 
   useEffect(() => {
     if (!selectedHouseholdId) {
@@ -271,6 +365,9 @@ export default function Summarys() {
       const nextSummary = await apiFetch(`/api/v1/ai/summaries/${report.ai_summary_id}/regenerate`, {
         method: "POST",
       });
+      if (nextSummary?.ai_summary_id && nextSummary?.status === "pending") {
+        pendingNotificationSummaryIdsRef.current.add(String(nextSummary.ai_summary_id));
+      }
       setSummary(nextSummary);
     } catch (err) {
       setRequestError(err?.message || "Failed to regenerate weekly summary.");
