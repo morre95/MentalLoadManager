@@ -181,6 +181,14 @@ def issue_login_redirect(username: str, request: Request) -> RedirectResponse:
         access_token=access_token,
         refresh_token=raw_refresh_token,
     )
+    logger.info(
+        "issue_login_redirect: frontend_url=%s backend_origin=%s request_https=%s auth_cookie_secure=%s auth_cookie_samesite=%s",
+        FRONTEND_URL,
+        _request_origin(request),
+        _request_is_https(request),
+        _resolve_auth_cookie_policy(request)[0],
+        _resolve_auth_cookie_policy(request)[1],
+    )
     return response
 
 

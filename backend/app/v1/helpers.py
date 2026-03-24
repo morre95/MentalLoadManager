@@ -508,6 +508,15 @@ def get_current_user(
 ) -> UserEmail:
     resolved_token = _resolve_request_token(request, token)
     if not resolved_token:
+        auth_header_present = bool(request.headers.get("authorization"))
+        access_cookie_present = ACCESS_TOKEN_COOKIE_KEY in request.cookies
+        cookie_names = ",".join(sorted(request.cookies.keys())) or "<none>"
+        print(
+            "AUTH DEBUG get_current_user missing token:",
+            f"auth_header_present={auth_header_present}",
+            f"access_cookie_present={access_cookie_present}",
+            f"cookie_names={cookie_names}",
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
