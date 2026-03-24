@@ -12,14 +12,14 @@ import { apiFetch } from "@/lib/utils";
 
 const DEFAULT_SUMMARY_MODEL = "openrouter/free";
 const SUMMARY_MODELS = [
-  "google/gemini-2.5-flash-lite",
-  "openai/gpt-oss-120b",
-  "openai/gpt-5-nano",
-  "meta-llama/llama-3.2-3b-instruct",
-  "minimax/minimax-m2.5",
-  "deepseek/deepseek-v3.2",
-  "anthropic/claude-sonnet-4.6",
-  "x-ai/grok-4-fast",
+  { name: "Gemini 2.5", value: "google/gemini-2.5-flash-lite" },
+  { name: "ChatGPT 5", value: "openai/gpt-5-nano" },
+  { name: "Llama 3.2", value: "meta-llama/llama-3.2-3b-instruct" },
+  { name: "MiniMax 2.5", value: "minimax/minimax-m2.5" },
+  { name: "Deep Seek 3.2", value: "deepseek/deepseek-v3.2" },
+  { name: "Claude Sonnet 4.6", value: "anthropic/claude-sonnet-4.6" },
+  { name: "Grok 4", value: "x-ai/grok-4-fast" },
+  { name: "GPT-OSS 120b", value: "openai/gpt-oss-120b" },
 ];
 
 function getCurrentWeekStart() {
@@ -321,11 +321,11 @@ export default function Summarys() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={DEFAULT_SUMMARY_MODEL}>
-                    {DEFAULT_SUMMARY_MODEL}
+                    Free
                   </SelectItem>
                   {SUMMARY_MODELS.map((model) => (
-                    <SelectItem key={model} value={model}>
-                      {model}
+                    <SelectItem key={model.name} value={model.value}>
+                      {model.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
