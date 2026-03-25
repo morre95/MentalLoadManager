@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { NoHouseholdState } from "@/components/ui/noHouseHoldState";
 import { useHousehold } from "@/hooks/useHouseHold";
 import { storeWeeklySummaryNotification } from "@/lib/summaryNotifications";
-import { apiFetch } from "@/lib/utils";
+import { apiFetch, cn } from "@/lib/utils";
 
 const DEFAULT_SUMMARY_MODEL = "openrouter/free";
 const SUMMARY_MODELS = [
@@ -502,19 +502,34 @@ export default function Summarys() {
               No saved AI summaries for this household yet.
             </div>
           ) : null}
-          {savedReports.map((report) => (
-            <div
-              key={report.ai_summary_id}
-              className="flex items-start gap-3 rounded-lg border border-border bg-background p-4 transition hover:bg-muted/30"
-            >
+          {savedReports.map((report) => {
+            const isSelectedReport =
+              String(report.ai_summary_id || "") === String(summary?.ai_summary_id || "");
+
+            return (
+              <div
+                key={report.ai_summary_id}
+                className={cn(
+                  "flex items-start gap-3 rounded-lg border bg-background p-4 transition hover:bg-muted/30",
+                  isSelectedReport
+                    ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                    : "border-border"
+                )}
+              >
               <button
                 type="button"
                 onClick={() => handleOpenSavedReport(report)}
                 className="flex min-w-0 flex-1 items-start justify-between text-left"
+                aria-pressed={isSelectedReport}
               >
                 <div className="space-y-1">
-                  <div className="text-sm font-medium text-foreground">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                     Weekly summary
+                    {isSelectedReport ? (
+                      <span className="rounded-full bg-primary/12 px-2 py-0.5 text-[11px] font-medium text-primary">
+                        Showing
+                      </span>
+                    ) : null}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {resolveHouseholdName(report.household_id, report.household_name)}
@@ -559,8 +574,9 @@ export default function Summarys() {
                   )}
                 </Button>
               </div>
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 
