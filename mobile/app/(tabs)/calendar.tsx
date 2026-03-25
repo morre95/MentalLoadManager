@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { fetchCalendarMonth } from '../../../shared/index.js';
+import { TabMenuButton } from '@/components/TabMenuButton';
 import { mobileApiClient } from '@/lib/api';
 
 const COLORS = {
@@ -204,6 +205,7 @@ export default function CalendarScreen() {
 
   return (
     <>
+      <TabMenuButton />
       <ScrollView
         style={styles.page}
         contentContainerStyle={styles.pageContent}

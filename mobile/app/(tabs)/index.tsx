@@ -21,6 +21,7 @@ import {
   updateKanbanTaskStatus,
   type UiTask,
 } from '../../../shared/index.js';
+import { TabMenuButton } from '@/components/TabMenuButton';
 import { mobileApiBaseUrl, mobileApiClient } from '@/lib/api';
 
 const COLORS = {
@@ -322,6 +323,7 @@ export default function TasksScreen() {
 
   return (
     <>
+      <TabMenuButton />
       <ScrollView
         style={styles.page}
         contentContainerStyle={styles.pageContent}

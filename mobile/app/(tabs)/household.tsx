@@ -18,6 +18,7 @@ import {
   removeHouseholdMember,
   type Household,
 } from '../../../shared/index.js';
+import { TabMenuButton } from '@/components/TabMenuButton';
 import { mobileApiBaseUrl, mobileApiClient } from '@/lib/api';
 
 const COLORS = {
@@ -126,19 +127,21 @@ export default function HouseholdScreen() {
   );
 
   return (
-    <ScrollView
-      style={styles.page}
-      contentContainerStyle={styles.pageContent}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      <View style={styles.headerWrap}>
-        <Text style={styles.eyebrow}>Mental Load Manager</Text>
-        <Text style={styles.title}>Household</Text>
-        <Text style={styles.subtitle}>Backend: {mobileApiBaseUrl}</Text>
-        <Text style={styles.subtitle}>
-          Households: {households.length} • Members: {totalMembers}
-        </Text>
-      </View>
+    <>
+      <TabMenuButton />
+      <ScrollView
+        style={styles.page}
+        contentContainerStyle={styles.pageContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        <View style={styles.headerWrap}>
+          <Text style={styles.eyebrow}>Mental Load Manager</Text>
+          <Text style={styles.title}>Household</Text>
+          <Text style={styles.subtitle}>Backend: {mobileApiBaseUrl}</Text>
+          <Text style={styles.subtitle}>
+            Households: {households.length} • Members: {totalMembers}
+          </Text>
+        </View>
 
       <View style={styles.createCard}>
         <Text style={styles.sectionTitle}>Create Household</Text>
@@ -161,40 +164,41 @@ export default function HouseholdScreen() {
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      {households.map((household) => (
-        <View style={styles.householdCard} key={String(household.household_id)}>
-          <View style={styles.householdHeader}>
-            <View style={styles.householdHeaderContent}>
-              <Text style={styles.householdTitle}>{household.name}</Text>
-              <Text style={styles.householdSubtitle}>{household.members.length} members</Text>
-            </View>
-            <View style={styles.headerButtons}>
-              <Pressable style={styles.smallButton} onPress={() => onInvite(household.household_id)}>
-                <Text style={styles.smallButtonText}>Invite</Text>
-              </Pressable>
-              <Pressable style={styles.leaveButton} onPress={() => onLeave(household.household_id)}>
-                <Text style={styles.leaveButtonText}>Leave</Text>
-              </Pressable>
-            </View>
-          </View>
-
-          {household.members.map((member) => (
-            <View key={`${household.household_id}:${member.user_id}`} style={styles.memberRow}>
-              <View>
-                <Text style={styles.memberName}>{member.display_name || member.username}</Text>
-                <Text style={styles.memberMeta}>{member.username}</Text>
+        {households.map((household) => (
+          <View style={styles.householdCard} key={String(household.household_id)}>
+            <View style={styles.householdHeader}>
+              <View style={styles.householdHeaderContent}>
+                <Text style={styles.householdTitle}>{household.name}</Text>
+                <Text style={styles.householdSubtitle}>{household.members.length} members</Text>
               </View>
-              <Pressable
-                style={styles.removeButton}
-                onPress={() => onRemove(household.household_id, member.user_id)}
-              >
-                <Text style={styles.removeButtonText}>Remove</Text>
-              </Pressable>
+              <View style={styles.headerButtons}>
+                <Pressable style={styles.smallButton} onPress={() => onInvite(household.household_id)}>
+                  <Text style={styles.smallButtonText}>Invite</Text>
+                </Pressable>
+                <Pressable style={styles.leaveButton} onPress={() => onLeave(household.household_id)}>
+                  <Text style={styles.leaveButtonText}>Leave</Text>
+                </Pressable>
+              </View>
             </View>
-          ))}
-        </View>
-      ))}
-    </ScrollView>
+
+            {household.members.map((member) => (
+              <View key={`${household.household_id}:${member.user_id}`} style={styles.memberRow}>
+                <View>
+                  <Text style={styles.memberName}>{member.display_name || member.username}</Text>
+                  <Text style={styles.memberMeta}>{member.username}</Text>
+                </View>
+                <Pressable
+                  style={styles.removeButton}
+                  onPress={() => onRemove(household.household_id, member.user_id)}
+                >
+                  <Text style={styles.removeButtonText}>Remove</Text>
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        ))}
+      </ScrollView>
+    </>
   );
 }
 
