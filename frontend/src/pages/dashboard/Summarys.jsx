@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bot, CalendarDays, Loader2, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -594,8 +596,40 @@ export default function Summarys() {
                 </div>
               ) : null}
               {summary.content ? (
-                <div className="whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-4 text-sm leading-7 text-foreground">
-                  {summary.content}
+                <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm leading-7 text-foreground">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      p: (props) => <p className="mb-4 last:mb-0" {...props} />,
+                      ul: (props) => <ul className="mb-4 list-disc pl-5 last:mb-0" {...props} />,
+                      ol: (props) => <ol className="mb-4 list-decimal pl-5 last:mb-0" {...props} />,
+                      li: (props) => <li className="mb-1" {...props} />,
+                      h1: (props) => <h1 className="mb-3 text-lg font-semibold" {...props} />,
+                      h2: (props) => <h2 className="mb-3 text-base font-semibold" {...props} />,
+                      h3: (props) => <h3 className="mb-2 text-sm font-semibold" {...props} />,
+                      a: (props) => <a className="text-primary underline underline-offset-4" {...props} />,
+                      code: ({ inline, className, children, ...props }) => (
+                        inline ? (
+                          <code className="rounded bg-background px-1 py-0.5 font-mono text-[0.85em]" {...props}>
+                            {children}
+                          </code>
+                        ) : (
+                          <code
+                            className={`block overflow-x-auto rounded-md bg-background p-3 font-mono text-[0.85em] ${className || ""}`}
+                            {...props}
+                          >
+                            {children}
+                          </code>
+                        )
+                      ),
+                      pre: (props) => <pre className="mb-4 last:mb-0" {...props} />,
+                      blockquote: (props) => (
+                        <blockquote className="mb-4 border-l-2 border-border pl-4 italic text-muted-foreground last:mb-0" {...props} />
+                      ),
+                    }}
+                  >
+                    {summary.content}
+                  </ReactMarkdown>
                 </div>
               ) : null}
             </>
