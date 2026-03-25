@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -61,6 +62,9 @@ interface CalendarEvent {
   title: string;
   person: string | null;
   household_name: string | null;
+  recurrence_label?: string;
+  recurrence_enabled?: boolean;
+  is_projected?: boolean;
 }
 
 // --- Build a 6-row grid of day numbers / nulls (null = padding) ---
@@ -90,6 +94,7 @@ export default function CalendarScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedIso, setSelectedIso] = useState<string>(today.iso);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   const load = useCallback(
     async (y: number, m: number) => {
@@ -104,6 +109,9 @@ export default function CalendarScreen() {
                 title: e.title ?? '',
                 person: e.person ?? null,
                 household_name: e.household_name ?? null,
+                recurrence_label: e.recurrence_label ?? '',
+                recurrence_enabled: Boolean(e.recurrence_enabled),
+                is_projected: Boolean(e.is_projected),
               }))
             : []
         );
@@ -181,154 +189,222 @@ export default function CalendarScreen() {
   }, [events, today.iso]);
 
   const label = useMemo(() => monthLabel(year, month), [year, month]);
+  const selectedEvent = useMemo(
+    () => events.find((event) => event.id === selectedEventId) ?? null,
+    [events, selectedEventId]
+  );
+  const selectedEventDateLabel = useMemo(() => {
+    if (!selectedEvent?.date) return 'No date';
+    return parseIso(selectedEvent.date).toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    });
+  }, [selectedEvent]);
 
   return (
-    <ScrollView
-      style={styles.page}
-      contentContainerStyle={styles.pageContent}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      {/* Header */}
-      <View style={styles.headerWrap}>
-        <Text style={styles.eyebrow}>Mental Load Manager</Text>
-        <Text style={styles.title}>Calendar</Text>
-      </View>
-
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-      {/* Calendar card */}
-      <View style={styles.calendarCard}>
-        {/* Month nav */}
-        <View style={styles.monthNav}>
-          <Pressable style={styles.navBtn} onPress={prevMonth} hitSlop={10}>
-            <Text style={styles.navBtnText}>‹</Text>
-          </Pressable>
-          <Text style={styles.monthLabel}>{label}</Text>
-          <Pressable style={styles.navBtn} onPress={nextMonth} hitSlop={10}>
-            <Text style={styles.navBtnText}>›</Text>
-          </Pressable>
+    <>
+      <ScrollView
+        style={styles.page}
+        contentContainerStyle={styles.pageContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        <View style={styles.headerWrap}>
+          <Text style={styles.eyebrow}>Mental Load Manager</Text>
+          <Text style={styles.title}>Calendar</Text>
         </View>
 
-        {/* Day-of-week row */}
-        <View style={styles.dayRow}>
-          {DAY_LABELS.map((d) => (
-            <Text key={d} style={styles.dayLabel}>
-              {d}
-            </Text>
-          ))}
-        </View>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        {/* Grid */}
-        {loading ? (
-          <View style={styles.loadingWrap}>
-            <ActivityIndicator color={COLORS.primary} />
+        <View style={styles.calendarCard}>
+          <View style={styles.monthNav}>
+            <Pressable style={styles.navBtn} onPress={prevMonth} hitSlop={10}>
+              <Text style={styles.navBtnText}>‹</Text>
+            </Pressable>
+            <Text style={styles.monthLabel}>{label}</Text>
+            <Pressable style={styles.navBtn} onPress={nextMonth} hitSlop={10}>
+              <Text style={styles.navBtnText}>›</Text>
+            </Pressable>
           </View>
-        ) : (
-          <View style={styles.grid}>
-            {grid.map((day, index) => {
-              if (day === null) {
-                return <View key={`blank-${index}`} style={styles.cell} />;
-              }
 
-              const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              const isToday = iso === today.iso;
-              const isSelected = iso === selectedIso && !isToday;
-              const hasEvent = Boolean(eventsByDate[iso]?.length);
+          <View style={styles.dayRow}>
+            {DAY_LABELS.map((d) => (
+              <Text key={d} style={styles.dayLabel}>
+                {d}
+              </Text>
+            ))}
+          </View>
 
+          {loading ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator color={COLORS.primary} />
+            </View>
+          ) : (
+            <View style={styles.grid}>
+              {grid.map((day, index) => {
+                if (day === null) {
+                  return <View key={`blank-${index}`} style={styles.cell} />;
+                }
+
+                const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const isToday = iso === today.iso;
+                const isSelected = iso === selectedIso && !isToday;
+                const hasEvent = Boolean(eventsByDate[iso]?.length);
+
+                return (
+                  <Pressable
+                    key={iso}
+                    style={[
+                      styles.cell,
+                      isToday && styles.cellToday,
+                      isSelected && styles.cellSelected,
+                    ]}
+                    onPress={() => setSelectedIso(iso)}
+                  >
+                    <Text
+                      style={[
+                        styles.cellText,
+                        isToday && styles.cellTextToday,
+                        isSelected && styles.cellTextSelected,
+                      ]}
+                    >
+                      {day}
+                    </Text>
+                    {hasEvent && !isToday && (
+                      <View style={[styles.eventDot, isSelected && styles.eventDotSelected]} />
+                    )}
+                    {hasEvent && isToday && <View style={styles.eventDotOnToday} />}
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            {selectedIso === today.iso
+              ? 'Today'
+              : parseIso(selectedIso).toLocaleDateString(undefined, {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+          </Text>
+
+          {selectedEvents.length === 0 ? (
+            <Text style={styles.emptyText}>No events on this day.</Text>
+          ) : (
+            selectedEvents.map((ev) => (
+              <Pressable key={ev.id} style={styles.eventCard} onPress={() => setSelectedEventId(ev.id)}>
+                <View style={styles.eventRow}>
+                  <View style={styles.eventDotLarge} />
+                  <View style={styles.eventInfo}>
+                    <Text style={styles.eventTitle}>{ev.title}</Text>
+                    {(ev.person || ev.household_name) ? (
+                      <Text style={styles.eventMeta}>
+                        {[ev.person, ev.household_name].filter(Boolean).join(' · ')}
+                      </Text>
+                    ) : null}
+                    <Text style={styles.eventLinkText}>Tap to view details</Text>
+                  </View>
+                </View>
+              </Pressable>
+            ))
+          )}
+        </View>
+
+        {upcomingEvents.length > 0 && selectedIso === today.iso ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Upcoming</Text>
+            {upcomingEvents.map((ev) => {
+              const d = parseIso(ev.date);
+              const dayNum = d.getDate();
+              const shortMonth = d.toLocaleDateString(undefined, { month: 'short' });
               return (
                 <Pressable
-                  key={iso}
-                  style={[
-                    styles.cell,
-                    isToday && styles.cellToday,
-                    isSelected && styles.cellSelected,
-                  ]}
-                  onPress={() => setSelectedIso(iso)}
+                  key={ev.id}
+                  style={styles.upcomingRow}
+                  onPress={() => setSelectedEventId(ev.id)}
                 >
-                  <Text
-                    style={[
-                      styles.cellText,
-                      isToday && styles.cellTextToday,
-                      isSelected && styles.cellTextSelected,
-                    ]}
-                  >
-                    {day}
-                  </Text>
-                  {hasEvent && !isToday && (
-                    <View
-                      style={[
-                        styles.eventDot,
-                        isSelected && styles.eventDotSelected,
-                      ]}
-                    />
-                  )}
-                  {hasEvent && isToday && <View style={styles.eventDotOnToday} />}
+                  <View style={styles.upcomingDate}>
+                    <Text style={styles.upcomingDateDay}>{dayNum}</Text>
+                    <Text style={styles.upcomingDateMonth}>{shortMonth}</Text>
+                  </View>
+                  <View style={styles.eventInfo}>
+                    <Text style={styles.eventTitle}>{ev.title}</Text>
+                    {(ev.person || ev.household_name) ? (
+                      <Text style={styles.eventMeta}>
+                        {[ev.person, ev.household_name].filter(Boolean).join(' · ')}
+                      </Text>
+                    ) : null}
+                    <Text style={styles.eventLinkText}>Tap to view details</Text>
+                  </View>
                 </Pressable>
               );
             })}
           </View>
-        )}
-      </View>
+        ) : null}
+      </ScrollView>
 
-      {/* Selected day events */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          {selectedIso === today.iso
-            ? 'Today'
-            : parseIso(selectedIso).toLocaleDateString(undefined, {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric',
-              })}
-        </Text>
-
-        {selectedEvents.length === 0 ? (
-          <Text style={styles.emptyText}>No events on this day.</Text>
-        ) : (
-          selectedEvents.map((ev) => (
-            <View key={ev.id} style={styles.eventRow}>
-              <View style={styles.eventDotLarge} />
-              <View style={styles.eventInfo}>
-                <Text style={styles.eventTitle}>{ev.title}</Text>
-                {(ev.person || ev.household_name) ? (
-                  <Text style={styles.eventMeta}>
-                    {[ev.person, ev.household_name].filter(Boolean).join(' · ')}
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-          ))
-        )}
-      </View>
-
-      {/* Upcoming */}
-      {upcomingEvents.length > 0 && selectedIso === today.iso ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Upcoming</Text>
-          {upcomingEvents.map((ev) => {
-            const d = parseIso(ev.date);
-            const dayNum = d.getDate();
-            const shortMonth = d.toLocaleDateString(undefined, { month: 'short' });
-            return (
-              <View key={ev.id} style={styles.upcomingRow}>
-                <View style={styles.upcomingDate}>
-                  <Text style={styles.upcomingDateDay}>{dayNum}</Text>
-                  <Text style={styles.upcomingDateMonth}>{shortMonth}</Text>
+      <Modal
+        visible={Boolean(selectedEvent)}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedEventId(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setSelectedEventId(null)} />
+          <View style={styles.modalCard}>
+            {selectedEvent ? (
+              <>
+                <View style={styles.modalHeader}>
+                  <View style={styles.modalHeaderContent}>
+                    <Text style={styles.modalEyebrow}>Calendar Task</Text>
+                    <Text style={styles.modalTitle}>{selectedEvent.title}</Text>
+                  </View>
+                  <Pressable style={styles.modalCloseButton} onPress={() => setSelectedEventId(null)}>
+                    <Text style={styles.modalCloseButtonText}>Close</Text>
+                  </Pressable>
                 </View>
-                <View style={styles.eventInfo}>
-                  <Text style={styles.eventTitle}>{ev.title}</Text>
-                  {(ev.person || ev.household_name) ? (
-                    <Text style={styles.eventMeta}>
-                      {[ev.person, ev.household_name].filter(Boolean).join(' · ')}
+
+                <View style={styles.modalMetaGrid}>
+                  <View style={styles.modalMetaCard}>
+                    <Text style={styles.modalMetaLabel}>Date</Text>
+                    <Text style={styles.modalMetaValue}>{selectedEventDateLabel}</Text>
+                  </View>
+                  <View style={styles.modalMetaCard}>
+                    <Text style={styles.modalMetaLabel}>Household</Text>
+                    <Text style={styles.modalMetaValue}>
+                      {selectedEvent.household_name || 'No household'}
                     </Text>
-                  ) : null}
+                  </View>
+                  <View style={styles.modalMetaCard}>
+                    <Text style={styles.modalMetaLabel}>Assigned To</Text>
+                    <Text style={styles.modalMetaValue}>{selectedEvent.person || 'Unassigned'}</Text>
+                  </View>
+                  <View style={styles.modalMetaCard}>
+                    <Text style={styles.modalMetaLabel}>Type</Text>
+                    <Text style={styles.modalMetaValue}>
+                      {selectedEvent.is_projected ? 'Projected task' : 'Scheduled task'}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            );
-          })}
+
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionLabel}>Recurrence</Text>
+                  <Text style={styles.modalBodyText}>
+                    {selectedEvent.recurrence_enabled
+                      ? selectedEvent.recurrence_label || 'Repeats on a recurring schedule.'
+                      : 'Does not repeat.'}
+                  </Text>
+                </View>
+              </>
+            ) : null}
+          </View>
         </View>
-      ) : null}
-    </ScrollView>
+      </Modal>
+    </>
   );
 }
 
@@ -488,6 +564,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 10,
   },
+  eventCard: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: '#fffcf8',
+    padding: 10,
+  },
   eventDotLarge: {
     width: 10,
     height: 10,
@@ -508,6 +591,12 @@ const styles = StyleSheet.create({
   eventMeta: {
     fontSize: 12,
     color: COLORS.muted,
+  },
+  eventLinkText: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
   },
   upcomingRow: {
     flexDirection: 'row',
@@ -539,5 +628,96 @@ const styles = StyleSheet.create({
     color: COLORS.terracotta,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(28, 25, 22, 0.2)',
+  },
+  modalBackdrop: {
+    flex: 1,
+  },
+  modalCard: {
+    backgroundColor: COLORS.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 28,
+    gap: 16,
+    maxHeight: '75%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  modalHeaderContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  modalEyebrow: {
+    color: COLORS.primary,
+    fontWeight: '700',
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  modalTitle: {
+    color: COLORS.text,
+    fontSize: 24,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  modalCloseButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+  },
+  modalCloseButtonText: {
+    color: COLORS.text,
+    fontWeight: '700',
+  },
+  modalMetaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  modalMetaCard: {
+    width: '47%',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: '#fffdfa',
+    padding: 12,
+    gap: 4,
+  },
+  modalMetaLabel: {
+    color: COLORS.muted,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  modalMetaValue: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  modalSection: {
+    gap: 6,
+  },
+  modalSectionLabel: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  modalBodyText: {
+    color: COLORS.muted,
+    fontSize: 14,
+    lineHeight: 20,
   },
 });
