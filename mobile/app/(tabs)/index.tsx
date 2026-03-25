@@ -89,6 +89,12 @@ function getPriorityStyle(priority: string) {
   return PRIORITY_STYLES[String(priority || '').toLowerCase()] || PRIORITY_STYLES.medium;
 }
 
+function getTaskColumnId(status: string) {
+  const normalizedStatus = String(status || '').toLowerCase();
+  if (normalizedStatus === 'on-hold') return 'archive';
+  return normalizedStatus;
+}
+
 export default function TasksScreen() {
   const [tasks, setTasks] = useState<UiTask[]>([]);
   const [households, setHouseholds] = useState<{ household_id: string | number; name: string }[]>(
@@ -185,7 +191,7 @@ export default function TasksScreen() {
 
   const grouped = useMemo(() => {
     return COLUMN_ORDER.map((column) => {
-      const columnTasks = tasks.filter((task) => task.status === column);
+      const columnTasks = tasks.filter((task) => getTaskColumnId(task.status) === column);
       return {
         id: column,
         title: COLUMN_LABELS[column],
@@ -460,6 +466,7 @@ export default function TasksScreen() {
 
             {activeColumnData.tasks.map((task) => {
               const priorityStyle = getPriorityStyle(task.priority);
+              const taskColumnId = getTaskColumnId(task.status);
 
               return (
                 <View key={task.id} style={styles.taskCard}>
@@ -492,7 +499,7 @@ export default function TasksScreen() {
                   </Pressable>
 
                   <View style={styles.statusActions}>
-                    {task.status === 'todo' ? (
+                    {taskColumnId === 'todo' ? (
                       <>
                         <Pressable
                           style={[styles.secondaryButton, styles.statusActionButton]}
@@ -508,7 +515,7 @@ export default function TasksScreen() {
                         </Pressable>
                       </>
                     ) : null}
-                    {task.status === 'in-progress' ? (
+                    {taskColumnId === 'in-progress' ? (
                       <>
                         <Pressable
                           style={[styles.secondaryButton, styles.statusActionButton]}
@@ -524,7 +531,7 @@ export default function TasksScreen() {
                         </Pressable>
                       </>
                     ) : null}
-                    {task.status === 'done' ? (
+                    {taskColumnId === 'done' ? (
                       <>
                         <Pressable
                           style={[styles.secondaryButton, styles.statusActionButton]}
@@ -540,7 +547,7 @@ export default function TasksScreen() {
                         </Pressable>
                       </>
                     ) : null}
-                    {task.status === 'archive' ? (
+                    {taskColumnId === 'archive' ? (
                       <>
                         <Pressable
                           style={[styles.secondaryButton, styles.statusActionButton]}
