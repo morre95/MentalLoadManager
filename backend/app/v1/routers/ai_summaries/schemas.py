@@ -7,13 +7,17 @@ from pydantic import BaseModel
 
 class GenerateWeeklySummaryRequest(BaseModel):
     household_id: UUID
+    period_type: Literal["weekly", "monthly"] = "weekly"
     week_start: date | None = None
+    year: int | None = None
+    month: int | None = None
     model: str | None = None
 
 
 class WeeklySummaryResponse(BaseModel):
     ai_summary_id: str
     household_id: str
+    period_type: Literal["weekly", "monthly"] = "weekly"
     week_start: date
     week_end: date
     status: Literal["pending", "completed", "failed"]
@@ -27,6 +31,7 @@ class SavedSummaryItemResponse(BaseModel):
     ai_summary_id: str
     household_id: str
     household_name: str
+    period_type: Literal["weekly", "monthly"] = "weekly"
     week_start: date
     week_end: date
     granted_at: date | None = None

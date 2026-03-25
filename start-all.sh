@@ -30,13 +30,23 @@ launch_terminal() {
   local title="$1"
   local command="$2"
 
+  if command -v alacritty >/dev/null 2>&1; then
+    alacritty --title "$title" --working-directory "$ROOT_DIR" --hold -e bash -lc "$command" &
+    return 0
+  fi
+
+  if command -v ghostty >/dev/null 2>&1; then
+    ghostty --title="$title" -e bash -lc "$command; exec bash" &
+    return 0
+  fi
+
   if command -v gnome-terminal >/dev/null 2>&1; then
-    gnome-terminal --title="$title" -- bash -lc "$command; exec bash"
+    gnome-terminal --title="$title" -- bash -lc "$command; exec bash" &
     return 0
   fi
 
   if command -v x-terminal-emulator >/dev/null 2>&1; then
-    x-terminal-emulator -T "$title" -e bash -lc "$command; exec bash"
+    x-terminal-emulator -T "$title" -e bash -lc "$command; exec bash" &
     return 0
   fi
 
@@ -75,19 +85,31 @@ EOF
 backend_command="cd $(printf '%q' "$BACKEND_DIR") && source $(printf '%q' "$BACKEND_DIR/venv/bin/activate") && fastapi dev main.py"
 frontend_command="cd $(printf '%q' "$FRONTEND_DIR") && npm run dev"
 mobile_command="cd $(printf '%q' "$MOBILE_DIR") && npm run start"
+launch_failures=0
 
 echo "Opening backend terminal..."
-launch_terminal "Mental Load Manager Backend" "$backend_command"
+if ! launch_terminal "Mental Load Manager Backend" "$backend_command"; then
+  launch_failures=$((launch_failures + 1))
+fi
 
 echo "Opening frontend terminal..."
-launch_terminal "Mental Load Manager Frontend" "$frontend_command"
+if ! launch_terminal "Mental Load Manager Frontend" "$frontend_command"; then
+  launch_failures=$((launch_failures + 1))
+fi
 
 read -r -p "Open a terminal window for the Expo app in mobile/? [y/N] " open_mobile
 case "$open_mobile" in
   [yY]|[yY][eE][sS])
     echo "Opening mobile terminal..."
-    launch_terminal "Mental Load Manager Mobile" "$mobile_command"
+    if ! launch_terminal "Mental Load Manager Mobile" "$mobile_command"; then
+      launch_failures=$((launch_failures + 1))
+    fi
     ;;
 esac
+
+if ((launch_failures > 0)); then
+  echo "Finished with $launch_failures launcher failure(s)."
+  exit 1
+fi
 
 echo "Requested terminal windows have been opened."

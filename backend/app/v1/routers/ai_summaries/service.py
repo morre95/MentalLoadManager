@@ -27,8 +27,8 @@ from app.v1.models import UserEmail
 from .repository import (
     create_ai_summary,
     delete_ai_summary,
+    fetch_period_tasks,
     fetch_household_tasks,
-    fetch_weekly_tasks,
     get_ai_summary,
     get_user_by_username,
     has_household_membership,
@@ -60,6 +60,7 @@ WEEKDAY_NAMES = [
 
 logger = logging.getLogger(__name__)
 SummaryStatus = Literal["pending", "completed", "failed"]
+SummaryPeriodType = Literal["weekly", "monthly"]
 
 
 def _normalize_week_start(value: date | None) -> date:
@@ -71,6 +72,49 @@ def _normalize_week_start(value: date | None) -> date:
 
 def _week_end_exclusive(week_start: date) -> date:
     return week_start + timedelta(days=7)
+
+
+def _month_start(value: date | None, year: int | None, month: int | None) -> date:
+    if year is not None and month is not None:
+        if month < 1 or month > 12:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Month must be between 1 and 12",
+            )
+        try:
+            return date(year, month, 1)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid year or month for monthly summary",
+            ) from exc
+
+    base_date = value or datetime.now(UTC).date()
+    return date(base_date.year, base_date.month, 1)
+
+
+def _month_end_exclusive(month_start: date) -> date:
+    if month_start.month == 12:
+        return date(month_start.year + 1, 1, 1)
+    return date(month_start.year, month_start.month + 1, 1)
+
+
+def _resolve_period_type(value: str | None) -> SummaryPeriodType:
+    if value == "monthly":
+        return "monthly"
+    return "weekly"
+
+
+def _normalize_summary_period(
+    payload: GenerateWeeklySummaryRequest,
+) -> tuple[SummaryPeriodType, date, date]:
+    period_type = _resolve_period_type(payload.period_type)
+    if period_type == "monthly":
+        period_start = _month_start(payload.week_start, payload.year, payload.month)
+        return period_type, period_start, _month_end_exclusive(period_start)
+
+    period_start = _normalize_week_start(payload.week_start)
+    return period_type, period_start, _week_end_exclusive(period_start)
 
 
 def _display_week_end(week_end_exclusive: date) -> date:
@@ -170,10 +214,23 @@ def _resolve_week_end(ai_summary) -> date:
     )
 
 
+def _infer_period_type(ai_summary) -> SummaryPeriodType:
+    period_start = ai_summary.week_start
+    period_end = _resolve_week_end(ai_summary)
+    if (
+        period_start is not None
+        and period_start.day == 1
+        and period_end == _month_end_exclusive(period_start)
+    ):
+        return "monthly"
+    return "weekly"
+
+
 def _to_weekly_summary_response(ai_summary) -> WeeklySummaryResponse:
     return WeeklySummaryResponse(
         ai_summary_id=str(ai_summary.ai_summary_id),
         household_id=str(ai_summary.household_id),
+        period_type=_infer_period_type(ai_summary),
         week_start=ai_summary.week_start,
         week_end=_resolve_week_end(ai_summary),
         status=_coerce_status(ai_summary.status),
@@ -194,6 +251,7 @@ def _to_saved_summary_item(ai_summary) -> SavedSummaryItemResponse:
             if getattr(ai_summary, "household", None) and ai_summary.household.name
             else "Unnamed household"
         ),
+        period_type=_infer_period_type(ai_summary),
         week_start=ai_summary.week_start,
         week_end=_resolve_week_end(ai_summary),
         granted_at=created_at,
@@ -299,10 +357,9 @@ def _generate_summary_payload(
             detail="OPENROUTER_API_KEY is not configured",
         )
 
-    week_start = _normalize_week_start(payload.week_start)
-    week_end = _week_end_exclusive(week_start)
-    week_start_dt = datetime.combine(week_start, time.min, tzinfo=UTC)
-    week_end_dt = datetime.combine(week_end, time.min, tzinfo=UTC)
+    period_type, period_start, period_end = _normalize_summary_period(payload)
+    period_start_dt = datetime.combine(period_start, time.min, tzinfo=UTC)
+    period_end_dt = datetime.combine(period_end, time.min, tzinfo=UTC)
 
     session_local = _get_session_factory()
     with session_local() as db:
@@ -311,11 +368,11 @@ def _generate_summary_payload(
             username=username,
             household_id=payload.household_id,
         )
-        weekly_tasks = fetch_weekly_tasks(
+        period_tasks = fetch_period_tasks(
             db,
             payload.household_id,
-            week_start_dt,
-            week_end_dt,
+            period_start_dt,
+            period_end_dt,
         )
         household_tasks = fetch_household_tasks(db, payload.household_id)
 
@@ -323,10 +380,10 @@ def _generate_summary_payload(
     for row in household_tasks:
         status_counts[row.status] = status_counts.get(row.status, 0) + 1
 
-    weekly_created = 0
-    weekly_started = 0
-    weekly_completed = 0
-    weekly_due = 0
+    period_created = 0
+    period_started = 0
+    period_completed = 0
+    period_due = 0
     priority_counts: dict[str, int] = {}
     completed_by_user_counts: dict[str, int] = {}
     household_assignee_counts: dict[str, int] = {}
@@ -334,12 +391,12 @@ def _generate_summary_payload(
     assigned_to_user_counts: dict[str, int] = {}
     serialized_tasks: list[dict[str, str | None]] = []
 
-    for row in weekly_tasks:
+    for row in period_tasks:
         priority_value = row.priority or "unspecified"
         priority_counts[priority_value] = priority_counts.get(priority_value, 0) + 1
 
-        if row.created_at and week_start_dt <= row.created_at < week_end_dt:
-            weekly_created += 1
+        if row.created_at and period_start_dt <= row.created_at < period_end_dt:
+            period_created += 1
             creator_label = row.created_by_username or "unknown_creator"
             assigned_by_user_counts[creator_label] = (
                 assigned_by_user_counts.get(creator_label, 0) + 1
@@ -349,18 +406,18 @@ def _generate_summary_payload(
                 assigned_to_user_counts.get(assignee_label, 0) + 1
             )
 
-        if row.started_at and week_start_dt <= row.started_at < week_end_dt:
-            weekly_started += 1
+        if row.started_at and period_start_dt <= row.started_at < period_end_dt:
+            period_started += 1
 
-        if row.complete_date and week_start_dt <= row.complete_date < week_end_dt:
-            weekly_completed += 1
+        if row.complete_date and period_start_dt <= row.complete_date < period_end_dt:
+            period_completed += 1
             completed_by_label = row.assignee_username or "unassigned"
             completed_by_user_counts[completed_by_label] = (
                 completed_by_user_counts.get(completed_by_label, 0) + 1
             )
 
-        if row.due_date and week_start_dt <= row.due_date < week_end_dt:
-            weekly_due += 1
+        if row.due_date and period_start_dt <= row.due_date < period_end_dt:
+            period_due += 1
 
         serialized_tasks.append(
             {
@@ -396,42 +453,44 @@ def _generate_summary_payload(
     )
 
     prompt_payload = {
-        "week_start": week_start.isoformat(),
-        "week_end_exclusive": week_end.isoformat(),
+        "period_type": period_type,
+        "period_start": period_start.isoformat(),
+        "period_end_exclusive": period_end.isoformat(),
         "stats": {
             "total_tasks_in_household": len(household_tasks),
-            "tasks_touched_this_week": len(weekly_tasks),
-            "weekly_created": weekly_created,
-            "weekly_started": weekly_started,
-            "weekly_completed": weekly_completed,
-            "weekly_due": weekly_due,
+            "tasks_touched_in_period": len(period_tasks),
+            "period_created": period_created,
+            "period_started": period_started,
+            "period_completed": period_completed,
+            "period_due": period_due,
             "status_counts_household": status_counts,
-            "priority_counts_touched_this_week": priority_counts,
-            "tasks_assigned_this_week_by_user": assigned_by_user_counts,
-            "tasks_assigned_this_week_to_user": assigned_to_user_counts,
-            "completed_this_week_by_user": completed_by_user_counts,
+            "priority_counts_touched_in_period": priority_counts,
+            "tasks_assigned_in_period_by_user": assigned_by_user_counts,
+            "tasks_assigned_in_period_to_user": assigned_to_user_counts,
+            "completed_in_period_by_user": completed_by_user_counts,
             "household_task_count_by_assignee": household_assignee_counts,
             "household_task_percentage_by_assignee": household_task_percentage_by_assignee,
         },
-        "tasks_touched_this_week": serialized_tasks[:40],
+        "tasks_touched_in_period": serialized_tasks[:40],
     }
     prompt_json = json.dumps(prompt_payload, ensure_ascii=True, sort_keys=True)
     prompt_hash = hashlib.sha256(prompt_json.encode("utf-8")).hexdigest()
 
     system_prompt = (
         "You are an objective assistant for household task management. "
-        "Write a neutral weekly summary. Keep a factual tone. "
+        f"Write a neutral {period_type} summary. Keep a factual tone. "
         "Do not blame or praise individuals. Do not invent data."
     )
+    period_noun = "month" if period_type == "monthly" else "week"
     user_prompt = (
-        "Create a concise weekly situation summary for the household based on this JSON data.\n"
+        f"Create a concise {period_type} situation summary for the household based on this JSON data.\n"
         "Requirements:\n"
         "1) Neutral and factual tone.\n"
         "2) Mention key trends in created/started/completed/due tasks.\n"
         "3) Mention backlog/status distribution.\n"
         "4) Mention notable priorities if visible.\n"
         "5) Include who assigned tasks to whom (based on assigned_by_user and assigned_to_user).\n"
-        "6) Include which users completed tasks this week.\n"
+        f"6) Include which users completed tasks this {period_noun}.\n"
         "7) Include task percentage distribution by assignee when available.\n"
         "8) Maximum 180 words.\n"
         "9) If there is little/no activity, say so clearly and neutrally.\n\n"
@@ -529,8 +588,9 @@ def _generate_summary_payload(
         )
 
     return {
-        "week_start": week_start,
-        "week_end": week_end,
+        "period_type": period_type,
+        "week_start": period_start,
+        "week_end": period_end,
         "summary_text": summary_text,
         "model": selected_model[:100] if selected_model else None,
         "prompt_hash": prompt_hash,
@@ -542,6 +602,7 @@ def _run_weekly_summary_generation_task(
     ai_summary_id: UUID,
     household_id: UUID,
     week_start: date,
+    period_type: SummaryPeriodType,
     model: str | None,
     username: str,
 ) -> None:
@@ -551,6 +612,7 @@ def _run_weekly_summary_generation_task(
         result = _generate_summary_payload(
             GenerateWeeklySummaryRequest(
                 household_id=household_id,
+                period_type=period_type,
                 week_start=week_start,
                 model=model,
             ),
@@ -599,8 +661,7 @@ def queue_weekly_summary_generation(
     current_user: UserEmail,
     background_tasks,
 ) -> WeeklySummaryResponse:
-    week_start = _normalize_week_start(payload.week_start)
-    week_end = _week_end_exclusive(week_start)
+    period_type, week_start, week_end = _normalize_summary_period(payload)
     requested_model = str(payload.model or "").strip() or None
     session_local = _get_session_factory()
 
@@ -637,6 +698,7 @@ def queue_weekly_summary_generation(
         ai_summary_id=ai_summary.ai_summary_id,
         household_id=payload.household_id,
         week_start=week_start,
+        period_type=period_type,
         model=requested_model,
         username=current_user.username,
     )
@@ -672,8 +734,17 @@ def regenerate_weekly_summary(
                 detail="User is not a member of the specified household",
             )
 
+        period_type = _infer_period_type(existing_summary)
         week_start = _normalize_week_start(existing_summary.week_start)
-        week_end = _week_end_exclusive(week_start)
+        if period_type == "monthly" and existing_summary.week_start is not None:
+            week_start = date(
+                existing_summary.week_start.year,
+                existing_summary.week_start.month,
+                1,
+            )
+            week_end = _month_end_exclusive(week_start)
+        else:
+            week_end = _week_end_exclusive(week_start)
         requested_model = str(existing_summary.model or "").strip() or None
         ai_summary = create_ai_summary(
             db,
@@ -702,6 +773,7 @@ def regenerate_weekly_summary(
         ai_summary_id=ai_summary.ai_summary_id,
         household_id=ai_summary.household_id,
         week_start=week_start,
+        period_type=period_type,
         model=requested_model,
         username=current_user.username,
     )

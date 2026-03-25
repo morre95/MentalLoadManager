@@ -32,11 +32,11 @@ def has_household_membership(db: Session, user_id: UUID, household_id: UUID) -> 
     return membership is not None
 
 
-def fetch_weekly_tasks(
+def fetch_period_tasks(
     db: Session,
     household_id: UUID,
-    week_start_dt: datetime,
-    week_end_dt: datetime,
+    period_start_dt: datetime,
+    period_end_dt: datetime,
 ):
     creator_user = aliased(UserDB)
     assignee_user = aliased(UserDB)
@@ -61,18 +61,18 @@ def fetch_weekly_tasks(
                 Tasks.household_id == household_id,
                 or_(
                     and_(
-                        Tasks.created_at >= week_start_dt,
-                        Tasks.created_at < week_end_dt,
+                        Tasks.created_at >= period_start_dt,
+                        Tasks.created_at < period_end_dt,
                     ),
                     and_(
-                        Tasks.started_at >= week_start_dt,
-                        Tasks.started_at < week_end_dt,
+                        Tasks.started_at >= period_start_dt,
+                        Tasks.started_at < period_end_dt,
                     ),
                     and_(
-                        Tasks.complete_date >= week_start_dt,
-                        Tasks.complete_date < week_end_dt,
+                        Tasks.complete_date >= period_start_dt,
+                        Tasks.complete_date < period_end_dt,
                     ),
-                    and_(Tasks.due_date >= week_start_dt, Tasks.due_date < week_end_dt),
+                    and_(Tasks.due_date >= period_start_dt, Tasks.due_date < period_end_dt),
                 ),
             )
         )

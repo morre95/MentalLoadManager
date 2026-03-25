@@ -25,6 +25,24 @@ const SUMMARY_MODELS = [
   { name: "Grok 4", value: "x-ai/grok-4-fast" },
   { name: "GPT-OSS 120b", value: "openai/gpt-oss-120b" },
 ];
+const PERIOD_TYPES = [
+  { label: "Weekly", value: "weekly" },
+  { label: "Monthly", value: "monthly" },
+];
+const MONTH_OPTIONS = [
+  { label: "January", value: "1" },
+  { label: "February", value: "2" },
+  { label: "March", value: "3" },
+  { label: "April", value: "4" },
+  { label: "May", value: "5" },
+  { label: "June", value: "6" },
+  { label: "July", value: "7" },
+  { label: "August", value: "8" },
+  { label: "September", value: "9" },
+  { label: "October", value: "10" },
+  { label: "November", value: "11" },
+  { label: "December", value: "12" },
+];
 
 function mapModelName(model) {
   const normalizedModel = String(model || "").trim();
@@ -53,6 +71,14 @@ function getCurrentWeekStart() {
   return monday.toISOString().slice(0, 10);
 }
 
+function getCurrentMonthSelection() {
+  const today = new Date();
+  return {
+    year: String(today.getFullYear()),
+    month: String(today.getMonth() + 1),
+  };
+}
+
 function formatWeekLabel(value) {
   if (!value) return "";
   const parsed = new Date(`${value}T00:00:00`);
@@ -64,10 +90,52 @@ function formatWeekLabel(value) {
   });
 }
 
+function formatMonthLabel(year, month) {
+  if (!year || !month) return "";
+  const parsed = new Date(Number(year), Number(month) - 1, 1);
+  if (Number.isNaN(parsed.getTime())) return `${year}-${month}`;
+  return parsed.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+  });
+}
+
+function inferPeriodTypeFromDates(start, end) {
+  if (!start || !end) return "weekly";
+
+  const startDate = new Date(`${start}T00:00:00`);
+  const endDate = new Date(`${end}T00:00:00`);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return "weekly";
+  }
+
+  const nextMonthStart = new Date(startDate);
+  nextMonthStart.setMonth(nextMonthStart.getMonth() + 1, 1);
+
+  if (startDate.getDate() === 1 && endDate.getTime() === nextMonthStart.getTime()) {
+    return "monthly";
+  }
+
+  return "weekly";
+}
+
+function formatSummaryPeriod(summary) {
+  if (!summary?.week_start) return "";
+
+  const periodType = summary.period_type || inferPeriodTypeFromDates(summary.week_start, summary.week_end);
+  if (periodType === "monthly") {
+    const parsed = new Date(`${summary.week_start}T00:00:00`);
+    return formatMonthLabel(parsed.getFullYear(), parsed.getMonth() + 1);
+  }
+
+  return `${formatWeekLabel(summary.week_start)} to ${formatWeekLabel(summary.week_end)}`;
+}
+
 function mapReportToSummary(report) {
   return {
     ai_summary_id: report.ai_summary_id,
     household_id: report.household_id,
+    period_type: report.period_type || inferPeriodTypeFromDates(report.week_start, report.week_end),
     week_start: report.week_start,
     week_end: report.week_end,
     status: report.status,
@@ -81,8 +149,11 @@ export default function Summarys() {
   const [searchParams] = useSearchParams();
   const { households, loading, error, refetch } = useHousehold();
   const [selectedHouseholdId, setSelectedHouseholdId] = useState("");
+  const [selectedPeriodType, setSelectedPeriodType] = useState("weekly");
   const [selectedModel, setSelectedModel] = useState(DEFAULT_SUMMARY_MODEL);
   const [weekStart, setWeekStart] = useState(getCurrentWeekStart);
+  const [selectedYear, setSelectedYear] = useState(() => getCurrentMonthSelection().year);
+  const [selectedMonth, setSelectedMonth] = useState(() => getCurrentMonthSelection().month);
   const [summary, setSummary] = useState(null);
   const [savedReports, setSavedReports] = useState([]);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
@@ -117,6 +188,11 @@ export default function Summarys() {
     if (!summary?.household_id) return "";
     return resolveHouseholdName(summary.household_id, summary.household_name);
   }, [resolveHouseholdName, summary?.household_id, summary?.household_name]);
+
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 7 }, (_, index) => String(currentYear - 3 + index));
+  }, []);
 
   useEffect(() => {
     if (householdOptions.length === 0) {
@@ -153,7 +229,10 @@ export default function Summarys() {
         method: "POST",
         body: JSON.stringify({
           household_id: selectedHouseholdId,
-          week_start: weekStart || null,
+          period_type: selectedPeriodType,
+          week_start: selectedPeriodType === "weekly" ? weekStart || null : null,
+          year: selectedPeriodType === "monthly" ? Number(selectedYear) : null,
+          month: selectedPeriodType === "monthly" ? Number(selectedMonth) : null,
           model: selectedModel || DEFAULT_SUMMARY_MODEL,
         }),
       });
@@ -163,7 +242,7 @@ export default function Summarys() {
       }
       setSummary(data);
     } catch (err) {
-      setRequestError(err?.message || "Failed to generate weekly summary.");
+      setRequestError(err?.message || "Failed to generate summary.");
     } finally {
       setIsGenerating(false);
     }
@@ -187,7 +266,7 @@ export default function Summarys() {
         }
       } catch (err) {
         if (active) {
-          setRequestError(err?.message || "Failed to refresh weekly summary status.");
+          setRequestError(err?.message || "Failed to refresh summary status.");
         }
       }
     };
@@ -225,10 +304,20 @@ export default function Summarys() {
         if (requestedSummary?.household_id) {
           setSelectedHouseholdId(String(requestedSummary.household_id));
         }
+        if (requestedSummary?.period_type) {
+          setSelectedPeriodType(requestedSummary.period_type);
+        }
+        if (requestedSummary?.period_type === "monthly" && requestedSummary?.week_start) {
+          const parsed = new Date(`${requestedSummary.week_start}T00:00:00`);
+          if (!Number.isNaN(parsed.getTime())) {
+            setSelectedYear(String(parsed.getFullYear()));
+            setSelectedMonth(String(parsed.getMonth() + 1));
+          }
+        }
         setSummary(requestedSummary);
       } catch (err) {
         if (active) {
-          setRequestError(err?.message || "Failed to load requested weekly summary.");
+          setRequestError(err?.message || "Failed to load requested summary.");
         }
       }
     };
@@ -261,8 +350,8 @@ export default function Summarys() {
       week_start: summary.week_start,
       week_end: summary.week_end,
       model: summary.model,
-      title: "Weekly summary ready",
-      message: `Your weekly summary for ${resolveHouseholdName(
+      title: `${summary.period_type === "monthly" ? "Monthly" : "Weekly"} summary ready`,
+      message: `Your ${summary.period_type === "monthly" ? "monthly" : "weekly"} summary for ${resolveHouseholdName(
         summary.household_id,
         summary.household_name,
       )} is ready to review.`,
@@ -274,6 +363,7 @@ export default function Summarys() {
     summary?.household_id,
     summary?.household_name,
     summary?.model,
+    summary?.period_type,
     summary?.status,
     summary?.week_end,
     summary?.week_start,
@@ -326,7 +416,18 @@ export default function Summarys() {
   }, [selectedHouseholdId, summary?.ai_summary_id, summary?.status]);
 
   const handleOpenSavedReport = (report) => {
-    setSummary(mapReportToSummary(report));
+    const nextSummary = mapReportToSummary(report);
+    if (nextSummary.period_type) {
+      setSelectedPeriodType(nextSummary.period_type);
+    }
+    if (nextSummary.period_type === "monthly" && nextSummary.week_start) {
+      const parsed = new Date(`${nextSummary.week_start}T00:00:00`);
+      if (!Number.isNaN(parsed.getTime())) {
+        setSelectedYear(String(parsed.getFullYear()));
+        setSelectedMonth(String(parsed.getMonth() + 1));
+      }
+    }
+    setSummary(nextSummary);
   };
 
   const handleDeleteReport = async (report) => {
@@ -372,7 +473,7 @@ export default function Summarys() {
       }
       setSummary(nextSummary);
     } catch (err) {
-      setRequestError(err?.message || "Failed to regenerate weekly summary.");
+      setRequestError(err?.message || "Failed to regenerate summary.");
     } finally {
       setActiveReportAction(null);
     }
@@ -395,7 +496,7 @@ export default function Summarys() {
             Summarys
           </h1>
           <p className="mt-1 text-muted-foreground">
-            Generate a neutral weekly AI summary for one household at a time.
+            Generate a neutral weekly or monthly AI summary for one household at a time.
           </p>
           {error && (
             <p className="mt-2 text-sm text-destructive">
@@ -407,13 +508,13 @@ export default function Summarys() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Weekly Summary</CardTitle>
+          <CardTitle>Generate Summary</CardTitle>
           <CardDescription>
-            Pick a household and week start date, then generate a summary from task activity.
+            Pick a household and time period, then generate a summary from task activity.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_220px_auto]" onSubmit={handleGenerate}>
+          <form className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]" onSubmit={handleGenerate}>
             <div className="space-y-2">
               <Label htmlFor="summary-household">Household</Label>
               <Select value={selectedHouseholdId} onValueChange={setSelectedHouseholdId}>
@@ -424,6 +525,22 @@ export default function Summarys() {
                   {householdOptions.map((household) => (
                     <SelectItem key={household.id} value={household.id}>
                       {household.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="summary-period-type">Period</Label>
+              <Select value={selectedPeriodType} onValueChange={setSelectedPeriodType}>
+                <SelectTrigger id="summary-period-type">
+                  <SelectValue placeholder="Select period" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PERIOD_TYPES.map((periodType) => (
+                    <SelectItem key={periodType.value} value={periodType.value}>
+                      {periodType.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -449,16 +566,52 @@ export default function Summarys() {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="summary-week-start">Week Start</Label>
-              <Input
-                id="summary-week-start"
-                type="date"
-                value={weekStart}
-                onChange={(event) => setWeekStart(event.target.value)}
-                disabled={isGenerating}
-              />
-            </div>
+            {selectedPeriodType === "weekly" ? (
+              <div className="space-y-2">
+                <Label htmlFor="summary-week-start">Week Start</Label>
+                <Input
+                  id="summary-week-start"
+                  type="date"
+                  value={weekStart}
+                  onChange={(event) => setWeekStart(event.target.value)}
+                  disabled={isGenerating}
+                />
+              </div>
+            ) : (
+              <div className="grid gap-5 sm:grid-cols-2 lg:col-span-2">
+                <div className="space-y-2">
+                  <Label htmlFor="summary-year">Year</Label>
+                  <Select value={selectedYear} onValueChange={setSelectedYear}>
+                    <SelectTrigger id="summary-year">
+                      <SelectValue placeholder="Select year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {yearOptions.map((year) => (
+                        <SelectItem key={year} value={year}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="summary-month">Month</Label>
+                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                    <SelectTrigger id="summary-month">
+                      <SelectValue placeholder="Select month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MONTH_OPTIONS.map((month) => (
+                        <SelectItem key={month.value} value={month.value}>
+                          {month.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-end">
               <Button type="submit" className="w-full gap-2 lg:w-auto" disabled={isGenerating || !selectedHouseholdId}>
@@ -524,7 +677,7 @@ export default function Summarys() {
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    Weekly summary
+                    {report.period_type === "monthly" ? "Monthly summary" : "Weekly summary"}
                     {isSelectedReport ? (
                       <span className="rounded-full bg-primary/12 px-2 py-0.5 text-[11px] font-medium text-primary">
                         Showing
@@ -535,8 +688,7 @@ export default function Summarys() {
                     {resolveHouseholdName(report.household_id, report.household_name)}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {formatWeekLabel(report.week_start)}
-                    {report.week_start !== report.week_end ? ` to ${formatWeekLabel(report.week_end)}` : ""}
+                    {formatSummaryPeriod(report)}
                   </div>
                 </div>
                 <div className="ml-4 text-right text-xs text-muted-foreground">
@@ -588,8 +740,8 @@ export default function Summarys() {
           </CardTitle>
           <CardDescription>
             {summary
-              ? `Weekly summary from ${formatWeekLabel(summary.week_start)}`
-              : "Your generated weekly summary will appear here."}
+              ? `${summary.period_type === "monthly" ? "Monthly" : "Weekly"} summary for ${formatSummaryPeriod(summary)}`
+              : "Your generated summary will appear here."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -603,12 +755,14 @@ export default function Summarys() {
               {summary.status === "pending" ? (
                 <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Weekly summary is being generated in the background.
+                  {summary.period_type === "monthly"
+                    ? "Monthly summary is being generated in the background."
+                    : "Weekly summary is being generated in the background."}
                 </div>
               ) : null}
               {summary.status === "failed" ? (
                 <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
-                  {summary.error || "Weekly summary generation failed."}
+                  {summary.error || "Summary generation failed."}
                 </div>
               ) : null}
               {summary.content ? (
@@ -651,7 +805,7 @@ export default function Summarys() {
             </>
           ) : (
             <div className="rounded-lg border border-dashed border-border bg-muted/20 p-6 text-sm text-muted-foreground">
-              Generate a summary to review weekly task trends, backlog movement, assignments, and completions.
+              Generate a summary to review task trends, backlog movement, assignments, and completions.
             </div>
           )}
         </CardContent>

@@ -104,6 +104,7 @@ class AISummaryActionsServiceTest(unittest.TestCase):
         background_tasks = _BackgroundTasksStub()
         payload = service.GenerateWeeklySummaryRequest(
             household_id=self.household_id,
+            period_type="weekly",
             week_start=date(2026, 3, 16),
             model=requested_model,
         )
@@ -145,11 +146,13 @@ class AISummaryActionsServiceTest(unittest.TestCase):
         self.assertEqual(task_kwargs["ai_summary_id"], new_summary.ai_summary_id)
         self.assertEqual(task_kwargs["household_id"], self.household_id)
         self.assertEqual(task_kwargs["week_start"], date(2026, 3, 16))
+        self.assertEqual(task_kwargs["period_type"], "weekly")
         self.assertEqual(task_kwargs["model"], requested_model)
         self.assertEqual(task_kwargs["username"], "alice")
         self.assertEqual(response.ai_summary_id, str(new_summary.ai_summary_id))
         self.assertEqual(response.model, requested_model)
         self.assertEqual(response.status, "pending")
+        self.assertEqual(response.period_type, "weekly")
 
     def test_regenerate_weekly_summary_creates_new_pending_summary(self) -> None:
         existing_model = "google/gemini-2.5-flash-lite"
@@ -220,11 +223,13 @@ class AISummaryActionsServiceTest(unittest.TestCase):
         self.assertEqual(task_kwargs["ai_summary_id"], new_summary.ai_summary_id)
         self.assertEqual(task_kwargs["household_id"], self.household_id)
         self.assertEqual(task_kwargs["week_start"], date(2026, 3, 16))
+        self.assertEqual(task_kwargs["period_type"], "weekly")
         self.assertEqual(task_kwargs["model"], existing_model)
         self.assertEqual(task_kwargs["username"], "alice")
         self.assertEqual(response.ai_summary_id, str(new_summary.ai_summary_id))
         self.assertEqual(response.model, existing_model)
         self.assertEqual(response.status, "pending")
+        self.assertEqual(response.period_type, "weekly")
 
     def test_run_weekly_summary_generation_task_passes_model_to_generation(self) -> None:
         ai_summary = SimpleNamespace(
@@ -259,16 +264,72 @@ class AISummaryActionsServiceTest(unittest.TestCase):
                         ai_summary_id=self.summary_id,
                         household_id=self.household_id,
                         week_start=date(2026, 3, 16),
+                        period_type="weekly",
                         model="google/gemini-2.5-flash-lite",
                         username="alice",
                     )
 
         request_payload = generate_mock.call_args.args[0]
         self.assertEqual(request_payload.household_id, self.household_id)
+        self.assertEqual(request_payload.period_type, "weekly")
         self.assertEqual(request_payload.week_start, date(2026, 3, 16))
         self.assertEqual(request_payload.model, "google/gemini-2.5-flash-lite")
         self.assertTrue(self.db.committed)
         self.assertEqual(ai_summary.model, "google/gemini-2.5-flash-lite")
+
+    def test_queue_monthly_summary_generation_uses_first_day_of_month(self) -> None:
+        requested_model = "google/gemini-2.5-flash-lite"
+        new_summary = SimpleNamespace(
+            ai_summary_id=uuid4(),
+            household_id=self.household_id,
+            week_start=date(2026, 3, 1),
+            week_end=date(2026, 4, 1),
+            status="pending",
+            model=requested_model,
+            content="",
+            prompt_hash=None,
+            error=None,
+        )
+        background_tasks = _BackgroundTasksStub()
+        payload = service.GenerateWeeklySummaryRequest(
+            household_id=self.household_id,
+            period_type="monthly",
+            year=2026,
+            month=3,
+            model=requested_model,
+        )
+
+        with patch.object(
+            service, "get_session_local", return_value=self._session_local
+        ):
+            with patch.object(service, "_validate_membership"):
+                with patch.object(
+                    service,
+                    "create_ai_summary",
+                    return_value=new_summary,
+                ) as create_mock:
+                    response = service.queue_weekly_summary_generation(
+                        payload,
+                        self.current_user,
+                        background_tasks,
+                    )
+
+        create_mock.assert_called_once_with(
+            self.db,
+            household_id=self.household_id,
+            week_start=date(2026, 3, 1),
+            week_end=date(2026, 4, 1),
+            content="",
+            model=requested_model,
+            prompt_hash=None,
+            status="pending",
+            error=None,
+        )
+        self.assertEqual(len(background_tasks.tasks), 1)
+        _, task_kwargs = background_tasks.tasks[0]
+        self.assertEqual(task_kwargs["week_start"], date(2026, 3, 1))
+        self.assertEqual(task_kwargs["period_type"], "monthly")
+        self.assertEqual(response.period_type, "monthly")
 
     def test_regenerate_weekly_summary_forbidden_for_non_member(self) -> None:
         existing_summary = SimpleNamespace(
