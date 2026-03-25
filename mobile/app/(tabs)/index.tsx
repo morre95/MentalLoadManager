@@ -22,7 +22,7 @@ import {
   type UiTask,
 } from '../../../shared/index.js';
 import { TabMenuButton } from '@/components/TabMenuButton';
-import { mobileApiBaseUrl, mobileApiClient } from '@/lib/api';
+import { mobileApiClient } from '@/lib/api';
 
 const COLORS = {
   bg: '#f7f6f2',

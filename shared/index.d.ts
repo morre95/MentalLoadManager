@@ -341,6 +341,57 @@ export type AnalyticsAskResponse = {
   generated_at: string | null;
 };
 
+export type CalendarEvent = {
+  id: string;
+  task_id: string;
+  date: string | null;
+  title: string;
+  household_id: string | null;
+  household_name: string | null;
+  person: string | null;
+  recurrence_enabled: boolean;
+  recurrence_frequency: "daily" | "weekly" | "monthly" | string | null;
+  recurrence_interval: number | null;
+  recurrence_label: string;
+  is_projected: boolean;
+};
+
+export function normalizeCalendarMonth(data: any): {
+  startDate: string | null;
+  today: string | null;
+  monthLabel: string;
+  events: CalendarEvent[];
+};
+
+export function normalizeCalendarRange(data: any): {
+  fromDate: string | null;
+  toDate: string | null;
+  today: string | null;
+  events: CalendarEvent[];
+};
+
+export function fetchCalendarMonth(
+  apiClient: ApiClient,
+  year?: number | null,
+  month?: number | null
+): Promise<{
+  startDate: string | null;
+  today: string | null;
+  monthLabel: string;
+  events: CalendarEvent[];
+}>;
+
+export function fetchCalendarRange(
+  apiClient: ApiClient,
+  from: string,
+  to: string
+): Promise<{
+  fromDate: string | null;
+  toDate: string | null;
+  today: string | null;
+  events: CalendarEvent[];
+}>;
+
 export function normalizeHousehold(household: any): Household;
 export function flattenHouseholdMembers(households: Household[]): Array<
   HouseholdMember & {
