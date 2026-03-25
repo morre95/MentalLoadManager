@@ -15,6 +15,7 @@ import {
 
 import {
   createKanbanTask,
+  deleteKanbanTask,
   fetchHouseholds,
   fetchKanbanTasks,
   updateKanbanTaskStatus,
@@ -73,20 +74,6 @@ const PRIORITY_STYLES: Record<
 };
 const BOTTOM_REFRESH_THRESHOLD = 80;
 const SCROLL_REFRESH_COOLDOWN_MS = 15000;
-
-function nextStatus(status: string) {
-  if (status === 'todo') return 'in-progress';
-  if (status === 'in-progress') return 'done';
-  if (status === 'done') return 'archive';
-  return 'todo';
-}
-
-function previousStatus(status: string) {
-  if (status === 'archive') return 'done';
-  if (status === 'done') return 'in-progress';
-  if (status === 'in-progress') return 'todo';
-  return 'archive';
-}
 
 function getAssigneeLabel(task: UiTask) {
   return task.assigneeLabel || 'Unassigned';
@@ -225,9 +212,7 @@ export default function TasksScreen() {
   }, [households, selectedHouseholdName, selectedTask]);
 
   const onChangeStatus = useCallback(
-    async (task: UiTask, direction: 'forward' | 'backward') => {
-      const targetStatus =
-        direction === 'forward' ? nextStatus(task.status) : previousStatus(task.status);
+    async (task: UiTask, targetStatus: string) => {
       const previous = tasks;
 
       setTasks((current) =>
@@ -249,6 +234,25 @@ export default function TasksScreen() {
       }
     },
     [tasks]
+  );
+  const onDeleteTask = useCallback(
+    async (task: UiTask) => {
+      const previous = tasks;
+
+      setError(null);
+      setTasks((current) => current.filter((item) => item.id !== task.id));
+      if (selectedTaskId === task.id) {
+        setSelectedTaskId(null);
+      }
+
+      try {
+        await deleteKanbanTask(mobileApiClient, task.id);
+      } catch {
+        setTasks(previous);
+        setError('Could not delete task. Restored local change.');
+      }
+    },
+    [selectedTaskId, tasks]
   );
 
   const onCreateTask = useCallback(async () => {
@@ -488,22 +492,70 @@ export default function TasksScreen() {
                   </Pressable>
 
                   <View style={styles.statusActions}>
-                    <Pressable
-                      style={[styles.secondaryButton, styles.statusActionButton]}
-                      onPress={() => onChangeStatus(task, 'backward')}
-                    >
-                      <Text style={styles.secondaryButtonText}>
-                        Move back to {COLUMN_LABELS[previousStatus(task.status)]}
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      style={[styles.secondaryButton, styles.statusActionButton]}
-                      onPress={() => onChangeStatus(task, 'forward')}
-                    >
-                      <Text style={styles.secondaryButtonText}>
-                        Move to {COLUMN_LABELS[nextStatus(task.status)]}
-                      </Text>
-                    </Pressable>
+                    {task.status === 'todo' ? (
+                      <>
+                        <Pressable
+                          style={[styles.secondaryButton, styles.statusActionButton]}
+                          onPress={() => onChangeStatus(task, 'in-progress')}
+                        >
+                          <Text style={styles.secondaryButtonText}>Move to In Progress</Text>
+                        </Pressable>
+                        <Pressable
+                          style={[styles.secondaryButton, styles.statusActionButton]}
+                          onPress={() => onChangeStatus(task, 'done')}
+                        >
+                          <Text style={styles.secondaryButtonText}>Move to Done</Text>
+                        </Pressable>
+                      </>
+                    ) : null}
+                    {task.status === 'in-progress' ? (
+                      <>
+                        <Pressable
+                          style={[styles.secondaryButton, styles.statusActionButton]}
+                          onPress={() => onChangeStatus(task, 'todo')}
+                        >
+                          <Text style={styles.secondaryButtonText}>Move to To Do</Text>
+                        </Pressable>
+                        <Pressable
+                          style={[styles.secondaryButton, styles.statusActionButton]}
+                          onPress={() => onChangeStatus(task, 'done')}
+                        >
+                          <Text style={styles.secondaryButtonText}>Move to Done</Text>
+                        </Pressable>
+                      </>
+                    ) : null}
+                    {task.status === 'done' ? (
+                      <>
+                        <Pressable
+                          style={[styles.secondaryButton, styles.statusActionButton]}
+                          onPress={() => onChangeStatus(task, 'archive')}
+                        >
+                          <Text style={styles.secondaryButtonText}>Move to Archive</Text>
+                        </Pressable>
+                        <Pressable
+                          style={[styles.secondaryButton, styles.statusActionButton]}
+                          onPress={() => onChangeStatus(task, 'todo')}
+                        >
+                          <Text style={styles.secondaryButtonText}>Move to To Do</Text>
+                        </Pressable>
+                      </>
+                    ) : null}
+                    {task.status === 'archive' ? (
+                      <>
+                        <Pressable
+                          style={[styles.secondaryButton, styles.statusActionButton]}
+                          onPress={() => onDeleteTask(task)}
+                        >
+                          <Text style={styles.secondaryButtonText}>Delete Task</Text>
+                        </Pressable>
+                        <Pressable
+                          style={[styles.secondaryButton, styles.statusActionButton]}
+                          onPress={() => onChangeStatus(task, 'done')}
+                        >
+                          <Text style={styles.secondaryButtonText}>Move to Done</Text>
+                        </Pressable>
+                      </>
+                    ) : null}
                   </View>
                 </View>
               );
