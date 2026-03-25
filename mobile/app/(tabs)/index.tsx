@@ -334,8 +334,6 @@ export default function TasksScreen() {
         <View style={styles.headerWrap}>
           <Text style={styles.eyebrow}>Mental Load Manager</Text>
           <Text style={styles.title}>Tasks</Text>
-          <Text style={styles.subtitle}>Backend: {mobileApiBaseUrl}</Text>
-          <Text style={styles.subtitle}>View: {selectedHouseholdName}</Text>
         </View>
 
         {loading ? (
@@ -461,7 +459,7 @@ export default function TasksScreen() {
                         style={[
                           styles.primaryButtonSmall,
                           (!newTaskTitle.trim() || addTaskSaving) &&
-                            styles.primaryButtonSmallDisabled,
+                          styles.primaryButtonSmallDisabled,
                         ]}
                         onPress={onCreateTask}
                         disabled={!newTaskTitle.trim() || addTaskSaving}

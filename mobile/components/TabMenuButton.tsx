@@ -31,7 +31,7 @@ export function TabMenuButton() {
 const styles = StyleSheet.create({
   button: {
     position: 'absolute',
-    top: 10,
+    top: 30,
     right: 16,
     zIndex: 20,
     borderRadius: 999,

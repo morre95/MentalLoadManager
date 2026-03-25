@@ -137,32 +137,31 @@ export default function HouseholdScreen() {
         <View style={styles.headerWrap}>
           <Text style={styles.eyebrow}>Mental Load Manager</Text>
           <Text style={styles.title}>Household</Text>
-          <Text style={styles.subtitle}>Backend: {mobileApiBaseUrl}</Text>
           <Text style={styles.subtitle}>
             Households: {households.length} • Members: {totalMembers}
           </Text>
         </View>
 
-      <View style={styles.createCard}>
-        <Text style={styles.sectionTitle}>Create Household</Text>
-        <TextInput
-          value={newName}
-          onChangeText={setNewName}
-          placeholder="Household name"
-          style={styles.input}
-        />
-        <Pressable style={styles.primaryButton} onPress={onCreateHousehold}>
-          <Text style={styles.primaryButtonText}>Create</Text>
-        </Pressable>
-      </View>
-
-      {loading ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+        <View style={styles.createCard}>
+          <Text style={styles.sectionTitle}>Create Household</Text>
+          <TextInput
+            value={newName}
+            onChangeText={setNewName}
+            placeholder="Household name"
+            style={styles.input}
+          />
+          <Pressable style={styles.primaryButton} onPress={onCreateHousehold}>
+            <Text style={styles.primaryButtonText}>Create</Text>
+          </Pressable>
         </View>
-      ) : null}
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {loading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        ) : null}
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         {households.map((household) => (
           <View style={styles.householdCard} key={String(household.household_id)}>
