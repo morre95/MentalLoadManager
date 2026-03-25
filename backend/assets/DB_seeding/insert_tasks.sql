@@ -113,8 +113,9 @@ FROM generate_series(1,30) AS s(i);
 
 
 -- NOTE: Samma som ovan fast enklare och som hämtar ut det första household_id
--- Om man inte vill hämta det första household_id vyt då ut raden:
--- (SELECT household_id FROM users_households WHERE user_id = val.uid LIMIT 1) till det id du vill anända
+-- Om man inte vill hämta det första household_id kör då raden:
+-- (SELECT household_id FROM users_households WHERE user_id = val.uid LIMIT 1) 
+-- för att representera det id du vill anända
 INSERT INTO tasks (
   due_date, 
   name, 
