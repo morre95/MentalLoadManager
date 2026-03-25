@@ -51,6 +51,26 @@ const STATUS_COLORS: Record<string, string> = {
   done: COLORS.done,
   archive: COLORS.archive,
 };
+const PRIORITY_STYLES: Record<
+  string,
+  { backgroundColor: string; borderColor: string; textColor: string }
+> = {
+  low: {
+    backgroundColor: '#e6efe9',
+    borderColor: 'rgba(86, 143, 114, 0.3)',
+    textColor: '#568f72',
+  },
+  medium: {
+    backgroundColor: 'rgba(232, 151, 48, 0.15)',
+    borderColor: 'rgba(232, 151, 48, 0.3)',
+    textColor: '#e89730',
+  },
+  high: {
+    backgroundColor: '#f8ece8',
+    borderColor: 'rgba(219, 145, 112, 0.3)',
+    textColor: '#db9170',
+  },
+};
 const BOTTOM_REFRESH_THRESHOLD = 80;
 const SCROLL_REFRESH_COOLDOWN_MS = 15000;
 
@@ -76,6 +96,10 @@ function formatStatusLabel(status: string) {
   return String(status || '')
     .replace(/-/g, ' ')
     .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function getPriorityStyle(priority: string) {
+  return PRIORITY_STYLES[String(priority || '').toLowerCase()] || PRIORITY_STYLES.medium;
 }
 
 export default function TasksScreen() {
@@ -430,43 +454,60 @@ export default function TasksScreen() {
               </View>
             ) : null}
 
-            {activeColumnData.tasks.map((task) => (
-              <View key={task.id} style={styles.taskCard}>
-                <Pressable style={styles.taskDetailsButton} onPress={() => setSelectedTaskId(task.id)}>
-                  <View style={styles.taskHeader}>
-                    <Text style={styles.taskTitle}>{task.title}</Text>
-                    <View style={styles.priorityPill}>
-                      <Text style={styles.priorityText}>{task.priority}</Text>
+            {activeColumnData.tasks.map((task) => {
+              const priorityStyle = getPriorityStyle(task.priority);
+
+              return (
+                <View key={task.id} style={styles.taskCard}>
+                  <Pressable
+                    style={styles.taskDetailsButton}
+                    onPress={() => setSelectedTaskId(task.id)}
+                  >
+                    <View style={styles.taskHeader}>
+                      <Text style={styles.taskTitle}>{task.title}</Text>
+                      <View
+                        style={[
+                          styles.priorityPill,
+                          {
+                            backgroundColor: priorityStyle.backgroundColor,
+                            borderColor: priorityStyle.borderColor,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.priorityText, { color: priorityStyle.textColor }]}>
+                          {task.priority}
+                        </Text>
+                      </View>
                     </View>
+
+                    <Text style={styles.taskMeta}>
+                      {task.category} • {getAssigneeLabel(task)}
+                    </Text>
+                    {task.dueDate ? <Text style={styles.taskMeta}>Due {task.dueDate}</Text> : null}
+                    <Text style={styles.taskLinkText}>Tap to view details</Text>
+                  </Pressable>
+
+                  <View style={styles.statusActions}>
+                    <Pressable
+                      style={[styles.secondaryButton, styles.statusActionButton]}
+                      onPress={() => onChangeStatus(task, 'backward')}
+                    >
+                      <Text style={styles.secondaryButtonText}>
+                        Move back to {COLUMN_LABELS[previousStatus(task.status)]}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.secondaryButton, styles.statusActionButton]}
+                      onPress={() => onChangeStatus(task, 'forward')}
+                    >
+                      <Text style={styles.secondaryButtonText}>
+                        Move to {COLUMN_LABELS[nextStatus(task.status)]}
+                      </Text>
+                    </Pressable>
                   </View>
-
-                  <Text style={styles.taskMeta}>
-                    {task.category} • {getAssigneeLabel(task)}
-                  </Text>
-                  {task.dueDate ? <Text style={styles.taskMeta}>Due {task.dueDate}</Text> : null}
-                  <Text style={styles.taskLinkText}>Tap to view details</Text>
-                </Pressable>
-
-                <View style={styles.statusActions}>
-                  <Pressable
-                    style={[styles.secondaryButton, styles.statusActionButton]}
-                    onPress={() => onChangeStatus(task, 'backward')}
-                  >
-                    <Text style={styles.secondaryButtonText}>
-                      Move back to {COLUMN_LABELS[previousStatus(task.status)]}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.secondaryButton, styles.statusActionButton]}
-                    onPress={() => onChangeStatus(task, 'forward')}
-                  >
-                    <Text style={styles.secondaryButtonText}>
-                      Move to {COLUMN_LABELS[nextStatus(task.status)]}
-                    </Text>
-                  </Pressable>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         ) : null}
       </ScrollView>
@@ -662,13 +703,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   priorityPill: {
-    backgroundColor: '#f2efe6',
     borderRadius: 999,
+    borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
   priorityText: {
-    color: COLORS.muted,
     textTransform: 'capitalize',
     fontWeight: '600',
     fontSize: 12,
