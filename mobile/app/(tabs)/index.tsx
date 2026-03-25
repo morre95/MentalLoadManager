@@ -39,6 +39,7 @@ const COLORS = {
 
 const COLUMN_ORDER = ['todo', 'in-progress', 'done', 'archive'] as const;
 const ALL_HOUSEHOLDS = '__all_households__';
+const PRIORITY_OPTIONS = ['low', 'medium', 'high'] as const;
 
 const COLUMN_LABELS: Record<string, string> = {
   todo: 'To Do',
@@ -96,6 +97,22 @@ function getTaskColumnId(status: string) {
   return normalizedStatus;
 }
 
+function toDueDatePayload(value: string) {
+  const normalizedValue = String(value || '').trim();
+  if (!normalizedValue) return null;
+  return `${normalizedValue}T12:00:00.000Z`;
+}
+
+function formatDraftDueDate(value: string) {
+  const payload = toDueDatePayload(value);
+  if (!payload) return undefined;
+
+  const date = new Date(payload);
+  if (Number.isNaN(date.getTime())) return undefined;
+
+  return date.toLocaleDateString();
+}
+
 export default function TasksScreen() {
   const [tasks, setTasks] = useState<UiTask[]>([]);
   const [households, setHouseholds] = useState<{ household_id: string | number; name: string }[]>(
@@ -107,9 +124,16 @@ export default function TasksScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
-  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTask, setNewTask] = useState({
+    householdId: '',
+    title: '',
+    description: '',
+    priority: 'medium',
+    dueDate: '',
+  });
   const [addTaskSaving, setAddTaskSaving] = useState(false);
   const [addTaskError, setAddTaskError] = useState<string | null>(null);
+  const [isAddTaskHouseholdSelectOpen, setIsAddTaskHouseholdSelectOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isHouseholdSelectOpen, setIsHouseholdSelectOpen] = useState(false);
   const lastScrollRefreshAtRef = useRef(0);
@@ -218,6 +242,35 @@ export default function TasksScreen() {
     );
     return household?.name || 'Unknown household';
   }, [households, selectedHouseholdName, selectedTask]);
+  const createTaskHouseholdName = useMemo(() => {
+    if (newTask.householdId) {
+      const household = households.find(
+        (item) => String(item.household_id) === String(newTask.householdId)
+      );
+      if (household?.name) return household.name;
+    }
+
+    return households[0]?.name || 'No household selected';
+  }, [households, newTask.householdId]);
+
+  const resetAddTaskForm = useCallback(() => {
+    setNewTask({
+      householdId:
+        selectedHouseholdFilter || (households[0]?.household_id ? String(households[0].household_id) : ''),
+      title: '',
+      description: '',
+      priority: 'medium',
+      dueDate: '',
+    });
+    setAddTaskError(null);
+    setIsAddTaskHouseholdSelectOpen(false);
+  }, [households, selectedHouseholdFilter]);
+
+  const closeAddTaskModal = useCallback(() => {
+    if (addTaskSaving) return;
+    setIsAddTaskOpen(false);
+    resetAddTaskForm();
+  }, [addTaskSaving, resetAddTaskForm]);
 
   const onChangeStatus = useCallback(
     async (task: UiTask, targetStatus: string) => {
@@ -264,16 +317,18 @@ export default function TasksScreen() {
   );
 
   const onCreateTask = useCallback(async () => {
-    const title = newTaskTitle.trim();
+    const title = newTask.title.trim();
     if (!title || addTaskSaving) return;
+
+    const description = newTask.description.trim();
+    const dueDatePayload = toDueDatePayload(newTask.dueDate);
 
     setAddTaskError(null);
     setError(null);
     setAddTaskSaving(true);
 
     try {
-      const householdId =
-        selectedHouseholdFilter || (households[0]?.household_id ? String(households[0].household_id) : null);
+      const householdId = newTask.householdId || null;
       if (!householdId) {
         setAddTaskError('No household found. Create or join a household first.');
         return;
@@ -283,9 +338,9 @@ export default function TasksScreen() {
         household_id: householdId,
         name: title,
         status: 'todo',
-        description: null,
-        priority: 'medium',
-        due_date: null,
+        description: description || null,
+        priority: newTask.priority,
+        due_date: dueDatePayload,
       });
 
       setTasks((previous) => [
@@ -293,23 +348,42 @@ export default function TasksScreen() {
           id: String(createdTask?.task_id || `tmp-${Date.now()}`),
           householdId,
           title,
-          description: '',
+          description,
           status: 'todo',
-          priority: 'medium',
+          priority: newTask.priority,
           assigneeLabel: 'Unassigned',
           category: 'Other',
+          dueDateValue: newTask.dueDate || undefined,
+          dueDate: formatDraftDueDate(newTask.dueDate),
         },
         ...previous,
       ]);
 
-      setNewTaskTitle('');
+      resetAddTaskForm();
       setIsAddTaskOpen(false);
     } catch (err: any) {
       setAddTaskError(err?.message || 'Could not create task');
     } finally {
       setAddTaskSaving(false);
     }
-  }, [addTaskSaving, households, newTaskTitle, selectedHouseholdFilter]);
+  }, [addTaskSaving, newTask, resetAddTaskForm]);
+
+  useEffect(() => {
+    if (!isAddTaskOpen) return;
+
+    setNewTask((current) => {
+      if (current.householdId) return current;
+
+      const fallbackHouseholdId =
+        selectedHouseholdFilter || (households[0]?.household_id ? String(households[0].household_id) : '');
+      if (!fallbackHouseholdId) return current;
+
+      return {
+        ...current,
+        householdId: fallbackHouseholdId,
+      };
+    });
+  }, [households, isAddTaskOpen, selectedHouseholdFilter]);
 
   useEffect(() => {
     if (selectedHouseholdId === ALL_HOUSEHOLDS) return;
@@ -434,48 +508,9 @@ export default function TasksScreen() {
 
             {activeColumnData.id === 'todo' ? (
               <View style={styles.addTaskWrap}>
-                {isAddTaskOpen ? (
-                  <View style={styles.addTaskForm}>
-                    <TextInput
-                      value={newTaskTitle}
-                      onChangeText={setNewTaskTitle}
-                      placeholder="What needs to be done?"
-                      style={styles.addTaskInput}
-                      editable={!addTaskSaving}
-                    />
-                    <View style={styles.addTaskActions}>
-                      <Pressable
-                        style={styles.ghostButton}
-                        onPress={() => {
-                          if (addTaskSaving) return;
-                          setIsAddTaskOpen(false);
-                          setNewTaskTitle('');
-                          setAddTaskError(null);
-                        }}
-                      >
-                        <Text style={styles.ghostButtonText}>Cancel</Text>
-                      </Pressable>
-                      <Pressable
-                        style={[
-                          styles.primaryButtonSmall,
-                          (!newTaskTitle.trim() || addTaskSaving) &&
-                          styles.primaryButtonSmallDisabled,
-                        ]}
-                        onPress={onCreateTask}
-                        disabled={!newTaskTitle.trim() || addTaskSaving}
-                      >
-                        <Text style={styles.primaryButtonSmallText}>
-                          {addTaskSaving ? 'Saving...' : 'Add Task'}
-                        </Text>
-                      </Pressable>
-                    </View>
-                    {addTaskError ? <Text style={styles.errorText}>{addTaskError}</Text> : null}
-                  </View>
-                ) : (
-                  <Pressable style={styles.addTaskButton} onPress={() => setIsAddTaskOpen(true)}>
-                    <Text style={styles.addTaskButtonText}>+ Add Task</Text>
-                  </Pressable>
-                )}
+                <Pressable style={styles.addTaskButton} onPress={() => setIsAddTaskOpen(true)}>
+                  <Text style={styles.addTaskButtonText}>+ Add Task</Text>
+                </Pressable>
               </View>
             ) : null}
 
@@ -585,6 +620,200 @@ export default function TasksScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      <Modal
+        visible={isAddTaskOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={closeAddTaskModal}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={closeAddTaskModal} />
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderContent}>
+                <Text style={styles.modalEyebrow}>Create task</Text>
+                <Text style={styles.modalTitle}>Add more than a title</Text>
+              </View>
+              <Pressable style={styles.modalCloseButton} onPress={closeAddTaskModal}>
+                <Text style={styles.modalCloseButtonText}>Close</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView
+              contentContainerStyle={styles.addTaskModalContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.addTaskForm}>
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>Household</Text>
+                  <Pressable
+                    style={styles.selectTrigger}
+                    onPress={() =>
+                      setIsAddTaskHouseholdSelectOpen((current) => !current)
+                    }
+                  >
+                    <Text style={styles.selectTriggerText}>{createTaskHouseholdName}</Text>
+                    <Text style={styles.selectTriggerIcon}>
+                      {isAddTaskHouseholdSelectOpen ? '▲' : '▼'}
+                    </Text>
+                  </Pressable>
+                  {isAddTaskHouseholdSelectOpen ? (
+                    <View style={styles.selectMenu}>
+                      {households.map((household, index) => {
+                        const householdId = String(household.household_id);
+                        const isActive = newTask.householdId === householdId;
+                        return (
+                          <Pressable
+                            key={householdId}
+                            style={[
+                              styles.selectOption,
+                              index === 0 && styles.selectOptionFirst,
+                              isActive && styles.selectOptionActive,
+                            ]}
+                            onPress={() => {
+                              setNewTask((current) => ({
+                                ...current,
+                                householdId,
+                              }));
+                              setIsAddTaskHouseholdSelectOpen(false);
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.selectOptionText,
+                                isActive && styles.selectOptionTextActive,
+                              ]}
+                            >
+                              {household.name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+                </View>
+
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>Title</Text>
+                  <TextInput
+                    value={newTask.title}
+                    onChangeText={(value) =>
+                      setNewTask((current) => ({
+                        ...current,
+                        title: value,
+                      }))
+                    }
+                    placeholder="What needs to be done?"
+                    style={styles.addTaskInput}
+                    editable={!addTaskSaving}
+                  />
+                </View>
+
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>Description</Text>
+                  <TextInput
+                    value={newTask.description}
+                    onChangeText={(value) =>
+                      setNewTask((current) => ({
+                        ...current,
+                        description: value,
+                      }))
+                    }
+                    placeholder="Add context, steps, or notes"
+                    style={[styles.addTaskInput, styles.addTaskTextarea]}
+                    editable={!addTaskSaving}
+                    multiline
+                    textAlignVertical="top"
+                  />
+                </View>
+
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>Priority</Text>
+                  <View style={styles.priorityOptions}>
+                    {PRIORITY_OPTIONS.map((option) => {
+                      const isActive = newTask.priority === option;
+                      const priorityStyle = getPriorityStyle(option);
+                      return (
+                        <Pressable
+                          key={option}
+                          style={[
+                            styles.priorityOptionButton,
+                            {
+                              borderColor: priorityStyle.borderColor,
+                            },
+                            isActive && styles.priorityOptionButtonActive,
+                            isActive && {
+                              backgroundColor: priorityStyle.backgroundColor,
+                              borderColor: priorityStyle.borderColor,
+                            },
+                          ]}
+                          onPress={() =>
+                            setNewTask((current) => ({
+                              ...current,
+                              priority: option,
+                            }))
+                          }
+                        >
+                          <Text
+                            style={[
+                              styles.priorityOptionText,
+                              {
+                                color: isActive ? priorityStyle.textColor : COLORS.text,
+                              },
+                            ]}
+                          >
+                            {formatStatusLabel(option)}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>Due Date</Text>
+                  <TextInput
+                    value={newTask.dueDate}
+                    onChangeText={(value) =>
+                      setNewTask((current) => ({
+                        ...current,
+                        dueDate: value.replace(/[^\d-]/g, '').slice(0, 10),
+                      }))
+                    }
+                    placeholder="YYYY-MM-DD"
+                    style={styles.addTaskInput}
+                    editable={!addTaskSaving}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  <Text style={styles.formHint}>Leave empty if this task has no deadline.</Text>
+                </View>
+              </View>
+
+              {addTaskError ? <Text style={styles.errorText}>{addTaskError}</Text> : null}
+            </ScrollView>
+
+            <View style={styles.addTaskActions}>
+              <Pressable style={styles.ghostButton} onPress={closeAddTaskModal}>
+                <Text style={styles.ghostButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.primaryButtonSmall,
+                  (!newTask.title.trim() || addTaskSaving) && styles.primaryButtonSmallDisabled,
+                ]}
+                onPress={onCreateTask}
+                disabled={!newTask.title.trim() || addTaskSaving}
+              >
+                <Text style={styles.primaryButtonSmallText}>
+                  {addTaskSaving ? 'Saving...' : 'Create Task'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={Boolean(selectedTask)}
@@ -750,6 +979,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#efe9de',
   },
+  selectOptionFirst: {
+    borderTopWidth: 0,
+  },
   selectOptionActive: {
     backgroundColor: '#e8eeec',
   },
@@ -892,6 +1124,9 @@ const styles = StyleSheet.create({
   addTaskForm: {
     gap: 8,
   },
+  addTaskModalContent: {
+    gap: 14,
+  },
   addTaskInput: {
     borderRadius: 10,
     borderWidth: 1,
@@ -901,10 +1136,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     color: COLORS.text,
   },
+  addTaskTextarea: {
+    minHeight: 110,
+  },
   addTaskActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 8,
+  },
+  formField: {
+    gap: 6,
+  },
+  formLabel: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  formHint: {
+    color: COLORS.muted,
+    fontSize: 12,
   },
   ghostButton: {
     borderRadius: 10,
@@ -930,6 +1180,25 @@ const styles = StyleSheet.create({
   primaryButtonSmallText: {
     color: '#fff',
     fontWeight: '700',
+  },
+  priorityOptions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  priorityOptionButton: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    backgroundColor: '#fff',
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  priorityOptionButtonActive: {
+    borderWidth: 1,
+  },
+  priorityOptionText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
