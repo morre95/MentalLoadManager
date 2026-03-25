@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
@@ -71,6 +72,12 @@ function getAssigneeLabel(task: UiTask) {
   return task.assigneeLabel || 'Unassigned';
 }
 
+function formatStatusLabel(status: string) {
+  return String(status || '')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
 export default function TasksScreen() {
   const [tasks, setTasks] = useState<UiTask[]>([]);
   const [households, setHouseholds] = useState<{ household_id: string | number; name: string }[]>(
@@ -85,6 +92,7 @@ export default function TasksScreen() {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [addTaskSaving, setAddTaskSaving] = useState(false);
   const [addTaskError, setAddTaskError] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const lastScrollRefreshAtRef = useRef(0);
 
   const selectedHouseholdFilter =
@@ -180,6 +188,17 @@ export default function TasksScreen() {
     () => grouped.find((column) => column.id === activeColumn) ?? grouped[0],
     [activeColumn, grouped]
   );
+  const selectedTask = useMemo(
+    () => tasks.find((task) => task.id === selectedTaskId) ?? null,
+    [selectedTaskId, tasks]
+  );
+  const selectedTaskHouseholdName = useMemo(() => {
+    if (!selectedTask?.householdId) return selectedHouseholdName;
+    const household = households.find(
+      (item) => String(item.household_id) === String(selectedTask.householdId)
+    );
+    return household?.name || 'Unknown household';
+  }, [households, selectedHouseholdName, selectedTask]);
 
   const onChangeStatus = useCallback(
     async (task: UiTask, direction: 'forward' | 'backward') => {
@@ -267,187 +286,257 @@ export default function TasksScreen() {
   }, [households, selectedHouseholdId]);
 
   return (
-    <ScrollView
-      style={styles.page}
-      contentContainerStyle={styles.pageContent}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      onScroll={onScrollRefresh}
-      scrollEventThrottle={250}
-    >
-      <View style={styles.headerWrap}>
-        <Text style={styles.eyebrow}>Mental Load Manager</Text>
-        <Text style={styles.title}>Tasks</Text>
-        <Text style={styles.subtitle}>Backend: {mobileApiBaseUrl}</Text>
-        <Text style={styles.subtitle}>View: {selectedHouseholdName}</Text>
-      </View>
-
-      {loading ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-        </View>
-      ) : null}
-
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
+    <>
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filtersRow}
+        style={styles.page}
+        contentContainerStyle={styles.pageContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        onScroll={onScrollRefresh}
+        scrollEventThrottle={250}
       >
-        <Pressable
-          onPress={() => setSelectedHouseholdId(ALL_HOUSEHOLDS)}
-          style={[
-            styles.filterChip,
-            selectedHouseholdId === ALL_HOUSEHOLDS && styles.filterChipActive,
-          ]}
+        <View style={styles.headerWrap}>
+          <Text style={styles.eyebrow}>Mental Load Manager</Text>
+          <Text style={styles.title}>Tasks</Text>
+          <Text style={styles.subtitle}>Backend: {mobileApiBaseUrl}</Text>
+          <Text style={styles.subtitle}>View: {selectedHouseholdName}</Text>
+        </View>
+
+        {loading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        ) : null}
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtersRow}
         >
-          <Text
+          <Pressable
+            onPress={() => setSelectedHouseholdId(ALL_HOUSEHOLDS)}
             style={[
-              styles.filterChipText,
-              selectedHouseholdId === ALL_HOUSEHOLDS && styles.filterChipTextActive,
+              styles.filterChip,
+              selectedHouseholdId === ALL_HOUSEHOLDS && styles.filterChipActive,
             ]}
           >
-            All households
-          </Text>
-        </Pressable>
-        {households.map((household) => {
-          const householdId = String(household.household_id);
-          const isActive = selectedHouseholdId === householdId;
-          return (
-            <Pressable
-              key={householdId}
-              onPress={() => setSelectedHouseholdId(householdId)}
-              style={[styles.filterChip, isActive && styles.filterChipActive]}
+            <Text
+              style={[
+                styles.filterChipText,
+                selectedHouseholdId === ALL_HOUSEHOLDS && styles.filterChipTextActive,
+              ]}
             >
-              <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
-                {household.name}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+              All households
+            </Text>
+          </Pressable>
+          {households.map((household) => {
+            const householdId = String(household.household_id);
+            const isActive = selectedHouseholdId === householdId;
+            return (
+              <Pressable
+                key={householdId}
+                onPress={() => setSelectedHouseholdId(householdId)}
+                style={[styles.filterChip, isActive && styles.filterChipActive]}
+              >
+                <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+                  {household.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filtersRow}
-      >
-        {grouped.map((column) => {
-          if (column.id === 'archive' && column.tasks.length === 0) return null;
-          const isActive = activeColumn === column.id;
-          return (
-            <Pressable
-              key={column.id}
-              onPress={() => setActiveColumn(column.id as (typeof COLUMN_ORDER)[number])}
-              style={[styles.filterChip, isActive && styles.filterChipActive]}
-            >
-              <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
-                {column.title} ({column.tasks.length})
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtersRow}
+        >
+          {grouped.map((column) => {
+            if (column.id === 'archive' && column.tasks.length === 0) return null;
+            const isActive = activeColumn === column.id;
+            return (
+              <Pressable
+                key={column.id}
+                onPress={() => setActiveColumn(column.id as (typeof COLUMN_ORDER)[number])}
+                style={[styles.filterChip, isActive && styles.filterChipActive]}
+              >
+                <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+                  {column.title} ({column.tasks.length})
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
 
-      {activeColumnData ? (
-        <View key={activeColumnData.id} style={styles.columnCard}>
-          <View style={styles.columnHeader}>
-            <View style={[styles.dot, { backgroundColor: activeColumnData.color }]} />
-            <Text style={styles.columnTitle}>{activeColumnData.title}</Text>
-            <View style={styles.countPill}>
-              <Text style={styles.countText}>{activeColumnData.tasks.length}</Text>
+        {activeColumnData ? (
+          <View key={activeColumnData.id} style={styles.columnCard}>
+            <View style={styles.columnHeader}>
+              <View style={[styles.dot, { backgroundColor: activeColumnData.color }]} />
+              <Text style={styles.columnTitle}>{activeColumnData.title}</Text>
+              <View style={styles.countPill}>
+                <Text style={styles.countText}>{activeColumnData.tasks.length}</Text>
+              </View>
             </View>
-          </View>
 
-          {activeColumnData.tasks.length === 0 ? (
-            <Text style={styles.emptyText}>No tasks in this column.</Text>
-          ) : null}
+            {activeColumnData.tasks.length === 0 ? (
+              <Text style={styles.emptyText}>No tasks in this column.</Text>
+            ) : null}
 
-          {activeColumnData.id === 'todo' ? (
-            <View style={styles.addTaskWrap}>
-              {isAddTaskOpen ? (
-                <View style={styles.addTaskForm}>
-                  <TextInput
-                    value={newTaskTitle}
-                    onChangeText={setNewTaskTitle}
-                    placeholder="What needs to be done?"
-                    style={styles.addTaskInput}
-                    editable={!addTaskSaving}
-                  />
-                  <View style={styles.addTaskActions}>
-                    <Pressable
-                      style={styles.ghostButton}
-                      onPress={() => {
-                        if (addTaskSaving) return;
-                        setIsAddTaskOpen(false);
-                        setNewTaskTitle('');
-                        setAddTaskError(null);
-                      }}
-                    >
-                      <Text style={styles.ghostButtonText}>Cancel</Text>
-                    </Pressable>
-                    <Pressable
-                      style={[
-                        styles.primaryButtonSmall,
-                        (!newTaskTitle.trim() || addTaskSaving) && styles.primaryButtonSmallDisabled,
-                      ]}
-                      onPress={onCreateTask}
-                      disabled={!newTaskTitle.trim() || addTaskSaving}
-                    >
-                      <Text style={styles.primaryButtonSmallText}>
-                        {addTaskSaving ? 'Saving...' : 'Add Task'}
-                      </Text>
-                    </Pressable>
+            {activeColumnData.id === 'todo' ? (
+              <View style={styles.addTaskWrap}>
+                {isAddTaskOpen ? (
+                  <View style={styles.addTaskForm}>
+                    <TextInput
+                      value={newTaskTitle}
+                      onChangeText={setNewTaskTitle}
+                      placeholder="What needs to be done?"
+                      style={styles.addTaskInput}
+                      editable={!addTaskSaving}
+                    />
+                    <View style={styles.addTaskActions}>
+                      <Pressable
+                        style={styles.ghostButton}
+                        onPress={() => {
+                          if (addTaskSaving) return;
+                          setIsAddTaskOpen(false);
+                          setNewTaskTitle('');
+                          setAddTaskError(null);
+                        }}
+                      >
+                        <Text style={styles.ghostButtonText}>Cancel</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[
+                          styles.primaryButtonSmall,
+                          (!newTaskTitle.trim() || addTaskSaving) &&
+                            styles.primaryButtonSmallDisabled,
+                        ]}
+                        onPress={onCreateTask}
+                        disabled={!newTaskTitle.trim() || addTaskSaving}
+                      >
+                        <Text style={styles.primaryButtonSmallText}>
+                          {addTaskSaving ? 'Saving...' : 'Add Task'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                    {addTaskError ? <Text style={styles.errorText}>{addTaskError}</Text> : null}
                   </View>
-                  {addTaskError ? <Text style={styles.errorText}>{addTaskError}</Text> : null}
-                </View>
-              ) : (
-                <Pressable style={styles.addTaskButton} onPress={() => setIsAddTaskOpen(true)}>
-                  <Text style={styles.addTaskButtonText}>+ Add Task</Text>
-                </Pressable>
-              )}
-            </View>
-          ) : null}
+                ) : (
+                  <Pressable style={styles.addTaskButton} onPress={() => setIsAddTaskOpen(true)}>
+                    <Text style={styles.addTaskButtonText}>+ Add Task</Text>
+                  </Pressable>
+                )}
+              </View>
+            ) : null}
 
-          {activeColumnData.tasks.map((task) => (
-            <View key={task.id} style={styles.taskCard}>
-              <View style={styles.taskHeader}>
-                <Text style={styles.taskTitle}>{task.title}</Text>
-                <View style={styles.priorityPill}>
-                  <Text style={styles.priorityText}>{task.priority}</Text>
+            {activeColumnData.tasks.map((task) => (
+              <View key={task.id} style={styles.taskCard}>
+                <Pressable style={styles.taskDetailsButton} onPress={() => setSelectedTaskId(task.id)}>
+                  <View style={styles.taskHeader}>
+                    <Text style={styles.taskTitle}>{task.title}</Text>
+                    <View style={styles.priorityPill}>
+                      <Text style={styles.priorityText}>{task.priority}</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.taskMeta}>
+                    {task.category} • {getAssigneeLabel(task)}
+                  </Text>
+                  {task.dueDate ? <Text style={styles.taskMeta}>Due {task.dueDate}</Text> : null}
+                  <Text style={styles.taskLinkText}>Tap to view details</Text>
+                </Pressable>
+
+                <View style={styles.statusActions}>
+                  <Pressable
+                    style={[styles.secondaryButton, styles.statusActionButton]}
+                    onPress={() => onChangeStatus(task, 'backward')}
+                  >
+                    <Text style={styles.secondaryButtonText}>
+                      Move back to {COLUMN_LABELS[previousStatus(task.status)]}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.secondaryButton, styles.statusActionButton]}
+                    onPress={() => onChangeStatus(task, 'forward')}
+                  >
+                    <Text style={styles.secondaryButtonText}>
+                      Move to {COLUMN_LABELS[nextStatus(task.status)]}
+                    </Text>
+                  </Pressable>
                 </View>
               </View>
+            ))}
+          </View>
+        ) : null}
+      </ScrollView>
 
-              <Text style={styles.taskMeta}>
-                {task.category} • {getAssigneeLabel(task)}
-              </Text>
-              {task.dueDate ? <Text style={styles.taskMeta}>Due {task.dueDate}</Text> : null}
+      <Modal
+        visible={Boolean(selectedTask)}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedTaskId(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setSelectedTaskId(null)} />
+          <View style={styles.modalCard}>
+            {selectedTask ? (
+              <>
+                <View style={styles.modalHeader}>
+                  <View style={styles.modalHeaderContent}>
+                    <Text style={styles.modalEyebrow}>{selectedTaskHouseholdName}</Text>
+                    <Text style={styles.modalTitle}>{selectedTask.title}</Text>
+                  </View>
+                  <Pressable style={styles.modalCloseButton} onPress={() => setSelectedTaskId(null)}>
+                    <Text style={styles.modalCloseButtonText}>Close</Text>
+                  </Pressable>
+                </View>
 
-              <View style={styles.statusActions}>
-                <Pressable
-                  style={[styles.secondaryButton, styles.statusActionButton]}
-                  onPress={() => onChangeStatus(task, 'backward')}
-                >
-                  <Text style={styles.secondaryButtonText}>
-                    Move back to {COLUMN_LABELS[previousStatus(task.status)]}
+                <View style={styles.modalMetaGrid}>
+                  <View style={styles.modalMetaCard}>
+                    <Text style={styles.modalMetaLabel}>Status</Text>
+                    <Text style={styles.modalMetaValue}>{formatStatusLabel(selectedTask.status)}</Text>
+                  </View>
+                  <View style={styles.modalMetaCard}>
+                    <Text style={styles.modalMetaLabel}>Priority</Text>
+                    <Text style={styles.modalMetaValue}>{formatStatusLabel(selectedTask.priority)}</Text>
+                  </View>
+                  <View style={styles.modalMetaCard}>
+                    <Text style={styles.modalMetaLabel}>Assigned To</Text>
+                    <Text style={styles.modalMetaValue}>{getAssigneeLabel(selectedTask)}</Text>
+                  </View>
+                  <View style={styles.modalMetaCard}>
+                    <Text style={styles.modalMetaLabel}>Category</Text>
+                    <Text style={styles.modalMetaValue}>{selectedTask.category || 'Other'}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionLabel}>Description</Text>
+                  <Text style={styles.modalBodyText}>
+                    {selectedTask.description?.trim() || 'No description added yet.'}
                   </Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.secondaryButton, styles.statusActionButton]}
-                  onPress={() => onChangeStatus(task, 'forward')}
-                >
-                  <Text style={styles.secondaryButtonText}>
-                    Move to {COLUMN_LABELS[nextStatus(task.status)]}
+                </View>
+
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionLabel}>Schedule</Text>
+                  <Text style={styles.modalBodyText}>
+                    {selectedTask.dueDate ? `Due ${selectedTask.dueDate}` : 'No due date set.'}
                   </Text>
-                </Pressable>
-              </View>
-            </View>
-          ))}
-
-
+                  {selectedTask.recurrenceEnabled ? (
+                    <Text style={styles.modalBodyText}>
+                      Repeats {selectedTask.recurrenceLabel || 'on a recurring schedule'}.
+                    </Text>
+                  ) : (
+                    <Text style={styles.modalBodyText}>No recurrence configured.</Text>
+                  )}
+                </View>
+              </>
+            ) : null}
+          </View>
         </View>
-      ) : null}
-    </ScrollView>
+      </Modal>
+    </>
   );
 }
 
@@ -559,6 +648,9 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 7,
   },
+  taskDetailsButton: {
+    gap: 7,
+  },
   taskHeader: {
     flexDirection: 'row',
     gap: 8,
@@ -584,6 +676,11 @@ const styles = StyleSheet.create({
   taskMeta: {
     color: COLORS.muted,
     fontSize: 12,
+  },
+  taskLinkText: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   secondaryButton: {
     marginTop: 4,
@@ -662,5 +759,96 @@ const styles = StyleSheet.create({
   primaryButtonSmallText: {
     color: '#fff',
     fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(28, 25, 22, 0.2)',
+  },
+  modalBackdrop: {
+    flex: 1,
+  },
+  modalCard: {
+    backgroundColor: COLORS.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 28,
+    gap: 16,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  modalHeaderContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  modalEyebrow: {
+    color: COLORS.primary,
+    fontWeight: '700',
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  modalTitle: {
+    color: COLORS.text,
+    fontSize: 24,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  modalCloseButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+  },
+  modalCloseButtonText: {
+    color: COLORS.text,
+    fontWeight: '700',
+  },
+  modalMetaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  modalMetaCard: {
+    width: '47%',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: '#fffdfa',
+    padding: 12,
+    gap: 4,
+  },
+  modalMetaLabel: {
+    color: COLORS.muted,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  modalMetaValue: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  modalSection: {
+    gap: 6,
+  },
+  modalSectionLabel: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  modalBodyText: {
+    color: COLORS.muted,
+    fontSize: 14,
+    lineHeight: 20,
   },
 });
