@@ -3,7 +3,7 @@ import { fetchKanbanTasks } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 const TASK_UPDATED_EVENT = "kanban-task-updated";
-const DEFAULT_PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 5000;
 
 export function useTaskboardTasks(householdId, options = {}) {
   const navigate = useNavigate();

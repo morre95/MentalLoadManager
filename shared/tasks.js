@@ -99,7 +99,11 @@ export function mapApiTaskToUi(task) {
 export async function fetchKanbanTasks(apiClient, householdId, options = {}) {
   const normalizedHouseholdId = String(householdId || "").trim();
   const params = new URLSearchParams();
-  const limit = Number(options?.limit);
+  const rawLimit = options?.limit;
+  const limit =
+    rawLimit == null || rawLimit === ""
+      ? 5000
+      : Number(rawLimit);
   const offset = Number(options?.offset);
 
   if (normalizedHouseholdId) {
