@@ -346,9 +346,11 @@ export type CalendarEvent = {
   task_id: string;
   date: string | null;
   title: string;
+  description: string | null;
   household_id: string | null;
   household_name: string | null;
   person: string | null;
+  category_name: string | null;
   recurrence_enabled: boolean;
   recurrence_frequency: "daily" | "weekly" | "monthly" | string | null;
   recurrence_interval: number | null;

@@ -61,8 +61,10 @@ interface CalendarEvent {
   id: string;
   date: string; // YYYY-MM-DD
   title: string;
+  description: string | null;
   person: string | null;
   household_name: string | null;
+  category_name: string | null;
   recurrence_label?: string;
   recurrence_enabled?: boolean;
   is_projected?: boolean;
@@ -105,15 +107,17 @@ export default function CalendarScreen() {
         setEvents(
           Array.isArray(data?.events)
             ? data.events.map((e: any) => ({
-                id: String(e.id ?? `${e.date}-${Math.random()}`),
-                date: e.date ?? '',
-                title: e.title ?? '',
-                person: e.person ?? null,
-                household_name: e.household_name ?? null,
-                recurrence_label: e.recurrence_label ?? '',
-                recurrence_enabled: Boolean(e.recurrence_enabled),
-                is_projected: Boolean(e.is_projected),
-              }))
+              id: String(e.id ?? `${e.date}-${Math.random()}`),
+              date: e.date ?? '',
+              title: e.title ?? '',
+              description: e.description ?? null,
+              person: e.person ?? null,
+              household_name: e.household_name ?? null,
+              category_name: e.category_name ?? null,
+              recurrence_label: e.recurrence_label ?? '',
+              recurrence_enabled: Boolean(e.recurrence_enabled),
+              is_projected: Boolean(e.is_projected),
+            }))
             : []
         );
       } catch (err: any) {
@@ -288,10 +292,10 @@ export default function CalendarScreen() {
             {selectedIso === today.iso
               ? 'Today'
               : parseIso(selectedIso).toLocaleDateString(undefined, {
-                  weekday: 'long',
-                  month: 'long',
-                  day: 'numeric',
-                })}
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+              })}
           </Text>
 
           {selectedEvents.length === 0 ? (
@@ -372,7 +376,7 @@ export default function CalendarScreen() {
 
                 <View style={styles.modalMetaGrid}>
                   <View style={styles.modalMetaCard}>
-                    <Text style={styles.modalMetaLabel}>Date</Text>
+                    <Text style={styles.modalMetaLabel}>Due Date</Text>
                     <Text style={styles.modalMetaValue}>{selectedEventDateLabel}</Text>
                   </View>
                   <View style={styles.modalMetaCard}>
@@ -386,11 +390,18 @@ export default function CalendarScreen() {
                     <Text style={styles.modalMetaValue}>{selectedEvent.person || 'Unassigned'}</Text>
                   </View>
                   <View style={styles.modalMetaCard}>
-                    <Text style={styles.modalMetaLabel}>Type</Text>
+                    <Text style={styles.modalMetaLabel}>Category</Text>
                     <Text style={styles.modalMetaValue}>
-                      {selectedEvent.is_projected ? 'Projected task' : 'Scheduled task'}
+                      {selectedEvent.category_name || 'Other'}
                     </Text>
                   </View>
+                </View>
+
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionLabel}>Description</Text>
+                  <Text style={styles.modalBodyText}>
+                    {selectedEvent.description?.trim() || 'No description added yet.'}
+                  </Text>
                 </View>
 
                 <View style={styles.modalSection}>

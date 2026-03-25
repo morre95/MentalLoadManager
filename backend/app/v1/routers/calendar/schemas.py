@@ -6,9 +6,11 @@ class CalendarEvent(BaseModel):
     task_id: str
     date: str
     title: str
+    description: str | None = None
     household_id: str
     household_name: str | None = None
     person: str | None = None
+    category_name: str | None = None
     recurrence_enabled: bool = False
     recurrence_frequency: str | None = None
     recurrence_interval: int | None = None

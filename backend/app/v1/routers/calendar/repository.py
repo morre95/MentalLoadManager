@@ -3,7 +3,7 @@ from datetime import datetime, time, timezone, date as date_type
 from sqlalchemy import and_, or_, select, func
 from sqlalchemy.orm import Session
 
-from app.v1.models import Tasks, UsersHouseholds, Households, UserDB
+from app.v1.models import Tasks, UsersHouseholds, Households, UserDB, Categories
 
 DONE_STATUSES = ("done", "completed", "complete")
 
@@ -38,8 +38,10 @@ def fetch_calendar_event_rows_range(
             Tasks.task_id,
             Tasks.due_date,
             Tasks.name,
+            Tasks.description,
             Tasks.household_id,
             Households.name.label("household_name"),
+            Categories.name.label("category_name"),
             Tasks.recurrence_enabled,
             Tasks.recurrence_frequency,
             Tasks.recurrence_interval,
@@ -47,6 +49,7 @@ def fetch_calendar_event_rows_range(
         )
         .select_from(Tasks)
         .join(Households, Households.household_id == Tasks.household_id)
+        .outerjoin(Categories, Categories.category_id == Tasks.category_id)
         .join(UsersHouseholds, UsersHouseholds.household_id == Tasks.household_id)
         .join(UserDB, user_match)  # bind "me" from email/username
         .where(UsersHouseholds.user_id == UserDB.user_id)  # my households
