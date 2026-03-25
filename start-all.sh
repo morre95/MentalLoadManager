@@ -29,46 +29,51 @@ fi
 launch_terminal() {
   local title="$1"
   local command="$2"
+  local command_escaped
+  command_escaped="$(printf '%q' "$command")"
+  local wrapped_command="trap '' INT; (trap - INT; eval $command_escaped); printf '\nServer stopped. You can restart it here or press Ctrl+D to close the shell.\n'; exec bash -i"
+  local wrapped_command_escaped
+  wrapped_command_escaped="$(printf '%q' "$wrapped_command")"
 
   if command -v alacritty >/dev/null 2>&1; then
-    alacritty --title "$title" --working-directory "$ROOT_DIR" --hold -e bash -lc "$command" &
+    alacritty --title "$title" --working-directory "$ROOT_DIR" -e bash -ic "$wrapped_command" &
     return 0
   fi
 
   if command -v ghostty >/dev/null 2>&1; then
-    ghostty --title="$title" -e bash -lc "$command; exec bash" &
+    ghostty --title="$title" -e bash -ic "$wrapped_command" &
     return 0
   fi
 
   if command -v gnome-terminal >/dev/null 2>&1; then
-    gnome-terminal --title="$title" -- bash -lc "$command; exec bash" &
+    gnome-terminal --title="$title" -- bash -ic "$wrapped_command" &
     return 0
   fi
 
   if command -v x-terminal-emulator >/dev/null 2>&1; then
-    x-terminal-emulator -T "$title" -e bash -lc "$command; exec bash" &
+    x-terminal-emulator -T "$title" -e bash -ic "$wrapped_command" &
     return 0
   fi
 
   if command -v konsole >/dev/null 2>&1; then
-    konsole --new-tab -p tabtitle="$title" -e bash -lc "$command; exec bash" &
+    konsole --new-tab -p tabtitle="$title" -e bash -ic "$wrapped_command" &
     return 0
   fi
 
   if command -v xfce4-terminal >/dev/null 2>&1; then
-    xfce4-terminal --title="$title" --command="bash -lc '$command; exec bash'" &
+    xfce4-terminal --title="$title" --command="bash -ic $wrapped_command_escaped" &
     return 0
   fi
 
   if command -v xterm >/dev/null 2>&1; then
-    xterm -T "$title" -e bash -lc "$command; exec bash" &
+    xterm -T "$title" -e bash -ic "$wrapped_command" &
     return 0
   fi
 
   if [[ "$OSTYPE" == darwin* ]] && command -v osascript >/dev/null 2>&1; then
     osascript <<EOF >/dev/null
 tell application "Terminal"
-  do script "bash -lc $(printf '%q' "$command; exec bash")"
+  do script "bash -ic $wrapped_command_escaped"
   set custom title of front window to "$title"
   activate
 end tell
@@ -82,7 +87,7 @@ EOF
   return 1
 }
 
-backend_command="cd $(printf '%q' "$BACKEND_DIR") && source $(printf '%q' "$BACKEND_DIR/venv/bin/activate") && fastapi dev main.py"
+backend_command="cd $(printf '%q' "$BACKEND_DIR") && $(printf '%q' "$BACKEND_DIR/venv/bin/fastapi") dev main.py"
 frontend_command="cd $(printf '%q' "$FRONTEND_DIR") && npm run dev"
 mobile_command="cd $(printf '%q' "$MOBILE_DIR") && npm run start"
 launch_failures=0
