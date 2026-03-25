@@ -110,6 +110,7 @@ export default function TasksScreen() {
   const [addTaskSaving, setAddTaskSaving] = useState(false);
   const [addTaskError, setAddTaskError] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isHouseholdSelectOpen, setIsHouseholdSelectOpen] = useState(false);
   const lastScrollRefreshAtRef = useRef(0);
 
   const selectedHouseholdFilter =
@@ -343,43 +344,57 @@ export default function TasksScreen() {
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtersRow}
-        >
+        <View style={styles.selectWrap}>
+          <Text style={styles.selectLabel}>Household view</Text>
           <Pressable
-            onPress={() => setSelectedHouseholdId(ALL_HOUSEHOLDS)}
-            style={[
-              styles.filterChip,
-              selectedHouseholdId === ALL_HOUSEHOLDS && styles.filterChipActive,
-            ]}
+            style={styles.selectTrigger}
+            onPress={() => setIsHouseholdSelectOpen((open) => !open)}
           >
-            <Text
-              style={[
-                styles.filterChipText,
-                selectedHouseholdId === ALL_HOUSEHOLDS && styles.filterChipTextActive,
-              ]}
-            >
-              All households
-            </Text>
+            <Text style={styles.selectTriggerText}>{selectedHouseholdName}</Text>
+            <Text style={styles.selectTriggerIcon}>{isHouseholdSelectOpen ? '▲' : '▼'}</Text>
           </Pressable>
-          {households.map((household) => {
-            const householdId = String(household.household_id);
-            const isActive = selectedHouseholdId === householdId;
-            return (
+          {isHouseholdSelectOpen ? (
+            <View style={styles.selectMenu}>
               <Pressable
-                key={householdId}
-                onPress={() => setSelectedHouseholdId(householdId)}
-                style={[styles.filterChip, isActive && styles.filterChipActive]}
+                style={[
+                  styles.selectOption,
+                  selectedHouseholdId === ALL_HOUSEHOLDS && styles.selectOptionActive,
+                ]}
+                onPress={() => {
+                  setSelectedHouseholdId(ALL_HOUSEHOLDS);
+                  setIsHouseholdSelectOpen(false);
+                }}
               >
-                <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
-                  {household.name}
+                <Text
+                  style={[
+                    styles.selectOptionText,
+                    selectedHouseholdId === ALL_HOUSEHOLDS && styles.selectOptionTextActive,
+                  ]}
+                >
+                  All households
                 </Text>
               </Pressable>
-            );
-          })}
-        </ScrollView>
+              {households.map((household) => {
+                const householdId = String(household.household_id);
+                const isActive = selectedHouseholdId === householdId;
+                return (
+                  <Pressable
+                    key={householdId}
+                    style={[styles.selectOption, isActive && styles.selectOptionActive]}
+                    onPress={() => {
+                      setSelectedHouseholdId(householdId);
+                      setIsHouseholdSelectOpen(false);
+                    }}
+                  >
+                    <Text style={[styles.selectOptionText, isActive && styles.selectOptionTextActive]}>
+                      {household.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+        </View>
 
         <ScrollView
           horizontal
@@ -688,6 +703,63 @@ const styles = StyleSheet.create({
   filtersRow: {
     gap: 8,
     paddingVertical: 2,
+  },
+  selectWrap: {
+    gap: 8,
+  },
+  selectLabel: {
+    color: COLORS.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  selectTrigger: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: '#fff',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  selectTriggerText: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  selectTriggerIcon: {
+    color: COLORS.muted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  selectMenu: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
+    overflow: 'hidden',
+  },
+  selectOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#efe9de',
+  },
+  selectOptionActive: {
+    backgroundColor: '#e8eeec',
+  },
+  selectOptionText: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  selectOptionTextActive: {
+    color: COLORS.primary,
   },
   filterChip: {
     borderRadius: 999,
