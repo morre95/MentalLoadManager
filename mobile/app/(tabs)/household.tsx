@@ -164,7 +164,7 @@ export default function HouseholdScreen() {
       {households.map((household) => (
         <View style={styles.householdCard} key={String(household.household_id)}>
           <View style={styles.householdHeader}>
-            <View>
+            <View style={styles.householdHeaderContent}>
               <Text style={styles.householdTitle}>{household.name}</Text>
               <Text style={styles.householdSubtitle}>{household.members.length} members</Text>
             </View>
@@ -277,12 +277,18 @@ const styles = StyleSheet.create({
   householdHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  householdHeaderContent: {
+    flex: 1,
+    minWidth: 0,
   },
   householdTitle: {
     color: COLORS.text,
     fontWeight: '800',
     fontSize: 18,
+    flexShrink: 1,
   },
   householdSubtitle: {
     color: COLORS.muted,
@@ -290,6 +296,7 @@ const styles = StyleSheet.create({
   headerButtons: {
     flexDirection: 'row',
     gap: 8,
+    flexShrink: 0,
   },
   smallButton: {
     borderColor: COLORS.border,

@@ -9,8 +9,24 @@ function canUseWindow() {
   return typeof window !== "undefined";
 }
 
+function canUseLocalStorage() {
+  return canUseWindow() && typeof window.localStorage !== "undefined";
+}
+
+function canListenToWindowNetworkEvents() {
+  return canUseWindow() && typeof window.addEventListener === "function";
+}
+
+function getNavigatorOnlineStatus() {
+  if (!canUseWindow() || typeof window.navigator === "undefined") {
+    return true;
+  }
+
+  return window.navigator.onLine !== false;
+}
+
 function loadPersistedQueue() {
-  if (!canUseWindow()) {
+  if (!canUseLocalStorage()) {
     return [];
   }
 
@@ -24,7 +40,7 @@ function loadPersistedQueue() {
 }
 
 function persistQueue(queue) {
-  if (!canUseWindow()) {
+  if (!canUseLocalStorage()) {
     return;
   }
 
@@ -73,7 +89,7 @@ export function createApiClient(options = {}) {
   const statusListeners = new Set();
   const offlineQueue = loadPersistedQueue();
   let currentStatus = {
-    online: canUseWindow() ? window.navigator.onLine !== false : true,
+    online: getNavigatorOnlineStatus(),
     queueSize: offlineQueue.length,
     isSyncing: false,
   };
@@ -376,7 +392,7 @@ export function createApiClient(options = {}) {
     return flushPromise;
   }
 
-  if (canUseWindow()) {
+  if (canListenToWindowNetworkEvents()) {
     window.addEventListener("online", () => {
       emitStatus({ online: true });
       void flushQueuedRequests();
@@ -385,7 +401,7 @@ export function createApiClient(options = {}) {
       emitStatus({ online: false });
     });
 
-    if (offlineQueue.length > 0 && window.navigator.onLine !== false) {
+    if (offlineQueue.length > 0 && getNavigatorOnlineStatus()) {
       void flushQueuedRequests();
     }
   }

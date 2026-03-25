@@ -73,7 +73,9 @@ function getAssigneeLabel(task: UiTask) {
 
 export default function TasksScreen() {
   const [tasks, setTasks] = useState<UiTask[]>([]);
-  const [households, setHouseholds] = useState<Array<{ household_id: string | number; name: string }>>([]);
+  const [households, setHouseholds] = useState<{ household_id: string | number; name: string }[]>(
+    []
+  );
   const [selectedHouseholdId, setSelectedHouseholdId] = useState<string>(ALL_HOUSEHOLDS);
   const [activeColumn, setActiveColumn] = useState<(typeof COLUMN_ORDER)[number]>('todo');
   const [loading, setLoading] = useState(true);
