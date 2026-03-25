@@ -5,6 +5,7 @@ import {
   Plus,
   Repeat,
   GripVertical,
+  Trash2,
   PauseCircle,
   Clock,
   CheckCircle2,
@@ -216,11 +217,12 @@ function toDisplayDueDate(dateInputValue) {
   return new Date(`${dateInputValue}T00:00:00`).toLocaleDateString();
 }
 
-const SortableTaskCard = ({ task, onToggleStatus, onClick }) => {
+const SortableTaskCard = ({ task, onToggleStatus, onClick, onDelete }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id });
 
   const assigneeLabel = task?.assigneeLabel || "Unassigned";
+  const isArchived = task.status === ARCHIVE_COLUMN_ID;
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -249,21 +251,37 @@ const SortableTaskCard = ({ task, onToggleStatus, onClick }) => {
           </div>
 
           <div className="flex-1 min-w-0 overflow-hidden">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span
-                className={`font-medium truncate ${task.status === "done"
-                    ? "line-through text-muted-foreground"
-                    : "text-foreground"
-                  }`}
-              >
-                {task.title}
-              </span>
-              <Badge
-                variant="outline"
-                className={`text-xs flex-shrink-0 ${priorityColors[task.priority] || priorityColors.medium}`}
-              >
-                {task.priority}
-              </Badge>
+            <div className="flex items-start gap-2">
+              <div className="flex flex-1 min-w-0 items-center gap-2 flex-wrap">
+                <span
+                  className={`font-medium truncate ${task.status === "done"
+                      ? "line-through text-muted-foreground"
+                      : "text-foreground"
+                    }`}
+                >
+                  {task.title}
+                </span>
+                <Badge
+                  variant="outline"
+                  className={`text-xs flex-shrink-0 ${priorityColors[task.priority] || priorityColors.medium}`}
+                >
+                  {task.priority}
+                </Badge>
+              </div>
+
+              {isArchived && onDelete ? (
+                <button
+                  type="button"
+                  aria-label={`Delete ${task.title}`}
+                  className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete(task.id);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              ) : null}
             </div>
 
             {task.description ? (
@@ -316,6 +334,7 @@ const DroppableColumn = ({
   onToggleExpand,
   onToggleStatus,
   onClickTask,
+  onDeleteTask,
   onAddTask,
   showArchiveButton,
   isArchiveVisible,
@@ -346,6 +365,7 @@ const DroppableColumn = ({
               task={task}
               onToggleStatus={onToggleStatus}
               onClick={() => onClickTask(task)}
+              onDelete={onDeleteTask}
             />
           ))}
         </SortableContext>
@@ -934,6 +954,7 @@ const Tasks = () => {
               onToggleExpand={() => toggleExpandedColumn(column.id)}
               onToggleStatus={handleToggleStatus}
               onClickTask={(task) => setSelectedTaskId(task?.id ?? null)}
+              onDeleteTask={handleDeleteTask}
               onAddTask={column.id === "todo" ? () => setIsAddDialogOpen(true) : undefined}
               showArchiveButton={column.id === "done"}
               isArchiveVisible={showArchive}
