@@ -57,6 +57,7 @@ export type UiTask = {
   recurrenceEnabled?: boolean;
   recurrenceFrequency?: "daily" | "weekly" | "monthly" | string | null;
   recurrenceInterval?: number | null;
+  recurrenceEndDate?: string | null;
   recurrenceLabel?: string;
 };
 
@@ -82,6 +83,7 @@ export function createKanbanTask(
     due_date?: string | null;
     recurrence_frequency?: "daily" | "weekly" | "monthly" | null;
     recurrence_interval?: number | null;
+    recurrence_end_date?: string | null;
     category_id?: string | null;
     assigns_to?: string | null;
   }
@@ -148,7 +150,8 @@ export function updateKanbanTaskRecurrence(
   apiClient: ApiClient,
   taskId: string,
   recurrenceFrequency: "daily" | "weekly" | "monthly" | null,
-  recurrenceInterval?: number | null
+  recurrenceInterval?: number | null,
+  recurrenceEndDate?: string | null
 ): Promise<any>;
 export function skipKanbanTaskOccurrence(
   apiClient: ApiClient,

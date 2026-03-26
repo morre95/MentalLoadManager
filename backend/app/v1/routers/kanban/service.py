@@ -144,20 +144,26 @@ def _maybe_spawn_next_recurring_task(db, task: Tasks, now_utc: datetime) -> None
     if get_generated_recurring_child(db, task.task_id):
         return
 
+    next_due_date = _calculate_next_due_date(
+        task.due_date,
+        task.recurrence_frequency,
+        task.recurrence_interval or 1,
+    )
+
+    if task.recurrence_end_date and next_due_date.date() > task.recurrence_end_date:
+        return
+
     next_task = Tasks(
         household_id=task.household_id,
         name=task.name,
         description=task.description,
         status="todo",
         priority=task.priority,
-        due_date=_calculate_next_due_date(
-            task.due_date,
-            task.recurrence_frequency,
-            task.recurrence_interval or 1,
-        ),
+        due_date=next_due_date,
         recurrence_enabled=True,
         recurrence_frequency=task.recurrence_frequency,
         recurrence_interval=task.recurrence_interval or 1,
+        recurrence_end_date=task.recurrence_end_date,
         recurrence_parent_task_id=task.task_id,
         category_id=task.category_id,
         assigns_to=task.assigns_to,
@@ -551,6 +557,7 @@ def create_task(payload: CreateTaskRequest, current_user: UserEmail) -> TaskResp
             recurrence_enabled=bool(recurrence_frequency),
             recurrence_frequency=recurrence_frequency,
             recurrence_interval=recurrence_interval if recurrence_frequency else None,
+            recurrence_end_date=payload.recurrence_end_date if recurrence_frequency else None,
             category_id=resolved_category_id,
             assigns_to=payload.assigns_to,
             created_by=me.user_id,
@@ -580,6 +587,7 @@ def create_task(payload: CreateTaskRequest, current_user: UserEmail) -> TaskResp
             recurrence_enabled=new_task.recurrence_enabled,
             recurrence_frequency=new_task.recurrence_frequency,
             recurrence_interval=new_task.recurrence_interval,
+            recurrence_end_date=new_task.recurrence_end_date,
             category_id=str(new_task.category_id) if new_task.category_id else None,
             assigns_to=str(new_task.assigns_to) if new_task.assigns_to else None,
             created_by=str(new_task.created_by) if new_task.created_by else None,
@@ -767,6 +775,7 @@ def update_task_recurrence(
         task.recurrence_enabled = bool(recurrence_frequency)
         task.recurrence_frequency = recurrence_frequency
         task.recurrence_interval = recurrence_interval if recurrence_frequency else None
+        task.recurrence_end_date = payload.recurrence_end_date if recurrence_frequency else None
         task.updated_at = datetime.now(timezone.utc)
 
         if not recurrence_frequency:
@@ -788,6 +797,7 @@ def update_task_recurrence(
             recurrence_enabled=task.recurrence_enabled,
             recurrence_frequency=task.recurrence_frequency,
             recurrence_interval=task.recurrence_interval,
+            recurrence_end_date=task.recurrence_end_date,
             updated_at=task.updated_at,
         )
 

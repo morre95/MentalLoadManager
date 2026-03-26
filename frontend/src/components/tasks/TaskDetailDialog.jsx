@@ -137,6 +137,7 @@ function getDraftStateFromTask(task, availableCategories) {
     recurrenceDraft: task.recurrenceFrequency || "none",
     recurrenceIntervalDraft: task.recurrenceInterval || 1,
     recurrenceWeekdaysDraft: [],
+    recurrenceEndDateDraft: task.recurrenceEndDate || "",
     ...categoryState,
   };
 }
@@ -185,6 +186,7 @@ const TaskDetailDialog = ({
   const [recurrenceDraft, setRecurrenceDraft] = useState("none");
   const [recurrenceIntervalDraft, setRecurrenceIntervalDraft] = useState(1);
   const [recurrenceWeekdaysDraft, setRecurrenceWeekdaysDraft] = useState([]);
+  const [recurrenceEndDateDraft, setRecurrenceEndDateDraft] = useState("");
   const [recurrenceConfigOpen, setRecurrenceConfigOpen] = useState(false);
 
   const [editingField, setEditingField] = useState(null);
@@ -222,6 +224,7 @@ const TaskDetailDialog = ({
     setRecurrenceDraft(nextDraftState.recurrenceDraft);
     setRecurrenceIntervalDraft(nextDraftState.recurrenceIntervalDraft);
     setRecurrenceWeekdaysDraft(nextDraftState.recurrenceWeekdaysDraft);
+    setRecurrenceEndDateDraft(nextDraftState.recurrenceEndDateDraft);
   };
 
   useEffect(() => {
@@ -244,6 +247,7 @@ const TaskDetailDialog = ({
     setRecurrenceDraft(nextDraftState.recurrenceDraft);
     setRecurrenceIntervalDraft(nextDraftState.recurrenceIntervalDraft);
     setRecurrenceWeekdaysDraft(nextDraftState.recurrenceWeekdaysDraft);
+    setRecurrenceEndDateDraft(nextDraftState.recurrenceEndDateDraft);
     lastInitializedTaskIdRef.current = task.id;
     shouldResetDraftsRef.current = false;
   }, [open, task, availableCategories]);
@@ -375,8 +379,14 @@ const TaskDetailDialog = ({
       const savedFrequency = task.recurrenceFrequency || null;
       const draftFrequency = recurrenceDraft === "none" ? null : recurrenceDraft;
       const savedInterval = task.recurrenceInterval || 1;
-      if (draftFrequency !== savedFrequency || (draftFrequency && recurrenceIntervalDraft !== savedInterval)) {
-        await onUpdateTaskRecurrence?.(task.id, draftFrequency, draftFrequency ? recurrenceIntervalDraft : null);
+      const savedEndDate = task.recurrenceEndDate || null;
+      const draftEndDate = recurrenceEndDateDraft || null;
+      if (
+        draftFrequency !== savedFrequency ||
+        (draftFrequency && recurrenceIntervalDraft !== savedInterval) ||
+        (draftFrequency && draftEndDate !== savedEndDate)
+      ) {
+        await onUpdateTaskRecurrence?.(task.id, draftFrequency, draftFrequency ? recurrenceIntervalDraft : null, draftEndDate);
       }
 
       shouldResetDraftsRef.current = true;
@@ -481,9 +491,10 @@ const TaskDetailDialog = ({
     setRecurrenceConfigOpen(true);
   };
 
-  const handleRecurrenceApply = ({ interval, weekdays, suggestedDueDate }) => {
+  const handleRecurrenceApply = ({ interval, weekdays, suggestedDueDate, endDate }) => {
     setRecurrenceIntervalDraft(interval);
     setRecurrenceWeekdaysDraft(weekdays);
+    setRecurrenceEndDateDraft(endDate || "");
     if (suggestedDueDate) setDueDateDraft(suggestedDueDate);
   };
 
@@ -1050,6 +1061,7 @@ const TaskDetailDialog = ({
         interval={recurrenceIntervalDraft}
         weekdays={recurrenceWeekdaysDraft}
         dueDate={dueDateDraft}
+        endDate={recurrenceEndDateDraft}
         onApply={handleRecurrenceApply}
       />
     </Dialog>

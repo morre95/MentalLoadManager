@@ -100,6 +100,7 @@ const AddTaskDialog = ({
   const [recurrenceFrequency, setRecurrenceFrequency] = useState("");
   const [recurrenceInterval, setRecurrenceInterval] = useState(1);
   const [recurrenceWeekdays, setRecurrenceWeekdays] = useState([]);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState("");
   const [recurrenceConfigOpen, setRecurrenceConfigOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -305,6 +306,7 @@ const AddTaskDialog = ({
         due_date: dueDateIso,
         recurrence_frequency: recurrenceFrequency || null,
         recurrence_interval: recurrenceFrequency ? recurrenceInterval : null,
+        recurrence_end_date: recurrenceFrequency ? recurrenceEndDate || null : null,
         category_name: finalCategory,
         assigns_to: assigneeId || null,
       });
@@ -563,6 +565,7 @@ const AddTaskDialog = ({
                       if (next) {
                         setRecurrenceInterval(1);
                         setRecurrenceWeekdays([]);
+                        setRecurrenceEndDate("");
                         setRecurrenceConfigOpen(true);
                       }
                     }}
@@ -658,9 +661,11 @@ const AddTaskDialog = ({
         interval={recurrenceInterval}
         weekdays={recurrenceWeekdays}
         dueDate={dueDate}
-        onApply={({ interval, weekdays, suggestedDueDate }) => {
+        endDate={recurrenceEndDate}
+        onApply={({ interval, weekdays, suggestedDueDate, endDate }) => {
           setRecurrenceInterval(interval);
           setRecurrenceWeekdays(weekdays);
+          setRecurrenceEndDate(endDate || "");
           if (suggestedDueDate) setDueDate(suggestedDueDate);
         }}
       />
