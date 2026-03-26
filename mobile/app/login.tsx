@@ -88,7 +88,7 @@ export default function LoginScreen() {
       <View style={styles.card}>
         <Text style={styles.eyebrow}>Mental Load Manager</Text>
         <Text style={styles.title}>Sign in</Text>
-        <Text style={styles.subtitle}>Backend: {mobileApiBaseUrl}</Text>
+
 
         <View style={styles.fieldWrap}>
           <Text style={styles.label}>Username</Text>
