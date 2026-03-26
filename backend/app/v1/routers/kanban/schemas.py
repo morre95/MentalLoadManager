@@ -22,6 +22,7 @@ class CreateTaskRequest(BaseModel):
     due_date: datetime | None = None
     recurrence_frequency: str | None = Field(default=None, max_length=20)
     recurrence_interval: int | None = Field(default=1, ge=1, le=365)
+    recurrence_end_date: date | None = None
     category_id: UUID | None = None
     category_name: str | None = Field(
         default=None,
@@ -43,6 +44,7 @@ class TaskResponse(BaseModel):
     recurrence_enabled: bool = False
     recurrence_frequency: str | None = None
     recurrence_interval: int | None = None
+    recurrence_end_date: date | None = None
     category_id: str | None = None
     assigns_to: str | None = None
     created_by: str | None = None
@@ -140,6 +142,7 @@ class UpdateTaskDueDateResponse(BaseModel):
 class UpdateTaskRecurrenceRequest(BaseModel):
     recurrence_frequency: str | None = Field(default=None, max_length=20)
     recurrence_interval: int | None = Field(default=1, ge=1, le=365)
+    recurrence_end_date: date | None = None
 
 
 class UpdateTaskRecurrenceResponse(BaseModel):
@@ -147,6 +150,7 @@ class UpdateTaskRecurrenceResponse(BaseModel):
     recurrence_enabled: bool = False
     recurrence_frequency: str | None = None
     recurrence_interval: int | None = None
+    recurrence_end_date: date | None = None
     updated_at: datetime | None = None
 
 

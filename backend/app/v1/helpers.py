@@ -113,6 +113,13 @@ def setup_db_and_tables() -> None:
                     "ADD COLUMN IF NOT EXISTS recurrence_exceptions DATE[]"
                 )
             )
+        if "recurrence_end_date" not in task_columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE tasks "
+                    "ADD COLUMN IF NOT EXISTS recurrence_end_date DATE"
+                )
+            )
         connection.execute(
             text(
                 "ALTER TABLE tasks "

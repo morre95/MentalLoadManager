@@ -21,6 +21,9 @@ ALTER TABLE tasks
 ADD COLUMN IF NOT EXISTS recurrence_exceptions DATE[];
 
 ALTER TABLE tasks
+ADD COLUMN IF NOT EXISTS recurrence_end_date DATE;
+
+ALTER TABLE tasks
 DROP CONSTRAINT IF EXISTS tasks_recurrence_frequency_check;
 
 ALTER TABLE tasks

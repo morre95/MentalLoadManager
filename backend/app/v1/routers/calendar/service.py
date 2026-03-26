@@ -41,6 +41,7 @@ def _build_calendar_events(
         recurrence_frequency = row.recurrence_frequency
         recurrence_interval = row.recurrence_interval or 1
         recurrence_exceptions = set(row.recurrence_exceptions or [])
+        recurrence_end_date = row.recurrence_end_date
 
         if not recurrence_enabled:
             occurrence_date = row.due_date.date()
@@ -67,6 +68,8 @@ def _build_calendar_events(
         next_due_date = row.due_date
         while next_due_date.date() <= to_date:
             occurrence_date = next_due_date.date()
+            if recurrence_end_date and occurrence_date > recurrence_end_date:
+                break
             if (
                 occurrence_date >= from_date
                 and occurrence_date not in recurrence_exceptions

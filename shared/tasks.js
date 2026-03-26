@@ -90,6 +90,7 @@ export function mapApiTaskToUi(task) {
     recurrenceEnabled: Boolean(task.recurrence_enabled),
     recurrenceFrequency: task.recurrence_frequency || null,
     recurrenceInterval: task.recurrence_interval || null,
+    recurrenceEndDate: task.recurrence_end_date || null,
     recurrenceLabel: task.recurrence_enabled
       ? formatTaskRecurrence(task.recurrence_frequency, task.recurrence_interval)
       : "",
@@ -231,12 +232,14 @@ export async function updateKanbanTaskRecurrence(
   taskId,
   recurrenceFrequency,
   recurrenceInterval = 1,
+  recurrenceEndDate = null,
 ) {
   return apiClient.request(`/api/v1/kanban/tasks/${taskId}/recurrence`, {
     method: "PATCH",
     body: JSON.stringify({
       recurrence_frequency: recurrenceFrequency || null,
       recurrence_interval: recurrenceFrequency ? recurrenceInterval : null,
+      recurrence_end_date: recurrenceFrequency ? recurrenceEndDate : null,
     }),
   });
 }

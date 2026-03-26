@@ -321,12 +321,13 @@ export async function updateKanbanTaskDueDate(taskId, dueDate) {
   return sharedUpdateKanbanTaskDueDate(apiClient, taskId, dueDate);
 }
 
-export async function updateKanbanTaskRecurrence(taskId, recurrenceFrequency, recurrenceInterval = 1) {
+export async function updateKanbanTaskRecurrence(taskId, recurrenceFrequency, recurrenceInterval = 1, recurrenceEndDate = null) {
   return sharedUpdateKanbanTaskRecurrence(
     apiClient,
     taskId,
     recurrenceFrequency,
-    recurrenceInterval
+    recurrenceInterval,
+    recurrenceEndDate,
   );
 }
 

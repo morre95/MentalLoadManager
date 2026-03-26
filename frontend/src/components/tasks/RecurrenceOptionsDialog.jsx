@@ -86,7 +86,8 @@ function getInitialWeekdays(frequency, weekdays, dueDate) {
  *   interval        number  (current interval, default 1)
  *   weekdays        number[] (current selected days, 0=Sun…6=Sat)
  *   dueDate         string  (YYYY-MM-DD, used for monthly hint and weekly day init)
- *   onApply         ({ interval, weekdays, suggestedDueDate }) => void
+ *   endDate         string  (YYYY-MM-DD, current end date or "")
+ *   onApply         ({ interval, weekdays, suggestedDueDate, endDate }) => void
  */
 const RecurrenceOptionsDialog = ({
   open,
@@ -95,12 +96,14 @@ const RecurrenceOptionsDialog = ({
   interval = 1,
   weekdays = [],
   dueDate = "",
+  endDate = "",
   onApply,
 }) => {
   const [localInterval, setLocalInterval] = useState(() => interval);
   const [localWeekdays, setLocalWeekdays] = useState(() =>
     getInitialWeekdays(frequency, weekdays, dueDate)
   );
+  const [localEndDate, setLocalEndDate] = useState(() => endDate);
 
   const frequencyLabel =
     frequency === "daily" ? "Daily" : frequency === "weekly" ? "Weekly" : "Monthly";
@@ -129,7 +132,12 @@ const RecurrenceOptionsDialog = ({
       suggestedDueDate = nearestWeekday(dueDate, finalWeekdays[0]);
     }
 
-    onApply({ interval: localInterval, weekdays: finalWeekdays, suggestedDueDate });
+    onApply({
+      interval: localInterval,
+      weekdays: finalWeekdays,
+      suggestedDueDate,
+      endDate: localEndDate || null,
+    });
     onOpenChange(false);
   };
 
@@ -220,6 +228,32 @@ const RecurrenceOptionsDialog = ({
               </div>
             </div>
           )}
+
+          {/* End date */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Ends on</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={localEndDate}
+                min={dueDate || undefined}
+                onChange={(e) => setLocalEndDate(e.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              {localEndDate && (
+                <button
+                  type="button"
+                  onClick={() => setLocalEndDate("")}
+                  className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            {!localEndDate && (
+              <p className="text-xs text-muted-foreground">No end date — repeats indefinitely.</p>
+            )}
+          </div>
 
           {/* Summary */}
           {summary && (

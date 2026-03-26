@@ -69,6 +69,7 @@ class Tasks(Base):
         ARRAY(Date),
         nullable=True,
     )
+    recurrence_end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     order: Mapped[int | None] = mapped_column(Integer)
     category_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),

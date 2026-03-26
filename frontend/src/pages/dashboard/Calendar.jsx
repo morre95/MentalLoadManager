@@ -322,20 +322,21 @@ const Calendar = () => {
     await moveTaskToDate(taskId, dueDateInputValue || null);
   };
 
-  const handleUpdateTaskRecurrence = async (taskId, recurrenceFrequency, recurrenceInterval) => {
+  const handleUpdateTaskRecurrence = async (taskId, recurrenceFrequency, recurrenceInterval, recurrenceEndDate = null) => {
     const rollbackTasks = tasks;
     setSyncError(null);
     handleUpdateTaskDetails(taskId, {
       recurrenceEnabled: Boolean(recurrenceFrequency),
       recurrenceFrequency: recurrenceFrequency || null,
       recurrenceInterval: recurrenceFrequency ? (recurrenceInterval || 1) : null,
+      recurrenceEndDate: recurrenceFrequency ? recurrenceEndDate : null,
       recurrenceLabel: recurrenceFrequency
         ? formatTaskRecurrence(recurrenceFrequency, recurrenceInterval || 1)
         : "",
     });
 
     try {
-      await updateKanbanTaskRecurrence(taskId, recurrenceFrequency || null, recurrenceInterval || 1);
+      await updateKanbanTaskRecurrence(taskId, recurrenceFrequency || null, recurrenceInterval || 1, recurrenceEndDate);
       await refreshCalendarData();
       emitTaskUpdated();
     } catch (error) {
