@@ -127,11 +127,10 @@ function formatTaskRecurrenceSummary(task: UiTask) {
   if (!task.recurrenceEnabled) return 'No recurrence configured.';
 
   const recurrenceLabel = String(task.recurrenceLabel || 'Repeats on a recurring schedule').trim();
-  const lowerRecurrenceLabel = recurrenceLabel.toLowerCase();
   const recurrenceEndDate = formatRecurrenceEndDate(task.recurrenceEndDate);
 
   if (recurrenceEndDate) {
-    return `${lowerRecurrenceLabel} until ${recurrenceEndDate}.`;
+    return `${recurrenceLabel} until ${recurrenceEndDate}.`;
   }
 
   return `${recurrenceLabel}.`;
