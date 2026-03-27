@@ -114,6 +114,7 @@ def list_tasks_for_member(
             Tasks.recurrence_enabled,
             Tasks.recurrence_frequency,
             Tasks.recurrence_interval,
+            Tasks.recurrence_end_date,
             Tasks.assigns_to.label("assignee_user_id"),
             func.coalesce(UserDB.display_name, UserDB.username).label("assignee_name"),
             Categories.name.label("category_name"),

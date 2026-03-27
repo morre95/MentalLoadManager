@@ -396,6 +396,7 @@ def list_kanban_tasks(
                 recurrence_enabled=row.recurrence_enabled,
                 recurrence_frequency=row.recurrence_frequency,
                 recurrence_interval=row.recurrence_interval,
+                recurrence_end_date=row.recurrence_end_date,
                 assignee_user_id=str(row.assignee_user_id)
                 if row.assignee_user_id
                 else None,

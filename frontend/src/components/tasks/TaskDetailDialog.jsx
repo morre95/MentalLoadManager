@@ -113,6 +113,25 @@ function formatDisplayDate(value) {
   }).format(parsed);
 }
 
+function formatRecurrenceSummary(frequency, interval, endDate) {
+  if (!frequency || frequency === "none") return "Does not repeat";
+
+  const recurrenceLabel = formatTaskRecurrence(frequency, interval || 1);
+  if (!endDate) return recurrenceLabel;
+
+  const normalizedEndDate = String(endDate).trim();
+  const parsedEndDate = new Date(normalizedEndDate);
+  const endDateLabel = Number.isNaN(parsedEndDate.getTime())
+    ? normalizedEndDate
+    : new Intl.DateTimeFormat(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }).format(parsedEndDate);
+
+  return `${recurrenceLabel} until ${endDateLabel}`;
+}
+
 function getDraftStateFromTask(task, availableCategories) {
   if (!task) return null;
 
@@ -320,13 +339,15 @@ const TaskDetailDialog = ({
   const categoryLabel =
     categoryDraft === CUSTOM_CATEGORY_VALUE ? (customCategoryDraft || "Other") : categoryDraft;
   const hasDescription = Boolean(descriptionDraft.trim());
-  const recurrenceLabel =
-    recurrenceDraft !== "none"
-      ? formatTaskRecurrence(recurrenceDraft, recurrenceIntervalDraft)
-      : "Does not repeat";
+  const recurrenceLabel = formatRecurrenceSummary(
+    recurrenceDraft,
+    recurrenceIntervalDraft,
+    recurrenceEndDateDraft,
+  );
   const activeOccurrenceDate = task?.occurrenceDate || task?.dueDateValue || null;
   const isProjectedOccurrence = Boolean(task?.isProjectedOccurrence);
   const displayDueDate = formatDisplayDate(isProjectedOccurrence ? activeOccurrenceDate : dueDateDraft);
+  const canEditRecurrenceSchedule = recurrenceDraft !== "none" && dueDateDraft;
 
 
   const handleSave = async () => {
@@ -942,23 +963,37 @@ const TaskDetailDialog = ({
                   </div>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  className={cn(fieldCardClassName, "hover:border-primary/30")}
-                  onClick={() => {
-                    setEditingField("recurrence");
-                    setIsRecurrenceOpen(true);
-                  }}
-                >
-                  <Repeat className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Repeats</p>
-                    <p className={recurrenceDraft !== "none" ? fieldValueClassName : emptyValueClassName}>
-                      {recurrenceLabel}
-                    </p>
-                  </div>
-                  <ChevronRight className="mt-0.5 h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                </button>
+                <div className={cn(fieldCardClassName, "hover:border-primary/30")}>
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                    onClick={() => {
+                      setEditingField("recurrence");
+                      setIsRecurrenceOpen(true);
+                    }}
+                  >
+                    <Repeat className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Repeats</p>
+                      <p className={recurrenceDraft !== "none" ? fieldValueClassName : emptyValueClassName}>
+                        {recurrenceLabel}
+                      </p>
+                    </div>
+                    <ChevronRight className="mt-0.5 h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                  </button>
+                  {canEditRecurrenceSchedule ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingField("recurrence");
+                        setRecurrenceConfigOpen(true);
+                      }}
+                      className="ml-7 mt-1 text-xs text-primary hover:underline"
+                    >
+                      Edit schedule…
+                    </button>
+                  ) : null}
+                </div>
               )}
 
               <div className={cn(fieldCardClassName, "cursor-default bg-card")}>
