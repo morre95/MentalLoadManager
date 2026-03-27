@@ -38,6 +38,7 @@ export function normalizeCalendarMonth(data) {
             recurrence_enabled: Boolean(e?.recurrence_enabled),
             recurrence_frequency: e?.recurrence_frequency ?? null,
             recurrence_interval: e?.recurrence_interval ?? null,
+            recurrence_end_date: e?.recurrence_end_date ?? null,
             recurrence_label: e?.recurrence_enabled
                 ? formatTaskRecurrence(e?.recurrence_frequency, e?.recurrence_interval)
                 : "",
@@ -64,6 +65,7 @@ export function normalizeCalendarRange(data) {
             recurrence_enabled: Boolean(e?.recurrence_enabled),
             recurrence_frequency: e?.recurrence_frequency ?? null,
             recurrence_interval: e?.recurrence_interval ?? null,
+            recurrence_end_date: e?.recurrence_end_date ?? null,
             recurrence_label: e?.recurrence_enabled
                 ? formatTaskRecurrence(e?.recurrence_frequency, e?.recurrence_interval)
                 : "",

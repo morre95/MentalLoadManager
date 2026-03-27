@@ -67,7 +67,31 @@ interface CalendarEvent {
   category_name: string | null;
   recurrence_label?: string;
   recurrence_enabled?: boolean;
+  recurrence_end_date?: string | null;
   is_projected?: boolean;
+}
+
+function formatRecurrenceEndDate(value: string | null | undefined) {
+  const normalizedValue = String(value || '').trim();
+  if (!normalizedValue) return '';
+
+  const parsedDate = new Date(normalizedValue);
+  if (Number.isNaN(parsedDate.getTime())) return normalizedValue;
+
+  return parsedDate.toLocaleDateString();
+}
+
+function formatEventRecurrenceSummary(event: CalendarEvent) {
+  if (!event.recurrence_enabled) return 'Does not repeat.';
+
+  const recurrenceLabel = String(event.recurrence_label || 'Repeats on a recurring schedule').trim();
+  const recurrenceEndDate = formatRecurrenceEndDate(event.recurrence_end_date);
+
+  if (recurrenceEndDate) {
+    return `${recurrenceLabel} until ${recurrenceEndDate}.`;
+  }
+
+  return `${recurrenceLabel}.`;
 }
 
 // --- Build a 6-row grid of day numbers / nulls (null = padding) ---
@@ -116,6 +140,7 @@ export default function CalendarScreen() {
               category_name: e.category_name ?? null,
               recurrence_label: e.recurrence_label ?? '',
               recurrence_enabled: Boolean(e.recurrence_enabled),
+              recurrence_end_date: e.recurrence_end_date ?? null,
               is_projected: Boolean(e.is_projected),
             }))
             : []
@@ -406,11 +431,7 @@ export default function CalendarScreen() {
 
                 <View style={styles.modalSection}>
                   <Text style={styles.modalSectionLabel}>Recurrence</Text>
-                  <Text style={styles.modalBodyText}>
-                    {selectedEvent.recurrence_enabled
-                      ? selectedEvent.recurrence_label || 'Repeats on a recurring schedule.'
-                      : 'Does not repeat.'}
-                  </Text>
+                  <Text style={styles.modalBodyText}>{formatEventRecurrenceSummary(selectedEvent)}</Text>
                 </View>
               </>
             ) : null}

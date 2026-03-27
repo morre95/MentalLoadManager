@@ -32,7 +32,7 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
 
   if (token) {
-    return <Redirect href="/(tabs)" />;
+    return <Redirect href="/(tabs)/task" />;
   }
 
   const handleLogin = async () => {
@@ -72,7 +72,7 @@ export default function LoginScreen() {
         accessToken: data.access_token,
         refreshToken: data?.refresh_token || null,
       });
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/task');
     } catch (err: any) {
       setError(err?.message || 'Login failed');
     } finally {
