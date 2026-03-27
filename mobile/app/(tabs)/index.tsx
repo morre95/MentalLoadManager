@@ -113,6 +113,30 @@ function formatDraftDueDate(value: string) {
   return date.toLocaleDateString();
 }
 
+function formatRecurrenceEndDate(value: string | null | undefined) {
+  const normalizedValue = String(value || '').trim();
+  if (!normalizedValue) return '';
+
+  const parsedDate = new Date(normalizedValue);
+  if (Number.isNaN(parsedDate.getTime())) return normalizedValue;
+
+  return parsedDate.toLocaleDateString();
+}
+
+function formatTaskRecurrenceSummary(task: UiTask) {
+  if (!task.recurrenceEnabled) return 'No recurrence configured.';
+
+  const recurrenceLabel = String(task.recurrenceLabel || 'Repeats on a recurring schedule').trim();
+  const lowerRecurrenceLabel = recurrenceLabel.toLowerCase();
+  const recurrenceEndDate = formatRecurrenceEndDate(task.recurrenceEndDate);
+
+  if (recurrenceEndDate) {
+    return `${lowerRecurrenceLabel} until ${recurrenceEndDate}.`;
+  }
+
+  return `${recurrenceLabel}.`;
+}
+
 export default function TasksScreen() {
   const [tasks, setTasks] = useState<UiTask[]>([]);
   const [households, setHouseholds] = useState<{ household_id: string | number; name: string }[]>(
@@ -867,13 +891,10 @@ export default function TasksScreen() {
                   <Text style={styles.modalBodyText}>
                     {selectedTask.dueDate ? `Due ${selectedTask.dueDate}` : 'No due date set.'}
                   </Text>
-                  {selectedTask.recurrenceEnabled ? (
-                    <Text style={styles.modalBodyText}>
-                      Repeats {selectedTask.recurrenceLabel || 'on a recurring schedule'}.
-                    </Text>
-                  ) : (
-                    <Text style={styles.modalBodyText}>No recurrence configured.</Text>
-                  )}
+                </View>
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionLabel}>Repeats</Text>
+                  <Text style={styles.modalBodyText}>{formatTaskRecurrenceSummary(selectedTask)}</Text>
                 </View>
               </>
             ) : null}
