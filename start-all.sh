@@ -29,9 +29,19 @@ fi
 launch_terminal() {
   local title="$1"
   local command="$2"
+  local working_dir="${3:-$ROOT_DIR}"
+  local start_venv=${4:-false}
+
   local command_escaped
   command_escaped="$(printf '%q' "$command")"
-  local wrapped_command="trap '' INT; (trap - INT; eval $command_escaped); printf '\nServer stopped. You can restart it here or press Ctrl+D to close the shell.\n'; exec bash -i"
+  # local wrapped_command="trap '' INT; (trap - INT; eval $command_escaped); printf '\nServer stopped. You can restart it here or press Ctrl+D to close the shell.\n'; exec bash -i"
+  working_dir_escaped="$(printf '%q' "$working_dir")" # <-- escaped för säkerhet
+  local wrapped_command="trap '' INT; (trap - INT; eval $command_escaped); printf '\nServer stopped. You can restart it here or press Ctrl+D to close the shell.\n'; cd $working_dir_escaped; exec bash -i"
+
+  if [[ "$start_venv" == true ]]; then
+    wrapped_command="trap '' INT; (trap - INT; eval $command_escaped); printf '\nServer stopped. You can restart it here or press Ctrl+D to close the shell.\n'; cd $working_dir_escaped; source venv/bin/activate;  exec bash -i"
+  fi
+
   local wrapped_command_escaped
   wrapped_command_escaped="$(printf '%q' "$wrapped_command")"
 
@@ -87,29 +97,29 @@ EOF
   return 1
 }
 
-backend_command="cd $(printf '%q' "$BACKEND_DIR") && $(printf '%q' "$BACKEND_DIR/venv/bin/fastapi") dev main.py"
-frontend_command="cd $(printf '%q' "$FRONTEND_DIR") && npm run dev"
-mobile_command="cd $(printf '%q' "$MOBILE_DIR") && npm run start"
+backend_command="cd $(printf '%q' "$BACKEND_DIR"); source $(printf '%q' "$BACKEND_DIR/venv/bin/activate"); fastapi dev main.py"
+frontend_command="cd $(printf '%q' "$FRONTEND_DIR"); npm run dev"
+mobile_command="cd $(printf '%q' "$MOBILE_DIR"); npm run start"
 launch_failures=0
 
 echo "Opening backend terminal..."
-if ! launch_terminal "Mental Load Manager Backend" "$backend_command"; then
+if ! launch_terminal "Mental Load Manager Backend" "$backend_command" "backend" true; then
   launch_failures=$((launch_failures + 1))
 fi
 
 echo "Opening frontend terminal..."
-if ! launch_terminal "Mental Load Manager Frontend" "$frontend_command"; then
+if ! launch_terminal "Mental Load Manager Frontend" "$frontend_command" "frontend"; then
   launch_failures=$((launch_failures + 1))
 fi
 
 read -r -p "Open a terminal window for the Expo app in mobile/? [y/N] " open_mobile
 case "$open_mobile" in
-  [yY]|[yY][eE][sS])
-    echo "Opening mobile terminal..."
-    if ! launch_terminal "Mental Load Manager Mobile" "$mobile_command"; then
-      launch_failures=$((launch_failures + 1))
-    fi
-    ;;
+[yY] | [yY][eE][sS])
+  echo "Opening mobile terminal..."
+  if ! launch_terminal "Mental Load Manager Mobile" "$mobile_command" "mobile"; then
+    launch_failures=$((launch_failures + 1))
+  fi
+  ;;
 esac
 
 if ((launch_failures > 0)); then
