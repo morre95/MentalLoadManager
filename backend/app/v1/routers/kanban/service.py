@@ -1,3 +1,4 @@
+import logging
 from calendar import monthrange
 from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
@@ -64,6 +65,8 @@ from .schemas import (
     UpdateTaskStatusRequest,
     UpdateTaskStatusResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_TASK_STATUSES = {"todo", "in_progress", "done", "on_hold", "archive"}
 ALLOWED_TASK_PRIORITIES = {"low", "medium", "high"}
@@ -214,9 +217,10 @@ def list_household_categories(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for list_household_categories")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -255,9 +259,10 @@ def create_household_category(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for create_household_category")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -297,9 +302,10 @@ def delete_household_category(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for delete_household_category")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -358,9 +364,10 @@ def list_kanban_tasks(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for list_kanban_tasks")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -418,9 +425,10 @@ def list_household_assignees(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for list_household_assignees")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -476,9 +484,10 @@ def create_task(payload: CreateTaskRequest, current_user: UserEmail) -> TaskResp
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for create_task")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -614,9 +623,10 @@ def update_task_status(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for update_task_status")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -681,9 +691,10 @@ def update_task_priority(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for update_task_priority")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -718,9 +729,10 @@ def update_task_due_date(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for update_task_due_date")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -758,9 +770,10 @@ def update_task_recurrence(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for update_task_recurrence")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -811,9 +824,10 @@ def skip_task_occurrence(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for skip_task_occurrence")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -866,9 +880,10 @@ def update_task_assignee(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for update_task_assignee")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -925,9 +940,10 @@ def update_task_description(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for update_task_description")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -963,9 +979,10 @@ def update_task_category(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for update_task_category")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -1030,9 +1047,10 @@ def update_task_name(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for update_task_name")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -1063,9 +1081,10 @@ def delete_task(task_id: UUID, current_user: UserEmail) -> DeleteTaskResponse:
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for delete_task")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -1122,9 +1141,10 @@ def reorder_tasks(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for reorder_tasks")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:

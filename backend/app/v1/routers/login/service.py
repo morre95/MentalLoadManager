@@ -142,9 +142,10 @@ def issue_login_redirect(username: str, request: Request) -> RedirectResponse:
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("issue_login_redirect: failed to get DB session")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     try:
@@ -169,9 +170,10 @@ def issue_login_redirect(username: str, request: Request) -> RedirectResponse:
             )
             db.commit()
     except SQLAlchemyError as exc:
+        logger.exception("issue_login_redirect: failed to issue refresh token")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to issue refresh token: {exc}",
+            detail="An internal error occurred",
         ) from exc
 
     fragment_params = urlencode(
@@ -333,9 +335,10 @@ def _normalized_site(url: str) -> str:
 def require_env(name: str) -> str:
     value = SETTINGS_VALUES_BY_NAME.get(name)
     if not value:
+        logger.error("Missing required environment variable: %s", name)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Missing environment variable: {name}",
+            detail="Server configuration error",
         )
     return value
 
@@ -556,9 +559,10 @@ def _resolve_oauth_user(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("find_or_create_oauth_user: failed to get DB session")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -647,9 +651,10 @@ def save_oauth_tokens(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("update_oauth_tokens: failed to get DB session")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -695,9 +700,10 @@ def get_google_tokens(username: str) -> tuple[str, str]:
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("get_google_tokens: failed to get DB session")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -784,9 +790,10 @@ def login(form: OAuth2PasswordRequestForm, request: Request) -> Token:
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("login: failed to get DB session")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     try:
@@ -802,7 +809,7 @@ def login(form: OAuth2PasswordRequestForm, request: Request) -> Token:
         logger.exception("Login lockout query failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Login lockout query failed: {exc}",
+            detail="An internal error occurred",
         ) from exc
 
     try:
@@ -810,21 +817,22 @@ def login(form: OAuth2PasswordRequestForm, request: Request) -> Token:
     except HTTPException:
         raise
     except RuntimeError as exc:
+        logger.exception("login: authentication runtime error")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
     except SQLAlchemyError as exc:
         logger.exception("Login query failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Login query failed: {exc}",
+            detail="An internal error occurred",
         ) from exc
     except Exception as exc:  # noqa: BLE001
         logger.exception("Unexpected login failure: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unexpected login failure: {exc}",
+            detail="An internal error occurred",
         ) from exc
 
     if not user:
@@ -839,7 +847,7 @@ def login(form: OAuth2PasswordRequestForm, request: Request) -> Token:
             logger.exception("Failed to record login attempt: %s", exc)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to record login attempt: {exc}",
+                detail="An internal error occurred",
             ) from exc
 
         _raise_invalid_credentials(
@@ -874,9 +882,10 @@ def login(form: OAuth2PasswordRequestForm, request: Request) -> Token:
             )
             db.commit()
     except SQLAlchemyError as exc:
+        logger.exception("login: failed to issue refresh token")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to issue refresh token: {exc}",
+            detail="An internal error occurred",
         ) from exc
 
     return Token(
@@ -925,7 +934,7 @@ def refresh_password_session(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     now_utc = datetime.now(timezone.utc)
@@ -1042,7 +1051,7 @@ def refresh_password_session(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Refresh token operation failed: {exc}",
+            detail="An internal error occurred",
         ) from exc
 
     return Token(

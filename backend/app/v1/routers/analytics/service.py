@@ -895,7 +895,7 @@ def _generate_ai_insights_payload(
         logger.exception("Failed to parse analytics AI response")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"OpenRouter response was not valid analytics JSON: {exc}",
+            detail="OpenRouter response was not valid analytics JSON",
         ) from exc
 
     return validated, selected_model[:100] if selected_model else None
@@ -1028,7 +1028,7 @@ def _generate_ai_ask_payload(
         logger.exception("Failed to parse analytics ask response")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"OpenRouter response was not valid analytics ask JSON: {exc}",
+            detail="OpenRouter response was not valid analytics ask JSON",
         ) from exc
 
     return validated, selected_model[:100] if selected_model else None

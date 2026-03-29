@@ -174,9 +174,10 @@ def _get_session_factory():
     try:
         return get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session factory")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
 
@@ -265,13 +266,7 @@ def _to_saved_summary_item(ai_summary) -> SavedSummaryItemResponse:
 def _validate_cron_secret(provided_secret: str | None) -> None:
     configured_secret = settings.WEEKLY_SUMMARY_CRON_SECRET.strip()
 
-    if not configured_secret:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Weekly summary cron secret is not configured",
-        )
-
-    if not provided_secret or not secrets.compare_digest(
+    if not configured_secret or not provided_secret or not secrets.compare_digest(
         configured_secret, provided_secret
     ):
         raise HTTPException(

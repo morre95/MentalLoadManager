@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from calendar import monthrange
 from datetime import date, datetime, timedelta, timezone
 
@@ -21,6 +22,8 @@ from .schemas import (
     MoodTrackerPeriodResponse,
     UpsertMoodEntryRequest,
 )
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_COLOR_TOKENS = {
     "sage",
@@ -248,9 +251,10 @@ def get_mood_tracker_period(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for get_mood_tracker_period")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:

@@ -1,6 +1,7 @@
 from collections import defaultdict
 import hashlib
 import json
+import logging
 import time as time_module
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -49,6 +50,8 @@ from .schemas import (
     GoalsResponse,
     UpdateGoalProgressRequest,
 )
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_TRACKING_STYLES = {"daily", "weekly", "monthly", "total"}
 COMPLETED_STATUSES = {"done", "archive"}
@@ -978,9 +981,10 @@ def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for list_my_achievements")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -1125,9 +1129,10 @@ def list_my_goals(current_user: UserEmail) -> GoalsResponse:
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for list_my_goals")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -1170,9 +1175,10 @@ def create_my_goal(payload: CreateGoalRequest, current_user: UserEmail) -> GoalR
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for create_my_goal")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -1211,9 +1217,10 @@ def update_my_goal_progress(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for update_my_goal_progress")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -1270,9 +1277,10 @@ def delete_my_goal(goal_id: UUID, current_user: UserEmail) -> DeleteGoalResponse
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for delete_my_goal")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -1612,9 +1620,10 @@ def _generate_goal_ai_checkin(
             json.loads(_extract_json_block(raw_text))
         )
     except (json.JSONDecodeError, ValidationError) as exc:
+        logger.exception("Goal AI check-in response was not valid JSON")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Goal AI check-in response was not valid JSON: {exc}",
+            detail="Goal AI check-in response was not valid JSON",
         ) from exc
 
     return validated, selected_model[:100] if selected_model else None
@@ -1736,9 +1745,10 @@ def _generate_goals_board_ai_checkin(
             json.loads(_extract_json_block(raw_text))
         )
     except (json.JSONDecodeError, ValidationError) as exc:
+        logger.exception("Goals board AI check-in response was not valid JSON")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Goals board AI check-in response was not valid JSON: {exc}",
+            detail="Goals board AI check-in response was not valid JSON",
         ) from exc
 
     return validated, selected_model[:100] if selected_model else None
@@ -1751,9 +1761,10 @@ def get_goals_board_ai_checkin(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for get_goals_board_ai_checkin")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -1816,9 +1827,10 @@ def get_goal_ai_checkin(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for get_goal_ai_checkin")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:

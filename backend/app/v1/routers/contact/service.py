@@ -108,9 +108,10 @@ async def send_message(payload: SendMessageRequest, user_id: UUID | None):
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for send_message")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -135,7 +136,7 @@ async def send_message(payload: SendMessageRequest, user_id: UUID | None):
             logger.exception("Failed to store contact message: %s", exc)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Internal server error while saving message: {exc}",
+                detail="An internal error occurred",
             ) from exc
 
         db.refresh(new_contact_message)

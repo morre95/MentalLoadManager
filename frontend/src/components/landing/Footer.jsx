@@ -24,10 +24,10 @@ const Footer = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <a href="#" className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors">
+            <a href="#" rel="noopener noreferrer" className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors">
               <Github className="w-4 h-4 text-muted-foreground" />
             </a>
-            <a href="#" className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors">
+            <a href="#" rel="noopener noreferrer" className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors">
               <Twitter className="w-4 h-4 text-muted-foreground" />
             </a>
           </div>

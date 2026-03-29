@@ -199,9 +199,10 @@ def register_user(payload: RegisterUserRequest) -> RegisterUserResponse:
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for user registration")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -255,9 +256,10 @@ def update_me(payload: UpdateMeRequest, current_user: UserEmail) -> UserEmail:
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for update_me")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -354,9 +356,10 @@ def resend_verification_email(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for resend_verification_email")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -387,9 +390,10 @@ def verify_email_code(payload: VerifyEmailCodeRequest) -> VerifyEmailResponse:
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for verify_email_code")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -423,9 +427,10 @@ def verify_email_token(token: str) -> RedirectResponse:
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for verify_email_token")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -478,9 +483,10 @@ def change_my_password(payload: ChangePasswordRequest, current_user: UserEmail) 
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for change_my_password")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:
@@ -520,9 +526,10 @@ def set_my_password(payload, current_user: UserEmail) -> dict:
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
+        logger.exception("Failed to get session for set_my_password")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail="An internal error occurred",
         ) from exc
 
     with session_local() as db:

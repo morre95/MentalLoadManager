@@ -185,7 +185,8 @@ def list_household_members(current_user: UserEmail) -> HouseholdMembersResponse:
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.exception("Failed to get DB session")
+        raise HTTPException(status_code=500, detail="An internal error occurred") from exc
 
     with session_local() as db:
         me = _get_db_user(db, current_user)
@@ -222,7 +223,8 @@ def create_household(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.exception("Failed to get DB session")
+        raise HTTPException(status_code=500, detail="An internal error occurred") from exc
 
     with session_local() as db:
         me = _get_db_user(db, current_user)
@@ -306,7 +308,8 @@ def add_household_member(
     try:
         session_local = get_session_local()
     except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.exception("Failed to get DB session")
+        raise HTTPException(status_code=500, detail="An internal error occurred") from exc
 
     with session_local() as db:
         me = _get_db_user(db, current_user)
@@ -316,6 +319,12 @@ def add_household_member(
             raise HTTPException(
                 status_code=403,
                 detail="User is not a member of the specified household",
+            )
+
+        if my_membership.role not in PRIVILEGED_HOUSEHOLD_ROLES:
+            raise HTTPException(
+                status_code=403,
+                detail="Only owners and admins can add household members",
             )
 
         user_to_add = find_user_to_add(
