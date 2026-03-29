@@ -173,6 +173,24 @@ def setup_db_and_tables() -> None:
                 "ON tasks(household_id, status)"
             )
         )
+        connection.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_goal_history_goal_period "
+                "ON goal_history(goal_id, period_key)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_goal_history_user_created "
+                "ON goal_history(user_id, created_at DESC)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_goal_history_goal_created "
+                "ON goal_history(goal_id, created_at DESC)"
+            )
+        )
         if "achievement_notifications" not in notification_setting_columns:
             connection.execute(
                 text(

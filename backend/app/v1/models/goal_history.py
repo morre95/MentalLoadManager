@@ -3,7 +3,17 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -12,6 +22,11 @@ from .base import Base
 
 class GoalHistory(Base):
     __tablename__ = "goal_history"
+    __table_args__ = (
+        UniqueConstraint("goal_id", "period_key", name="uq_goal_history_goal_period"),
+        Index("idx_goal_history_user_created", "user_id", "created_at"),
+        Index("idx_goal_history_goal_created", "goal_id", "created_at"),
+    )
 
     goal_history_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
@@ -49,4 +64,3 @@ class GoalHistory(Base):
         DateTime(timezone=True),
         server_default=text("NOW()"),
     )
-

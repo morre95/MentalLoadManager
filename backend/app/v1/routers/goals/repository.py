@@ -100,22 +100,32 @@ def list_goal_history_for_user(
     *,
     limit_per_goal: int = 4,
 ) -> list[GoalHistory]:
-    rows = db.scalars(
-        select(GoalHistory)
+    ranked_rows = (
+        select(
+            GoalHistory.goal_history_id.label("goal_history_id"),
+            func.row_number()
+            .over(
+                partition_by=GoalHistory.goal_id,
+                order_by=(
+                    GoalHistory.created_at.desc(),
+                    GoalHistory.goal_history_id.desc(),
+                ),
+            )
+            .label("row_number"),
+        )
         .where(GoalHistory.user_id == user_id)
+        .subquery()
+    )
+
+    return db.scalars(
+        select(GoalHistory)
+        .join(
+            ranked_rows,
+            ranked_rows.c.goal_history_id == GoalHistory.goal_history_id,
+        )
+        .where(ranked_rows.c.row_number <= limit_per_goal)
         .order_by(GoalHistory.created_at.desc(), GoalHistory.goal_history_id.desc())
     ).all()
-
-    counts_by_goal: dict[UUID, int] = {}
-    limited_rows: list[GoalHistory] = []
-    for row in rows:
-        count = counts_by_goal.get(row.goal_id, 0)
-        if count >= limit_per_goal:
-            continue
-        counts_by_goal[row.goal_id] = count + 1
-        limited_rows.append(row)
-
-    return limited_rows
 
 
 def list_goal_history_rows_for_user(db: Session, user_id: UUID) -> list[GoalHistory]:

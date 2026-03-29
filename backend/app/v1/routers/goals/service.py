@@ -21,7 +21,6 @@ from .repository import (
     count_completed_personal_tasks_in_window,
     create_achievement_unlock,
     create_goal,
-    get_achievement_unlock_by_completion_key,
     get_cached_goal_ai_checkin,
     get_goal_for_user,
     list_all_achievement_unlocks_for_user,
@@ -165,20 +164,19 @@ def _apply_achievement_unlock_state(
     enriched: list[AchievementResponse] = []
     unlock_rows = list_all_achievement_unlocks_for_user(db, user_id)
     latest_unlock_by_achievement_id: dict[str, Any] = {}
+    unlock_by_completion_key: dict[str, Any] = {}
 
     for row in unlock_rows:
         if row.achievement_id not in latest_unlock_by_achievement_id:
             latest_unlock_by_achievement_id[row.achievement_id] = row
+        if row.completion_key:
+            unlock_by_completion_key[row.completion_key] = row
 
     for achievement in achievements:
-        unlock = None
         completion_key = achievement.completion_key
-        if completion_key:
-            unlock = get_achievement_unlock_by_completion_key(
-                db,
-                user_id=user_id,
-                completion_key=completion_key,
-            )
+        unlock = (
+            unlock_by_completion_key.get(completion_key) if completion_key else None
+        )
 
         current_milestone_complete = bool(achievement.current >= achievement.target)
         unlocked_at = unlock.unlocked_at if unlock is not None else None
@@ -199,6 +197,7 @@ def _apply_achievement_unlock_state(
             unlocked_at = unlock.unlocked_at
             latest_unlock = unlock
             latest_unlock_by_achievement_id[achievement.id] = unlock
+            unlock_by_completion_key[completion_key] = unlock
 
         enriched.append(
             achievement.model_copy(
@@ -467,6 +466,16 @@ def _close_goal_period_if_needed(db, goal, user_id: UUID, now_utc: datetime):
 
 
 def _sync_derived_goal_progress(db, goal, user_id: UUID):
+    return _sync_derived_goal_progress_with_cache(db, goal, user_id, count_cache={})
+
+
+def _sync_derived_goal_progress_with_cache(
+    db,
+    goal,
+    user_id: UUID,
+    *,
+    count_cache: dict[tuple[datetime | None, datetime | None], int],
+):
     now_utc = datetime.now(timezone.utc)
     goal = _close_goal_period_if_needed(db, goal, user_id, now_utc)
 
@@ -479,12 +488,15 @@ def _sync_derived_goal_progress(db, goal, user_id: UUID):
         start_at = None
         end_at = None
 
-    completed_today = count_completed_personal_tasks_in_window(
-        db,
-        user_id,
-        start_at=start_at,
-        end_at=end_at,
-    )
+    count_key = (start_at, end_at)
+    if count_key not in count_cache:
+        count_cache[count_key] = count_completed_personal_tasks_in_window(
+            db,
+            user_id,
+            start_at=start_at,
+            end_at=end_at,
+        )
+    completed_today = count_cache[count_key]
 
     if goal.current_value != completed_today:
         goal.current_value = completed_today
@@ -988,6 +1000,9 @@ def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
         ) from exc
 
     with session_local() as db:
+        goal_progress_count_cache: dict[
+            tuple[datetime | None, datetime | None], int
+        ] = {}
         personal_rows = list_personal_tasks_for_achievements(db, current_user.user_id)
         household_rows = list_household_completed_tasks_for_achievements(
             db, current_user.user_id
@@ -997,7 +1012,12 @@ def list_my_achievements(current_user: UserEmail) -> AchievementsResponse:
         )
         goals = list_goals_for_user(db, current_user.user_id)
         goals = [
-            _sync_derived_goal_progress(db, goal, current_user.user_id)
+            _sync_derived_goal_progress_with_cache(
+                db,
+                goal,
+                current_user.user_id,
+                count_cache=goal_progress_count_cache,
+            )
             for goal in goals
         ]
         history_rows = list_goal_history_rows_for_user(db, current_user.user_id)
@@ -1136,9 +1156,17 @@ def list_my_goals(current_user: UserEmail) -> GoalsResponse:
         ) from exc
 
     with session_local() as db:
+        goal_progress_count_cache: dict[
+            tuple[datetime | None, datetime | None], int
+        ] = {}
         goals = list_goals_for_user(db, current_user.user_id)
         goals = [
-            _sync_derived_goal_progress(db, goal, current_user.user_id)
+            _sync_derived_goal_progress_with_cache(
+                db,
+                goal,
+                current_user.user_id,
+                count_cache=goal_progress_count_cache,
+            )
             for goal in goals
         ]
         history_rows = list_goal_history_for_user(db, current_user.user_id)
@@ -1768,9 +1796,17 @@ def get_goals_board_ai_checkin(
         ) from exc
 
     with session_local() as db:
+        goal_progress_count_cache: dict[
+            tuple[datetime | None, datetime | None], int
+        ] = {}
         goals = list_goals_for_user(db, current_user.user_id)
         goals = [
-            _sync_derived_goal_progress(db, goal, current_user.user_id)
+            _sync_derived_goal_progress_with_cache(
+                db,
+                goal,
+                current_user.user_id,
+                count_cache=goal_progress_count_cache,
+            )
             for goal in goals
         ]
 
@@ -1841,7 +1877,12 @@ def get_goal_ai_checkin(
                 detail="Goal was not found",
             )
 
-        goal = _sync_derived_goal_progress(db, goal, current_user.user_id)
+        goal = _sync_derived_goal_progress_with_cache(
+            db,
+            goal,
+            current_user.user_id,
+            count_cache={},
+        )
         metrics = _goal_checkin_metrics(goal)
         input_payload = {
             "goal_name": goal.name,

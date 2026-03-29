@@ -124,6 +124,18 @@ class SetupDbAndTablesTests(unittest.TestCase):
             executed,
         )
         self.assertIn(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_goal_history_goal_period",
+            executed,
+        )
+        self.assertIn(
+            "CREATE INDEX IF NOT EXISTS idx_goal_history_user_created",
+            executed,
+        )
+        self.assertIn(
+            "CREATE INDEX IF NOT EXISTS idx_goal_history_goal_created",
+            executed,
+        )
+        self.assertIn(
             "ALTER TABLE analytics_ai_questions_cache ADD COLUMN IF NOT EXISTS created_at",
             executed,
         )
