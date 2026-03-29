@@ -357,6 +357,7 @@ export type CalendarEvent = {
   recurrence_enabled: boolean;
   recurrence_frequency: "daily" | "weekly" | "monthly" | string | null;
   recurrence_interval: number | null;
+  recurrence_end_date: string | null;
   recurrence_label: string;
   is_projected: boolean;
 };

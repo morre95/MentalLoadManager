@@ -65,6 +65,7 @@ class KanbanTask(BaseModel):
     recurrence_enabled: bool = False
     recurrence_frequency: str | None = None
     recurrence_interval: int | None = None
+    recurrence_end_date: date | None = None
     assignee_user_id: str | None = None
     assignee_name: str | None = None
     category_name: str | None = None

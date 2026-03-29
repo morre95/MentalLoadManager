@@ -60,6 +60,9 @@ def _build_calendar_events(
                         recurrence_enabled=False,
                         recurrence_frequency=None,
                         recurrence_interval=None,
+                        recurrence_end_date=row.recurrence_end_date.isoformat()
+                        if row.recurrence_end_date
+                        else None,
                         is_projected=False,
                     )
                 )
@@ -88,6 +91,9 @@ def _build_calendar_events(
                         recurrence_enabled=True,
                         recurrence_frequency=recurrence_frequency,
                         recurrence_interval=recurrence_interval,
+                        recurrence_end_date=recurrence_end_date.isoformat()
+                        if recurrence_end_date
+                        else None,
                         is_projected=occurrence_date != row.due_date.date(),
                     )
                 )

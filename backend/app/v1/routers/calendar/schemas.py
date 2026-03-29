@@ -14,6 +14,7 @@ class CalendarEvent(BaseModel):
     recurrence_enabled: bool = False
     recurrence_frequency: str | None = None
     recurrence_interval: int | None = None
+    recurrence_end_date: str | None = None
     is_projected: bool = False
 
 
