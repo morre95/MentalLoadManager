@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { GET_API_BASE_URL } from "@/components/ui/base_url";
 
-const API_BASE_URL =
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE_URL = GET_API_BASE_URL();
 
 // Used when NOT logged in or API fails
 const mockData = [

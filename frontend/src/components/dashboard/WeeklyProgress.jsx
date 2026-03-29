@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { GET_API_BASE_URL } from "@/components/ui/base_url";
 
-const API_BASE_URL =
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE_URL = GET_API_BASE_URL();
 
 // Mock fallback (logged out / API fails)
 const mock = {
