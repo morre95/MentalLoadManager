@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
-import { GET_API_BASE_URL } from "@/components/ui/base_url";
+import { GET_API_BASE_URL } from "../ui/base_url";
 
 const API_BASE_URL = GET_API_BASE_URL();
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -178,3 +178,4 @@ const CalendarWidget = () => {
 };
 
 export default CalendarWidget;
+

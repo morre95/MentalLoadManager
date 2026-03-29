@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
-import { GET_API_BASE_URL } from "@/components/ui/base_url";
+import { GET_API_BASE_URL } from "../ui/base_url";
 
 const API_BASE_URL = GET_API_BASE_URL();
 
@@ -128,3 +128,4 @@ const ResponsibilityChart = () => {
 };
 
 export default ResponsibilityChart;
+
