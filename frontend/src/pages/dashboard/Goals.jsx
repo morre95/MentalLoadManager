@@ -635,9 +635,6 @@ const Goals = () => {
                 <div className="mb-4 flex items-center justify-between gap-3">
                     <div>
                         <h2 className="font-display text-xl font-bold text-foreground">Active Goals</h2>
-                        <p className="text-sm text-muted-foreground">
-                            Simplified cards with quick updates first, details on demand.
-                        </p>
                     </div>
                 </div>
 
@@ -716,7 +713,7 @@ const Goals = () => {
                         <div>
                             <h2 className="font-display text-xl font-bold text-foreground">Achievement Journey</h2>
                             <p className="text-sm text-muted-foreground">
-                                A lighter timeline of the milestones you have already collected.
+                                A timeline of the milestones you have already collected.
                             </p>
                         </div>
                     </div>
